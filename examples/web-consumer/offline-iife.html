@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>W-Editor IIFE offline consumer</title>
+    <link rel="stylesheet" href="/packages/editor-web/dist/w-editor.css">
+  </head>
+  <body>
+    <main>
+      <p data-offline-status="pending">IIFE offline consumer</p>
+      <pre data-offline-result></pre>
+      <section data-offline-editor></section>
+      <section data-offline-reader></section>
+    </main>
+    <script src="./offline-consumer-runner.js"></script>
+    <script src="/packages/editor-web/dist/w-editor.global.js"></script>
+    <script>
+      window.runOfflineConsumer(window.WEditor, 'iife')
+    </script>
+  </body>
+</html>

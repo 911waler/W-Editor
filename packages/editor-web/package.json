@@ -1,0 +1,36 @@
+{
+  "name": "@w-editor/editor-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["dist"],
+  "dependencies": {
+    "@codemirror/state": "6.7.1",
+    "@codemirror/view": "6.43.9",
+    "@tiptap/core": "3.30.2",
+    "@w-editor/editor-core": "workspace:*",
+    "@w-editor/editor-vue": "workspace:*",
+    "cherry-markdown": "0.11.9",
+    "codemirror": "6.0.2",
+    "katex": "0.16.47",
+    "@tiptap/pm": "3.30.2",
+    "vue": "3.5.41"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/editor.es.js"
+    },
+    "./renderer": {
+      "types": "./dist/types/rendererEntry.d.ts",
+      "import": "./dist/renderer.es.js"
+    },
+    "./styles.css": {
+      "default": "./dist/w-editor.css"
+    }
+  },
+  "scripts": {
+    "typecheck": "node ../../scripts/verify-release-version-sources.mjs && vue-tsc --noEmit -p tsconfig.json",
+    "build": "corepack pnpm run typecheck && node ../../scripts/build-web-distribution.mjs"
+  }
+}

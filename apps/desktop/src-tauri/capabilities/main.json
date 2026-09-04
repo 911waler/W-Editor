@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Minimal capability for the product-representative desktop spike main window.",
+  "windows": ["main"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-set-focus",
+    "core:window:allow-set-title",
+    "core:window:allow-show",
+    "core:window:allow-unminimize",
+    "dialog:allow-open",
+    "dialog:allow-save"
+  ]
+}

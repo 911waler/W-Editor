@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>W-Editor IIFE reverse-proxy subpath consumer</title>
+    <link rel="stylesheet" href="./w-editor.css">
+  </head>
+  <body>
+    <main>
+      <p data-subpath-status="pending">IIFE subpath consumer</p>
+      <pre data-subpath-result></pre>
+      <section data-subpath-editor></section>
+      <section data-subpath-reader></section>
+    </main>
+    <script src="./subpath-consumer-runner.js"></script>
+    <script src="./w-editor.global.js"></script>
+    <script>
+      window.runSubpathConsumer(window.WEditor, 'iife', new URL('./', window.location.href).href)
+    </script>
+  </body>
+</html>

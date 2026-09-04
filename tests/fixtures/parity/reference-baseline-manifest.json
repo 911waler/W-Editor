@@ -1,0 +1,358 @@
+{
+  "assets": [
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 19.3 initial freeze Task19.3-initial-freeze-2026-08-23; Scrapling HTTP 200 verification and visual inspection of the scoped image.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "Cherry official full example at initial deterministic load; main and right toolbar only.",
+      "fonts": [
+        "Helvetica Neue",
+        "Arial",
+        "Hiragino Sans GB",
+        "STHeiti",
+        "Microsoft YaHei",
+        "WenQuanYi Micro Hei",
+        "sans-serif"
+      ],
+      "id": "cherry-toolbar-main-right",
+      "locale": "zh-CN",
+      "localPath": "tests/fixtures/parity/reference/cherry-toolbar-main-right.png",
+      "masks": [],
+      "ownership": "Cherry top main/right toolbar grouping, order, location, hierarchy, geometry, tokens, and state presentation.",
+      "screenshotRegion": ".cherry-toolbar at 1440 by 48 CSS pixels.",
+      "sha256": "08c43304186c2779bf098d617edd2cfccf5916d878d8ed29cc1d99b1ddcce810",
+      "sourceUrl": "https://tencent.github.io/cherry-markdown/examples/index.html",
+      "theme": "Cherry default light",
+      "timeControls": "Captured after network idle, document fonts ready, and a fixed 250 ms settle; no visible clock content.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0.005,
+        "threshold": 0.2
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 19.3 initial freeze Task19.3-initial-freeze-2026-08-23; deterministic repository fixture applied through the public Cherry instance and visually inspected.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "tests/fixtures/parity/w-editor-parity.md rendered by the official Cherry example at scroll top; includes TOC, Ruby, inline code, Panel, Accordion, Timeline, formula, lists, table, code, and Quote.",
+      "fonts": [
+        "Helvetica Neue",
+        "Arial",
+        "Hiragino Sans GB",
+        "STHeiti",
+        "Microsoft YaHei",
+        "WenQuanYi Micro Hei",
+        "sans-serif"
+      ],
+      "id": "cherry-components",
+      "locale": "zh-CN",
+      "localPath": "tests/fixtures/parity/reference/cherry-components.png",
+      "masks": [],
+      "ownership": "Cherry-specific component presentation and Cherry Final outcomes for the deterministic parity fixture.",
+      "screenshotRegion": ".cherry-previewer at scroll top, 720 by 952 CSS pixels, including the official floating TOC.",
+      "sha256": "647de3247187e5ef5dcf8a0c9e4a0d21c4a55bbfac8116a771f0ffda90652d3d",
+      "sourceUrl": "https://tencent.github.io/cherry-markdown/examples/index.html",
+      "theme": "Cherry default light",
+      "timeControls": "Fixture text and dates fixed in repository; captured after public setValue, 750 ms render settle, fonts ready, and a final 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0.005,
+        "threshold": 0.2
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 19.3 initial freeze Task19.3-initial-freeze-2026-08-23; official Panel dropdown opened through the visible toolbar and visually inspected.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "Cherry official full example with the top-main Panel menu open.",
+      "fonts": [
+        "Helvetica Neue",
+        "Arial",
+        "Hiragino Sans GB",
+        "STHeiti",
+        "Microsoft YaHei",
+        "WenQuanYi Micro Hei",
+        "sans-serif"
+      ],
+      "id": "cherry-panel-picker",
+      "locale": "zh-CN",
+      "localPath": "tests/fixtures/parity/reference/cherry-panel-picker.png",
+      "masks": [],
+      "ownership": "Cherry Panel variant order, icon hierarchy, menu geometry, spacing, and normal state.",
+      "screenshotRegion": "Visible Panel dropdown, 132 by 216 CSS pixels.",
+      "sha256": "7f56b2558b8e90e2a15e6f7994947b7aec77a9d36af9d80be7012dc062412373",
+      "sourceUrl": "https://tencent.github.io/cherry-markdown/examples/index.html",
+      "theme": "Cherry default light",
+      "timeControls": "Captured after network idle, fonts ready, menu click, and fixed settle; no visible clock content.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0.005,
+        "threshold": 0.2
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 19.3 initial freeze Task19.3-initial-freeze-2026-08-23; official Formula picker opened through the visible toolbar and visually inspected.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "Cherry official full example with Formula quick tools and common-symbol tab visible.",
+      "fonts": [
+        "Helvetica Neue",
+        "Arial",
+        "Hiragino Sans GB",
+        "STHeiti",
+        "Microsoft YaHei",
+        "WenQuanYi Micro Hei",
+        "sans-serif"
+      ],
+      "id": "cherry-formula-picker",
+      "locale": "zh-CN",
+      "localPath": "tests/fixtures/parity/reference/cherry-formula-picker.png",
+      "masks": [],
+      "ownership": "Cherry Formula picker hierarchy, tab/template/symbol presentation, geometry, and tokens.",
+      "screenshotRegion": "Visible Formula picker, 681 by 420 CSS pixels.",
+      "sha256": "61d474f993c1948bcea7aea7f20521512e3fb6bba7cef232dd0cded1f628f9b6",
+      "sourceUrl": "https://tencent.github.io/cherry-markdown/examples/index.html",
+      "theme": "Cherry default light",
+      "timeControls": "Captured after network idle, fonts ready, menu click, and fixed settle; no visible clock content.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0.005,
+        "threshold": 0.2
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 19.3 initial freeze Task19.3-initial-freeze-2026-08-23; official Insert then Table path opened through visible UI and the complete grid visually inspected.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "Cherry official full example with the Insert menu Table item activated and no grid cell chosen.",
+      "fonts": [
+        "Helvetica Neue",
+        "Arial",
+        "Hiragino Sans GB",
+        "STHeiti",
+        "Microsoft YaHei",
+        "WenQuanYi Micro Hei",
+        "sans-serif"
+      ],
+      "id": "cherry-table-picker",
+      "locale": "zh-CN",
+      "localPath": "tests/fixtures/parity/reference/cherry-table-picker.png",
+      "masks": [],
+      "ownership": "Cherry 9-by-9 Table picker dimensions, cell grid geometry, borders, and idle state.",
+      "screenshotRegion": "Visible Table grid, 175 by 174 CSS pixels.",
+      "sha256": "127c47bcfab1647e24052b596434bbfd169cc80743d183041c8fd2a0a7321d8a",
+      "sourceUrl": "https://tencent.github.io/cherry-markdown/examples/index.html",
+      "theme": "Cherry default light",
+      "timeControls": "Captured after network idle, fonts ready, visible Insert/Table clicks, and fixed settle; no visible clock content.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0.005,
+        "threshold": 0.2
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 19.3 initial freeze Task19.3-initial-freeze-2026-08-23; fresh official Notion-like document route captured as a black-box reference and visually inspected without copying template source.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "Fresh official Notion-like seeded document; scoped to the complete ProseMirror document and excludes account/navigation chrome.",
+      "fonts": [
+        "DM Sans",
+        "sans-serif"
+      ],
+      "id": "tiptap-notion-like-visual",
+      "locale": "en-US",
+      "localPath": "tests/fixtures/parity/reference/tiptap-notion-like-visual.png",
+      "masks": [],
+      "ownership": "Tiptap Notion-like Visual-native canvas, ordinary blocks/marks, typography, selection/caret context, lists, table, TOC, and contextual editing presentation.",
+      "screenshotRegion": ".ProseMirror complete seeded document, 708 by 3593 CSS pixels; surrounding collaboration/account shell excluded.",
+      "sha256": "9f728c25ae2cfa091838e7f168f59fad9c4a749be4c0de7edb97165484108017",
+      "sourceUrl": "https://template.tiptap.dev/notion-like",
+      "theme": "Tiptap Notion-like light",
+      "timeControls": "Fresh seeded route, fixed 3000 ms hydration settle, fonts ready, final 250 ms settle; no live collaboration input; visible seeded content only.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0.005,
+        "threshold": 0.2
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 19.3 initial freeze Task19.3-initial-freeze-2026-08-23; first native code block from the fresh official Notion-like document visually inspected.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "Fresh official Notion-like seeded document; first code block containing Markdown shortcut examples.",
+      "fonts": [
+        "ui-monospace",
+        "SFMono-Regular",
+        "Menlo",
+        "Monaco",
+        "Consolas",
+        "Liberation Mono",
+        "Courier New",
+        "monospace"
+      ],
+      "id": "tiptap-notion-like-code",
+      "locale": "en-US",
+      "localPath": "tests/fixtures/parity/reference/tiptap-notion-like-code.png",
+      "masks": [],
+      "ownership": "Tiptap Visual-native directly editable code-block DOM, geometry, font, spacing, and editing-state presentation.",
+      "screenshotRegion": "First .ProseMirror pre element, 612 by 131 CSS pixels.",
+      "sha256": "dd907bf9d0f6b65aac40c165ebde9de7c57a73abfbdb229d407c4349e41bd4dd",
+      "sourceUrl": "https://template.tiptap.dev/notion-like",
+      "theme": "Tiptap Notion-like light",
+      "timeControls": "Fresh seeded route, fixed 3000 ms hydration settle, fonts ready, final 250 ms settle; no live collaboration input.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0.005,
+        "threshold": 0.2
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 19.3 initial freeze Task19.3-initial-freeze-2026-08-23; official Table Node iframe captured after selecting the first body cell and visually inspecting overlays and handles.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "Official Table Node demo iframe with deterministic Name, Role, and Department rows; first body cell selected.",
+      "fonts": [
+        "ui-sans-serif",
+        "system-ui",
+        "sans-serif",
+        "Apple Color Emoji",
+        "Segoe UI Emoji",
+        "Segoe UI Symbol",
+        "Noto Color Emoji"
+      ],
+      "id": "tiptap-table-node",
+      "locale": "en-US",
+      "localPath": "tests/fixtures/parity/reference/tiptap-table-node.png",
+      "masks": [],
+      "ownership": "Tiptap Visual Table Node DOM, cell selection overlay, row/column handles, contextual interaction geometry, and accessibility presentation.",
+      "screenshotRegion": "Table Node iframe body after first-cell selection, 728 by 481 CSS pixels.",
+      "sha256": "0f381e50f89d699bef87127df110ecf73c1da7402149207adf20b349b7fc4819",
+      "sourceUrl": "https://tiptap.dev/docs/ui-components/node-components/table-node",
+      "theme": "Tiptap documentation and Table Node light",
+      "timeControls": "Captured after deterministic iframe load, first-cell click, fixed 250 ms control settle, and fonts ready; no visible clock content.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0.005,
+        "threshold": 0.2
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "Fixture input only; product screenshot runs must disable animations and hide the caret through the parity harness.",
+      "baselineReviewEvidence": "Task 19.3 deterministic fixture review; exact Markdown visually inspected through the Cherry reference capture and checked by SHA-256.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "Deterministic Markdown covering named parity components, current table semantics, direct code, list geometry, formula, TOC, and Quote.",
+      "fonts": [
+        "Inter",
+        "Segoe UI",
+        "system-ui",
+        "Georgia",
+        "Consolas"
+      ],
+      "id": "w-editor-parity-document",
+      "locale": "en-US with deterministic Chinese Ruby sample",
+      "localPath": "tests/fixtures/parity/w-editor-parity.md",
+      "masks": [],
+      "ownership": "W-Editor deterministic semantic and Markdown input for desktop/narrow behavior and pixel comparisons.",
+      "screenshotRegion": "Not a screenshot; the complete Markdown file is the deterministic input consumed by scoped W-Editor captures.",
+      "sha256": "0c3d156de9266fe1fbd4e39dff0e010d35fc179697047d63cf013b35c1488841",
+      "sourceUrl": "repository://tests/fixtures/parity/w-editor-parity.md",
+      "theme": "W-Editor light",
+      "timeControls": "All content dates and text are literal fixture data; product capture clock is supplied by w-editor-parity-state.json.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "Declares the required animation-disabled toolbar/component/picker states for the parity harness.",
+      "baselineReviewEvidence": "Task 19.3 deterministic state review; desktop/narrow dimensions, fixed clock, locale, theme, and named UI states checked by SHA-256.",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-23",
+      "dpr": 1,
+      "fixture": "Deterministic product state matrix for desktop and narrow captures, valid/error paths, pickers, sticky toolbar, direct code, TOC, table, shortcuts, and synchronization failure.",
+      "fonts": [
+        "Inter",
+        "Segoe UI",
+        "system-ui",
+        "Georgia",
+        "Consolas"
+      ],
+      "id": "w-editor-parity-state",
+      "locale": "en-US",
+      "localPath": "tests/fixtures/parity/w-editor-parity-state.json",
+      "masks": [],
+      "ownership": "W-Editor deterministic viewport, clock, theme, locale, and UI-state inputs for strict bundled-Chromium capture.",
+      "screenshotRegion": "Not a screenshot; each named state declares its later scoped component or workspace region.",
+      "sha256": "62404d1d9a9c5dd769439ed2963569a330bb5cc0a31356c1c2746e084a621b73",
+      "sourceUrl": "repository://tests/fixtures/parity/w-editor-parity-state.json",
+      "theme": "W-Editor light",
+      "timeControls": "Clock fixed to 2026-08-23T00:00:00.000Z; desktop and narrow viewports fixed in the file.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    }
+  ],
+  "pixelCanonicalEngine": "Playwright bundled Chromium 151.0.7922.34",
+  "unreviewedRerecordingForbidden": true
+}

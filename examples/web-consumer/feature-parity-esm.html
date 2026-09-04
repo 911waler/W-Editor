@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>W-Editor ESM feature parity</title>
+    <link rel="stylesheet" href="/packages/editor-web/dist/w-editor.css">
+  </head>
+  <body>
+    <main>
+      <p data-feature-parity-status="pending">ESM feature parity</p>
+      <section data-feature-parity-editor></section>
+      <section data-feature-parity-reader></section>
+    </main>
+    <script src="./feature-parity-runner.js"></script>
+    <script type="module">
+      import * as api from '/packages/editor-web/dist/editor.es.js'
+
+      window.runWEditorFeatureParity(api, 'esm')
+    </script>
+  </body>
+</html>

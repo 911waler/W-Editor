@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>W-Editor ESM static consumer</title>
+    <link rel="stylesheet" href="/packages/editor-web/dist/w-editor.css">
+  </head>
+  <body>
+    <main>
+      <p data-consumer-status="pending">ESM consumer</p>
+      <pre data-consumer-result></pre>
+      <section data-consumer-editor></section>
+      <section data-consumer-reader></section>
+    </main>
+    <script src="./consumer-runner.js"></script>
+    <script type="module">
+      import * as api from '/packages/editor-web/dist/editor.es.js'
+
+      window.runWebDistributionConsumer(api, 'esm')
+    </script>
+  </body>
+</html>

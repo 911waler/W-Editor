@@ -1,0 +1,61 @@
+{
+  "name": "@w-editor/editor-vue",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["dist"],
+  "dependencies": {
+    "@codemirror/commands": "6.11.0",
+    "@codemirror/lang-markdown": "6.5.2",
+    "@codemirror/state": "6.7.1",
+    "@codemirror/view": "6.43.9",
+    "@w-editor/editor-core": "workspace:*",
+    "@tiptap/core": "3.30.2",
+    "@tiptap/extension-color": "3.30.2",
+    "@tiptap/extension-highlight": "3.30.2",
+    "@tiptap/extension-link": "3.30.2",
+    "@tiptap/extension-subscript": "3.30.2",
+    "@tiptap/extension-superscript": "3.30.2",
+    "@tiptap/extension-table": "3.30.2",
+    "@tiptap/extension-task-item": "3.30.2",
+    "@tiptap/extension-task-list": "3.30.2",
+    "@tiptap/extension-text-align": "3.30.2",
+    "@tiptap/extension-text-style": "3.30.2",
+    "@tiptap/extension-underline": "3.30.2",
+    "@tiptap/pm": "3.30.2",
+    "@tiptap/starter-kit": "3.30.2",
+    "cherry-markdown": "0.11.9",
+    "codemirror": "6.0.2",
+    "dompurify": "3.4.14",
+    "echarts": "6.1.0",
+    "highlight.js": "11.12.0",
+    "katex": "0.16.47",
+    "mermaid": "11.17.0",
+    "vue": "3.5.41"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./adapters": {
+      "types": "./src/adapters/index.ts",
+      "import": "./src/adapters/index.ts"
+    },
+    "./services": {
+      "types": "./src/services/index.ts",
+      "import": "./src/services/index.ts"
+    },
+    "./host": {
+      "types": "./src/host.ts",
+      "import": "./src/host.ts"
+    },
+    "./styles.css": {
+      "default": "./src/ui/styles.css"
+    }
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "build": "corepack pnpm run typecheck && corepack pnpm exec vite build"
+  }
+}

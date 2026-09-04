@@ -1,0 +1,744 @@
+{
+  "baseUrl": "http://127.0.0.1:4184",
+  "browser": {
+    "executablePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "version": "152.0.7977.64"
+  },
+  "coverage": {
+    "requirementFamilies": "passed",
+    "commands": "passed",
+    "parityComponents": "passed",
+    "rawRecovery": "passed",
+    "diagramsNetBoundary": "passed",
+    "realBrowserInput": "passed",
+    "persistence": "passed",
+    "imports": "passed",
+    "exports": "passed",
+    "failureStates": "passed",
+    "diagnostics": "passed"
+  },
+  "inventory": {
+    "requirementFamilies": {
+      "cherry-toolbar-surface": "passed",
+      "editor-workspace": "passed",
+      "embedded-content-integrations": "passed",
+      "local-document-lifecycle": "passed",
+      "markdown-content-pipeline": "passed",
+      "release-verification": "passed",
+      "structured-visual-editor": "passed"
+    },
+    "commands": {
+      "text.bold": "passed",
+      "text.italic": "passed",
+      "text.strike": "passed",
+      "text.underline": "passed",
+      "text.subscript": "passed",
+      "text.superscript": "passed",
+      "text.ruby": "passed",
+      "block.quote": "passed",
+      "text.size": "passed",
+      "text.color": "passed",
+      "text.background": "passed",
+      "block.h1": "passed",
+      "block.h2": "passed",
+      "block.h3": "passed",
+      "block.h4": "passed",
+      "block.h5": "passed",
+      "list.ordered": "passed",
+      "list.unordered": "passed",
+      "list.task": "passed",
+      "panel.primary": "passed",
+      "panel.info": "passed",
+      "panel.warning": "passed",
+      "panel.danger": "passed",
+      "panel.success": "passed",
+      "align.left": "passed",
+      "align.center": "passed",
+      "align.right": "passed",
+      "align.justify": "passed",
+      "layout.two-column": "passed",
+      "layout.multi-column": "passed",
+      "layout.tabs": "passed",
+      "layout.accordion": "passed",
+      "layout.timeline": "passed",
+      "insert.image": "passed",
+      "insert.audio": "passed",
+      "insert.video": "passed",
+      "insert.link": "passed",
+      "insert.horizontal-rule": "passed",
+      "insert.hard-break": "passed",
+      "insert.code-block": "passed",
+      "insert.inline-code": "passed",
+      "insert.formula": "passed",
+      "insert.toc": "passed",
+      "insert.table": "passed",
+      "insert.pdf": "passed",
+      "insert.word": "passed",
+      "insert.file": "passed",
+      "insert.drawio": "passed",
+      "mermaid.flowchart": "passed",
+      "mermaid.sequence": "passed",
+      "mermaid.state": "passed",
+      "mermaid.class": "passed",
+      "mermaid.pie": "passed",
+      "mermaid.gantt": "passed",
+      "chart.line": "passed",
+      "chart.bar": "passed",
+      "chart.radar": "passed",
+      "chart.map": "passed",
+      "chart.heatmap": "passed",
+      "chart.scatter": "passed",
+      "chart.pie": "passed",
+      "chart.sankey": "passed",
+      "history.undo": "passed",
+      "history.redo": "passed",
+      "document.manual-save": "passed",
+      "search.replace": "passed",
+      "settings.shortcuts": "passed",
+      "mode.source": "passed",
+      "mode.visual": "passed",
+      "mode.preview": "passed",
+      "application.fullscreen": "passed",
+      "language.zh": "passed",
+      "language.en": "passed",
+      "language.ru": "passed",
+      "document.word-count": "passed",
+      "export.markdown": "passed",
+      "export.html": "passed",
+      "export.word": "passed",
+      "export.pdf": "passed",
+      "export.screenshot": "passed"
+    },
+    "parityComponents": {
+      "component.toolbar": "passed",
+      "component.appearance-theme": "passed",
+      "component.text-marks": "passed",
+      "component.heading": "passed",
+      "component.ruby-pinyin": "passed",
+      "component.font-size-picker": "passed",
+      "component.color-picker": "passed",
+      "component.list": "passed",
+      "component.task-list": "passed",
+      "component.panel": "passed",
+      "component.alignment": "passed",
+      "component.columns": "passed",
+      "component.tabs": "passed",
+      "component.accordion": "passed",
+      "component.timeline": "passed",
+      "component.media": "passed",
+      "component.link": "passed",
+      "component.simple-insert": "passed",
+      "component.code-block": "passed",
+      "component.inline-code": "passed",
+      "component.formula": "passed",
+      "component.inline-formula": "passed",
+      "component.toc": "passed",
+      "component.table": "passed",
+      "component.attachment": "passed",
+      "component.drawio": "passed",
+      "component.mermaid": "passed",
+      "component.chart-table": "passed",
+      "component.history": "passed",
+      "component.manual-save": "passed",
+      "component.search-replace": "passed",
+      "component.shortcut-settings": "passed",
+      "component.mode-controls": "passed",
+      "component.source-surface": "passed",
+      "component.visual-surface": "passed",
+      "component.preview-surface": "passed",
+      "component.quote": "passed",
+      "component.fullscreen": "passed",
+      "component.locale-picker": "passed",
+      "component.word-count": "passed",
+      "component.export-menu": "passed"
+    }
+  },
+  "diagnostics": {
+    "expectedLocalRequestAborts": [],
+    "externalRequestFailures": [],
+    "localErrors": []
+  },
+  "generatedAt": "2026-08-31T12:57:55.732Z",
+  "productionSeam": "absent",
+  "schemaVersion": 1,
+  "status": "passed",
+  "steps": [
+    {
+      "action": "Autosave exact Markdown and restore it after reload",
+      "category": "persistence",
+      "durationMs": 2.76,
+      "status": "passed"
+    },
+    {
+      "action": "Exercise arrows, cross-block selection, Backspace, Delete, and joins",
+      "category": "wordLikeEditing",
+      "durationMs": 937.25,
+      "status": "passed"
+    },
+    {
+      "action": "Project the visual edit back to exact source Markdown",
+      "category": "synchronization",
+      "durationMs": 116.19,
+      "status": "passed"
+    },
+    {
+      "action": "Verify source activation does not traverse the preceding visual native history",
+      "category": "undoBoundaries",
+      "durationMs": 115.3,
+      "status": "passed"
+    },
+    {
+      "action": "Traverse Visual, final Preview, and Source without hidden mutation",
+      "category": "conversion",
+      "durationMs": 325.77,
+      "status": "passed"
+    },
+    {
+      "action": "Use native selection, a physical shortcut, and list Tab focus without a test seam",
+      "category": "realBrowserInput",
+      "durationMs": 5214.46,
+      "status": "passed"
+    },
+    {
+      "action": "text.bold",
+      "category": "command",
+      "durationMs": 1492.75,
+      "status": "passed"
+    },
+    {
+      "action": "text.italic",
+      "category": "command",
+      "durationMs": 418.25,
+      "status": "passed"
+    },
+    {
+      "action": "text.strike",
+      "category": "command",
+      "durationMs": 545.64,
+      "status": "passed"
+    },
+    {
+      "action": "text.underline",
+      "category": "command",
+      "durationMs": 526.27,
+      "status": "passed"
+    },
+    {
+      "action": "text.subscript",
+      "category": "command",
+      "durationMs": 539.72,
+      "status": "passed"
+    },
+    {
+      "action": "text.superscript",
+      "category": "command",
+      "durationMs": 469.58,
+      "status": "passed"
+    },
+    {
+      "action": "text.ruby",
+      "category": "command",
+      "durationMs": 570.07,
+      "status": "passed"
+    },
+    {
+      "action": "block.quote",
+      "category": "command",
+      "durationMs": 418.34,
+      "status": "passed"
+    },
+    {
+      "action": "text.size",
+      "category": "command",
+      "durationMs": 490.35,
+      "status": "passed"
+    },
+    {
+      "action": "text.color",
+      "category": "command",
+      "durationMs": 356.82,
+      "status": "passed"
+    },
+    {
+      "action": "text.background",
+      "category": "command",
+      "durationMs": 428.76,
+      "status": "passed"
+    },
+    {
+      "action": "block.h1",
+      "category": "command",
+      "durationMs": 382.05,
+      "status": "passed"
+    },
+    {
+      "action": "block.h2",
+      "category": "command",
+      "durationMs": 509.49,
+      "status": "passed"
+    },
+    {
+      "action": "block.h3",
+      "category": "command",
+      "durationMs": 477.64,
+      "status": "passed"
+    },
+    {
+      "action": "block.h4",
+      "category": "command",
+      "durationMs": 478.74,
+      "status": "passed"
+    },
+    {
+      "action": "block.h5",
+      "category": "command",
+      "durationMs": 493.54,
+      "status": "passed"
+    },
+    {
+      "action": "list.ordered",
+      "category": "command",
+      "durationMs": 392.51,
+      "status": "passed"
+    },
+    {
+      "action": "list.unordered",
+      "category": "command",
+      "durationMs": 393.53,
+      "status": "passed"
+    },
+    {
+      "action": "list.task",
+      "category": "command",
+      "durationMs": 359.87,
+      "status": "passed"
+    },
+    {
+      "action": "panel.primary",
+      "category": "command",
+      "durationMs": 696.2,
+      "status": "passed"
+    },
+    {
+      "action": "panel.info",
+      "category": "command",
+      "durationMs": 603.63,
+      "status": "passed"
+    },
+    {
+      "action": "panel.warning",
+      "category": "command",
+      "durationMs": 597.87,
+      "status": "passed"
+    },
+    {
+      "action": "panel.danger",
+      "category": "command",
+      "durationMs": 582.49,
+      "status": "passed"
+    },
+    {
+      "action": "panel.success",
+      "category": "command",
+      "durationMs": 581.66,
+      "status": "passed"
+    },
+    {
+      "action": "align.left",
+      "category": "command",
+      "durationMs": 409.74,
+      "status": "passed"
+    },
+    {
+      "action": "align.center",
+      "category": "command",
+      "durationMs": 518.16,
+      "status": "passed"
+    },
+    {
+      "action": "align.right",
+      "category": "command",
+      "durationMs": 564.23,
+      "status": "passed"
+    },
+    {
+      "action": "align.justify",
+      "category": "command",
+      "durationMs": 490.14,
+      "status": "passed"
+    },
+    {
+      "action": "layout.two-column",
+      "category": "command",
+      "durationMs": 579.43,
+      "status": "passed"
+    },
+    {
+      "action": "layout.multi-column",
+      "category": "command",
+      "durationMs": 535.44,
+      "status": "passed"
+    },
+    {
+      "action": "layout.tabs",
+      "category": "command",
+      "durationMs": 548.45,
+      "status": "passed"
+    },
+    {
+      "action": "layout.accordion",
+      "category": "command",
+      "durationMs": 479.03,
+      "status": "passed"
+    },
+    {
+      "action": "layout.timeline",
+      "category": "command",
+      "durationMs": 416.61,
+      "status": "passed"
+    },
+    {
+      "action": "insert.image",
+      "category": "command",
+      "durationMs": 605.17,
+      "status": "passed"
+    },
+    {
+      "action": "insert.audio",
+      "category": "command",
+      "durationMs": 543.62,
+      "status": "passed"
+    },
+    {
+      "action": "insert.video",
+      "category": "command",
+      "durationMs": 566.69,
+      "status": "passed"
+    },
+    {
+      "action": "insert.link",
+      "category": "command",
+      "durationMs": 554.26,
+      "status": "passed"
+    },
+    {
+      "action": "insert.horizontal-rule",
+      "category": "command",
+      "durationMs": 485.29,
+      "status": "passed"
+    },
+    {
+      "action": "insert.hard-break",
+      "category": "command",
+      "durationMs": 556.34,
+      "status": "passed"
+    },
+    {
+      "action": "insert.code-block",
+      "category": "command",
+      "durationMs": 722.22,
+      "status": "passed"
+    },
+    {
+      "action": "insert.inline-code",
+      "category": "command",
+      "durationMs": 474.65,
+      "status": "passed"
+    },
+    {
+      "action": "insert.formula",
+      "category": "command",
+      "durationMs": 677.55,
+      "status": "passed"
+    },
+    {
+      "action": "insert.toc",
+      "category": "command",
+      "durationMs": 453.75,
+      "status": "passed"
+    },
+    {
+      "action": "insert.table",
+      "category": "command",
+      "durationMs": 664.64,
+      "status": "passed"
+    },
+    {
+      "action": "insert.pdf",
+      "category": "command",
+      "durationMs": 632.57,
+      "status": "passed"
+    },
+    {
+      "action": "insert.word",
+      "category": "command",
+      "durationMs": 588.99,
+      "status": "passed"
+    },
+    {
+      "action": "insert.file",
+      "category": "command",
+      "durationMs": 559.95,
+      "status": "passed"
+    },
+    {
+      "action": "insert.drawio",
+      "category": "command",
+      "durationMs": 710.25,
+      "status": "passed"
+    },
+    {
+      "action": "mermaid.flowchart",
+      "category": "command",
+      "durationMs": 458.66,
+      "status": "passed"
+    },
+    {
+      "action": "mermaid.sequence",
+      "category": "command",
+      "durationMs": 604.65,
+      "status": "passed"
+    },
+    {
+      "action": "mermaid.state",
+      "category": "command",
+      "durationMs": 485.31,
+      "status": "passed"
+    },
+    {
+      "action": "mermaid.class",
+      "category": "command",
+      "durationMs": 531.81,
+      "status": "passed"
+    },
+    {
+      "action": "mermaid.pie",
+      "category": "command",
+      "durationMs": 538.45,
+      "status": "passed"
+    },
+    {
+      "action": "mermaid.gantt",
+      "category": "command",
+      "durationMs": 573.45,
+      "status": "passed"
+    },
+    {
+      "action": "chart.line",
+      "category": "command",
+      "durationMs": 551.79,
+      "status": "passed"
+    },
+    {
+      "action": "chart.bar",
+      "category": "command",
+      "durationMs": 583.89,
+      "status": "passed"
+    },
+    {
+      "action": "chart.radar",
+      "category": "command",
+      "durationMs": 552.85,
+      "status": "passed"
+    },
+    {
+      "action": "chart.map",
+      "category": "command",
+      "durationMs": 509.3,
+      "status": "passed"
+    },
+    {
+      "action": "chart.heatmap",
+      "category": "command",
+      "durationMs": 1530.1,
+      "status": "passed"
+    },
+    {
+      "action": "chart.scatter",
+      "category": "command",
+      "durationMs": 555.77,
+      "status": "passed"
+    },
+    {
+      "action": "chart.pie",
+      "category": "command",
+      "durationMs": 497.25,
+      "status": "passed"
+    },
+    {
+      "action": "chart.sankey",
+      "category": "command",
+      "durationMs": 556.39,
+      "status": "passed"
+    },
+    {
+      "action": "history.undo",
+      "category": "command",
+      "durationMs": 548.88,
+      "status": "passed"
+    },
+    {
+      "action": "history.redo",
+      "category": "command",
+      "durationMs": 581.97,
+      "status": "passed"
+    },
+    {
+      "action": "document.manual-save",
+      "category": "command",
+      "durationMs": 213.24,
+      "status": "passed"
+    },
+    {
+      "action": "search.replace",
+      "category": "command",
+      "durationMs": 273.04,
+      "status": "passed"
+    },
+    {
+      "action": "settings.shortcuts",
+      "category": "command",
+      "durationMs": 286.98,
+      "status": "passed"
+    },
+    {
+      "action": "mode.source",
+      "category": "command",
+      "durationMs": 146.24,
+      "status": "passed"
+    },
+    {
+      "action": "mode.visual",
+      "category": "command",
+      "durationMs": 154.98,
+      "status": "passed"
+    },
+    {
+      "action": "mode.preview",
+      "category": "command",
+      "durationMs": 279.05,
+      "status": "passed"
+    },
+    {
+      "action": "application.fullscreen",
+      "category": "command",
+      "durationMs": 306.27,
+      "status": "passed"
+    },
+    {
+      "action": "language.zh",
+      "category": "command",
+      "durationMs": 397.87,
+      "status": "passed"
+    },
+    {
+      "action": "language.en",
+      "category": "command",
+      "durationMs": 215.64,
+      "status": "passed"
+    },
+    {
+      "action": "language.ru",
+      "category": "command",
+      "durationMs": 399.01,
+      "status": "passed"
+    },
+    {
+      "action": "document.word-count",
+      "category": "command",
+      "durationMs": 193.54,
+      "status": "passed"
+    },
+    {
+      "action": "export.markdown",
+      "category": "command",
+      "durationMs": 279.51,
+      "status": "passed"
+    },
+    {
+      "action": "export.html",
+      "category": "command",
+      "durationMs": 280.82,
+      "status": "passed"
+    },
+    {
+      "action": "export.word",
+      "category": "command",
+      "durationMs": 243.52,
+      "status": "passed"
+    },
+    {
+      "action": "export.pdf",
+      "category": "command",
+      "durationMs": 439.21,
+      "status": "passed"
+    },
+    {
+      "action": "export.screenshot",
+      "category": "command",
+      "durationMs": 267.56,
+      "status": "passed"
+    },
+    {
+      "action": "Exercise all 80 frozen public commands through their production controls",
+      "category": "commands",
+      "durationMs": 40183.58,
+      "status": "passed"
+    },
+    {
+      "action": "Inspect the remaining theme, Source, Visual, Final, inline-formula, and quote parity components",
+      "category": "parityComponents",
+      "durationMs": 1834.17,
+      "status": "passed"
+    },
+    {
+      "action": "Exercise direct, history, format, structure, insert, draw, mode, document, search, and More families",
+      "category": "toolbarFamilies",
+      "durationMs": 6481.85,
+      "status": "passed"
+    },
+    {
+      "action": "Edit panel, Mermaid, and chart-table semantic nodes through their dialogs",
+      "category": "semanticEditors",
+      "durationMs": 5451.97,
+      "status": "passed"
+    },
+    {
+      "action": "Exercise intrinsic panel, code, formula, and semantic-render failures with valid retry",
+      "category": "failureStates",
+      "durationMs": 5002.08,
+      "status": "passed"
+    },
+    {
+      "action": "Cancel and then confirm a UTF-8 Markdown import with a destructive checkpoint",
+      "category": "imports",
+      "durationMs": 497.73,
+      "status": "passed"
+    },
+    {
+      "action": "Download exact Markdown, safe HTML, Word-compatible output, and a long PNG",
+      "category": "exports",
+      "durationMs": 924.47,
+      "status": "passed"
+    },
+    {
+      "action": "Open/cancel a media integration and inspect the production same-origin draw.io bridge",
+      "category": "diagramsNetBoundary",
+      "durationMs": 633.52,
+      "status": "passed"
+    },
+    {
+      "action": "Inspect an unknown raw node, then export and explicitly reset a corrupt production envelope",
+      "category": "rawRecovery",
+      "durationMs": 3111.87,
+      "status": "passed"
+    },
+    {
+      "action": "Correlate completed production journeys to every OpenSpec requirement family",
+      "category": "requirementFamilies",
+      "durationMs": 0.13,
+      "status": "passed"
+    }
+  ],
+  "trialMode": "headed-stable-chrome-slow-production-ui"
+}

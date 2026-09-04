@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>W-Editor IIFE Renderer parity candidate</title>
+    <link rel="stylesheet" href="/packages/editor-web/dist/w-editor.css">
+    <style>
+      html, body { margin: 0; background: #fff; }
+      body { padding: 24px; }
+      [data-parity-layout] { display: grid; grid-template-columns: 720px; gap: 24px; align-items: start; }
+      [data-parity-surface] { width: 720px; min-height: 320px; background: #fff; }
+      [data-parity-final] [data-w-editor-action="edit-code"] { display: none !important; }
+      *, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }
+    </style>
+  </head>
+  <body>
+    <p data-parity-status="pending">Renderer parity candidate</p>
+    <main data-parity-layout>
+      <section data-parity-reader data-parity-surface></section>
+      <section data-parity-final data-parity-surface></section>
+    </main>
+    <script src="./parity-runner.js"></script>
+    <script src="/packages/editor-web/dist/w-editor.global.js"></script>
+    <script>window.runRendererParityCandidate(window.WEditor, 'iife')</script>
+  </body>
+</html>

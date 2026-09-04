@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>W-Editor ESM reverse-proxy subpath consumer</title>
+    <link rel="stylesheet" href="./w-editor.css">
+  </head>
+  <body>
+    <main>
+      <p data-subpath-status="pending">ESM subpath consumer</p>
+      <pre data-subpath-result></pre>
+      <section data-subpath-editor></section>
+      <section data-subpath-reader></section>
+    </main>
+    <script src="./subpath-consumer-runner.js"></script>
+    <script type="module">
+      import * as api from './editor.es.js'
+
+      window.runSubpathConsumer(api, 'esm', new URL('./', window.location.href).href)
+    </script>
+  </body>
+</html>

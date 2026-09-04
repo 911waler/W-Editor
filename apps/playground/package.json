@@ -1,0 +1,25 @@
+{
+  "name": "@w-editor/playground",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./workspace": {
+      "types": "./src/PlaygroundApp.vue",
+      "import": "./src/PlaygroundApp.vue"
+    }
+  },
+  "dependencies": {
+    "@w-editor/editor-core": "workspace:*",
+    "@w-editor/editor-web": "workspace:*",
+    "@w-editor/editor-vue": "workspace:*",
+    "vue": "3.5.41"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.8"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "build": "corepack pnpm run typecheck && corepack pnpm exec vite build"
+  }
+}

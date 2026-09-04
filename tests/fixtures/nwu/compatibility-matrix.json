@@ -1,0 +1,45 @@
+{
+  "fixture": "lagging-copy-sanitized.md",
+  "sourceKind": "synthetic-from-lagging-copy-syntax-facts",
+  "families": {
+    "ordinaryArticle": {
+      "reader": "supported",
+      "editorRoundTrip": "exact"
+    },
+    "imageUrl": {
+      "reader": "supported",
+      "editorRoundTrip": "exact"
+    },
+    "imageAttributes": {
+      "reader": "preserved-not-applied",
+      "editorRoundTrip": "exact",
+      "reason": "The current change explicitly does not add persistent image width, height, or alignment authority."
+    },
+    "spanStyleSafeSubset": {
+      "reader": "supported-after-sanitizer",
+      "editorRoundTrip": "exact"
+    },
+    "legacyAlignmentHtml": {
+      "reader": "supported-after-sanitizer",
+      "editorRoundTrip": "exact"
+    },
+    "fencedCode": {
+      "reader": "supported",
+      "editorRoundTrip": "exact"
+    },
+    "formula": {
+      "reader": "supported",
+      "editorRoundTrip": "exact"
+    },
+    "tableOfContents": {
+      "reader": "supported",
+      "editorRoundTrip": "exact"
+    },
+    "scriptComment": {
+      "genericReader": "inert-and-preserved",
+      "nwuAuthorizedExtension": "allowlisted-download-link",
+      "editorRoundTrip": "exact"
+    }
+  },
+  "privacy": "All names, paths, article text, code, and image references are synthetic."
+}

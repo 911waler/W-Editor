@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.app.tsbuildinfo",
+    "target": "ES2023",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@w-editor/editor-web": ["packages/editor-web/src/index.ts"],
+      "@w-editor/editor-web/renderer": ["packages/editor-web/src/rendererEntry.ts"],
+      "@w-editor/editor-web/styles.css": ["packages/editor-web/src/distribution.css"]
+    },
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "preserve",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "verbatimModuleSyntax": true,
+    "types": ["vite/client", "vitest/globals", "node"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "packages/editor-core/src/**/*.ts", "packages/editor-vue/src/**/*.ts", "packages/editor-vue/src/**/*.vue", "packages/editor-web/src/**/*.ts", "packages/editor-web/src/**/*.vue", "apps/playground/src/**/*.ts", "apps/playground/src/**/*.vue", "examples/nwu-host/src/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts"]
+}

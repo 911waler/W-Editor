@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>W-Editor fake Cherry draw.io editor</title>
+  </head>
+  <body>
+    <p data-testid="fake-drawio-status">Waiting for bridge load</p>
+    <textarea data-testid="fake-drawio-xml" aria-label="Fake draw.io XML"></textarea>
+    <script>
+      let xml = ''
+      const send = (eventName, value = '') => parent.postMessage({ eventName, value }, location.origin)
+      const graphXml = () => {
+        const parsed = new DOMParser().parseFromString(xml, 'application/xml')
+        const model = parsed.querySelector('mxGraphModel')
+        return model === null
+          ? '<mxGraphModel><root><mxCell id="0"/><mxCell id="1" parent="0"/></root></mxGraphModel>'
+          : new XMLSerializer().serializeToString(model)
+      }
+      addEventListener('message', (event) => {
+        if (event.origin !== location.origin || event.source !== parent) return
+        if (event.data?.eventName === 'setData' && typeof event.data.value === 'string') {
+          xml = event.data.value
+          document.querySelector('[data-testid="fake-drawio-xml"]').value = xml
+          document.querySelector('[data-testid="fake-drawio-status"]').textContent = 'Ready'
+          send('setData:success')
+          return
+        }
+        if (event.data?.eventName === 'getData') {
+          xml = document.querySelector('[data-testid="fake-drawio-xml"]').value
+          send('getData:success', {
+            xmlData: graphXml(),
+            base64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB',
+          })
+        }
+      })
+      send('ready')
+    </script>
+  </body>
+</html>

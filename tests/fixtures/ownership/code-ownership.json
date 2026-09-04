@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "canonicalOwners": {
+    "authority": "packages/editor-core/src/core",
+    "codecs": "packages/editor-core/src/codecs",
+    "contentCommands": "packages/editor-core/src/commands",
+    "rendererAdapters": "packages/editor-vue/src/adapters",
+    "sharedServices": "packages/editor-vue/src/services",
+    "sharedUi": "packages/editor-vue/src/ui",
+    "playgroundShell": "apps/playground/src",
+    "webEntry": "packages/editor-web/src",
+    "desktopShell": "apps/desktop/src"
+  },
+  "forbiddenDuplicateRoots": [
+    "packages/editor-web/src",
+    "apps/desktop/src"
+  ],
+  "approvedHostContractFiles": [
+    "packages/editor-web/src/editorEntry.ts",
+    "packages/editor-web/src/editorMount.ts",
+    "packages/editor-web/src/iifeBuildEntry.ts",
+    "packages/editor-web/src/rendererEntry.ts",
+    "packages/editor-web/src/rendererMount.ts",
+    "packages/editor-web/src/resourceResolver.ts",
+    "packages/editor-web/src/saveAdapter.ts",
+    "packages/editor-web/src/versioning.ts"
+  ],
+  "compatibilityRoots": [
+    "src/core",
+    "src/codecs",
+    "src/adapters",
+    "src/services",
+    "src/ui"
+  ],
+  "duplicateImplementationNames": [
+    "DocumentSession",
+    "SynchronizationStateStore",
+    "BoundedScheduler",
+    "ProjectionRevisionGate",
+    "CommandRegistry",
+    "CherryRenderAdapter",
+    "CherrySourceAdapter",
+    "TiptapVisualAdapter",
+    "renderSafeKatex",
+    "parseOrdinaryBlocks",
+    "projectOrdinaryMarkdown",
+    "createPanelCommandPlan",
+    "createTableInsertionPlan"
+  ]
+}

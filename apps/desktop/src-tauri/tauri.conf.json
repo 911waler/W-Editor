@@ -1,0 +1,57 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "W-Editor Desktop",
+  "version": "0.1.0",
+  "identifier": "com.weditor.desktop.spike",
+  "build": {
+    "beforeBuildCommand": "corepack pnpm --dir ../.. --filter @w-editor/desktop run build:frontend",
+    "beforeDevCommand": "corepack pnpm --dir ../.. run dev -- --host 127.0.0.1 --port 1420 --strictPort",
+    "devUrl": "http://127.0.0.1:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost"
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "W-Editor Desktop",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "icon": ["icons/icon.ico"],
+    "category": "Productivity",
+    "copyright": "Copyright W-Editor contributors",
+    "shortDescription": "W-Editor Markdown workspace",
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "txt"],
+        "name": "Markdown document",
+        "description": "Import Markdown into the W-Editor Library",
+        "role": "Editor",
+        "mimeType": "text/plain",
+        "rank": "Default"
+      }
+    ],
+    "targets": ["nsis", "msi"],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "skip"
+      },
+      "digestAlgorithm": "sha256",
+      "wix": {
+        "template": "wix/per-user.wxs"
+      },
+      "allowDowngrades": false
+    }
+  }
+}

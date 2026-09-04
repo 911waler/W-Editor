@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.workspace.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "node"],
+    "rootDir": "src",
+    "tsBuildInfoFile": "../../node_modules/.cache/editor-vue.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue"]
+}

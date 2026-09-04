@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "change": "dual-target-release",
+  "task": "9.9",
+  "policy": "Latency budgets are frozen from the first complete current Phase 9.9 controlled sample set. Comparable Phase 0 budgets retain their existing candidates; new metrics use nearest-rank P95 × 1.25. Package-size budgets are frozen to the verified artifact bytes. Thresholds are not recomputed on later runs.",
+  "capturedAt": "2026-08-29T09:31:26.543Z",
+  "environment": {
+    "browser": "Playwright bundled Chromium",
+    "browserVersion": "151.0.7922.34",
+    "deviceScaleFactor": 1,
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "node": "v24.18.0",
+    "pnpm": "pnpm@11.19.0"
+  },
+  "latency": {
+    "web.esm.editor": {
+      "limitMs": 113,
+      "observedP95Ms": 90.4,
+      "basis": "First complete current controlled P95 90.4 ms × 1.25; frozen nearest integer."
+    },
+    "web.esm.reader": {
+      "limitMs": 119,
+      "observedP95Ms": 94.9,
+      "basis": "First complete current controlled P95 94.9 ms × 1.25; frozen nearest integer."
+    },
+    "web.iife.editor": {
+      "limitMs": 114,
+      "observedP95Ms": 91,
+      "basis": "First complete current controlled P95 91 ms × 1.25; frozen nearest integer."
+    },
+    "web.iife.reader": {
+      "limitMs": 119,
+      "observedP95Ms": 94.6,
+      "basis": "First complete current controlled P95 94.6 ms × 1.25; frozen nearest integer."
+    },
+    "playground.firstEditable": {
+      "limitMs": 1324,
+      "observedP95Ms": 1058.5,
+      "basis": "Existing Phase 0 nearest-rank P95 1058.5 ms × 1.25; unchanged baseline policy."
+    },
+    "playground.ordinaryInputSource": {
+      "limitMs": 5,
+      "observedP95Ms": 3.73,
+      "basis": "Existing Phase 0 nearest-rank P95 3.73 ms × 1.25; unchanged baseline policy."
+    },
+    "playground.ordinaryInputVisual": {
+      "limitMs": 18,
+      "observedP95Ms": 14.33,
+      "basis": "First complete current controlled P95 14.33 ms × 1.25; frozen nearest integer."
+    },
+    "playground.finalRender": {
+      "limitMs": 79,
+      "observedP95Ms": 63.01,
+      "basis": "Existing Phase 0 nearest-rank P95 63.01 ms × 1.25; unchanged baseline policy."
+    },
+    "documents.representativeLong": {
+      "limitMs": 1854,
+      "observedP95Ms": 1482.83,
+      "basis": "First complete current controlled P95 1482.83 ms × 1.25; frozen nearest integer."
+    },
+    "documents.approximately1MiB": {
+      "limitMs": 13878,
+      "observedP95Ms": 11101.61,
+      "basis": "First complete current controlled P95 11101.61 ms × 1.25; frozen nearest integer."
+    },
+    "drawio.lazyLoad": {
+      "limitMs": 348,
+      "observedP95Ms": 277.66,
+      "basis": "First complete current controlled P95 277.66 ms × 1.25; frozen nearest integer."
+    },
+    "desktop.startup": {
+      "limitMs": 838,
+      "observedP95Ms": 669.98,
+      "basis": "First complete current controlled P95 669.98 ms × 1.25; frozen nearest integer."
+    }
+  },
+  "packageSize": {
+    "webZip": {
+      "limitBytes": 24884859,
+      "sha256": "8BC954B8960D9AB047063B1BA120BB00160DBDF7FB09E1E43D2CD91A88E72F19",
+      "basis": "Explicit user approval on 2026-08-31 accepted the performance-remediation Web ZIP; latency thresholds, Phase 0 baselines, test assertions, user acceptance, Git and release authorization remain unchanged."
+    },
+    "nsis": {
+      "limitBytes": 10345302,
+      "sha256": "FFED807AF6141F06473C3AB95C61ED3B47A89CA4F160315FEDBE2915009583E3",
+      "basis": "Explicit user approval on 2026-08-31 accepted the performance-remediation NSIS package; latency thresholds, Phase 0 baselines, test assertions, user acceptance, Git and release authorization remain unchanged."
+    },
+    "msi": {
+      "limitBytes": 12443648,
+      "sha256": "847B152015128E2CBAEC744140BE658B30266118AE9F5BA61CC5C927BB27CCBC",
+      "basis": "Explicit user approval on 2026-08-31 accepted the performance-remediation MSI package; latency thresholds, Phase 0 baselines, test assertions, user acceptance, Git and release authorization remain unchanged."
+    }
+  }
+}

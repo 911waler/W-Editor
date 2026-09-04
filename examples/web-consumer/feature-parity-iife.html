@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>W-Editor IIFE feature parity</title>
+    <link rel="stylesheet" href="/packages/editor-web/dist/w-editor.css">
+  </head>
+  <body>
+    <main>
+      <p data-feature-parity-status="pending">IIFE feature parity</p>
+      <section data-feature-parity-editor></section>
+      <section data-feature-parity-reader></section>
+    </main>
+    <script src="./feature-parity-runner.js"></script>
+    <script src="/packages/editor-web/dist/w-editor.global.js"></script>
+    <script>
+      window.runWEditorFeatureParity(window.WEditor, 'iife')
+    </script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "@w-editor/nwu-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@w-editor/editor-web": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "vite build"
+  }
+}

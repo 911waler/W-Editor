@@ -1,0 +1,38 @@
+{
+  "clock": "2026-08-23T00:00:00.000Z",
+  "desktop": {
+    "activeMode": "visual",
+    "articlePanelCollapsed": false,
+    "dpr": 1,
+    "height": 1000,
+    "locale": "en-US",
+    "theme": "light",
+    "width": 1440
+  },
+  "narrow": {
+    "activeMode": "visual",
+    "articlePanelCollapsed": true,
+    "dpr": 1,
+    "height": 900,
+    "locale": "en-US",
+    "theme": "light",
+    "width": 768
+  },
+  "openStates": [
+    "toolbar-default",
+    "toolbar-menu",
+    "panel-editor-valid",
+    "panel-editor-invalid",
+    "formula-picker-inline",
+    "formula-picker-block",
+    "table-picker-9x9",
+    "timeline-all-states",
+    "toc-populated",
+    "toc-empty",
+    "code-expanded",
+    "code-folded",
+    "shortcut-recorder-armed",
+    "synchronization-failed"
+  ],
+  "schemaVersion": 1
+}

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.vite/
+.tmp/
+*.tsbuildinfo
+apps/desktop/src-tauri/target/
+
+# Locally generated release packages and diagnostics
+*.zip
+*.exe
+*.msi
+*.log
+*.trace
+artifacts/
+output/
+artifacts/release/
+artifacts/renderer/parity-candidates/

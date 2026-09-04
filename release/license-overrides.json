@@ -1,0 +1,12 @@
+{
+  "config-chain@1.1.13": {
+    "expression": "MIT",
+    "source": "npm-registry-metadata",
+    "evidence": "https://registry.npmjs.org/config-chain/1.1.13"
+  },
+  "khroma@2.1.0": {
+    "expression": "MIT",
+    "source": "package-license-file",
+    "evidence": "node_modules/.pnpm/khroma@2.1.0/node_modules/khroma/license"
+  }
+}

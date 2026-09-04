@@ -1,0 +1,12 @@
+{
+  "productVersion": "0.1.0",
+  "webApiVersion": "1.0.0",
+  "webSchemaVersion": "1.0.0",
+  "hostContractsVersion": "1.0.0",
+  "minimumHostAdapterVersion": "1.0.0",
+  "markdownDialectVersion": "1.0.0",
+  "databaseSchemaVersion": 2,
+  "dataRootSchemaVersion": 1,
+  "settingsSchemaVersion": 1,
+  "manifestVersion": "1.0.0"
+}

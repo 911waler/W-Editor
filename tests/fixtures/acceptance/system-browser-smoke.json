@@ -1,0 +1,61 @@
+{
+  "baseUrl": "http://127.0.0.1:4183",
+  "generatedAt": "2026-08-31T07:21:07.741Z",
+  "platform": "win32",
+  "results": [
+    {
+      "actualVersion": "152.0.7977.64",
+      "durationMs": 18605.22,
+      "executablePath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "journey": {
+        "productionSeamAbsent": true,
+        "selection": true,
+        "shortcut": true,
+        "italicSynthesis": true,
+        "listFocus": true,
+        "stickyToolbar": true,
+        "panelValid": true,
+        "panelInvalidRetry": true,
+        "codeValid": true,
+        "codeInvalidRetry": true,
+        "table": true,
+        "formula": true,
+        "toc": true,
+        "sourceVisualFinalConvergence": true,
+        "autosave": true,
+        "reload": true,
+        "diagnostics": true
+      },
+      "name": "chrome",
+      "status": "passed"
+    },
+    {
+      "actualVersion": "152.0.4191.53",
+      "durationMs": 18526.75,
+      "executablePath": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "journey": {
+        "productionSeamAbsent": true,
+        "selection": true,
+        "shortcut": true,
+        "italicSynthesis": true,
+        "listFocus": true,
+        "stickyToolbar": true,
+        "panelValid": true,
+        "panelInvalidRetry": true,
+        "codeValid": true,
+        "codeInvalidRetry": true,
+        "table": true,
+        "formula": true,
+        "toc": true,
+        "sourceVisualFinalConvergence": true,
+        "autosave": true,
+        "reload": true,
+        "diagnostics": true
+      },
+      "name": "edge",
+      "status": "passed"
+    }
+  ],
+  "schemaVersion": 1,
+  "status": "passed"
+}

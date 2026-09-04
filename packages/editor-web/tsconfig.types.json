@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationDir": "./dist/types",
+    "emitDeclarationOnly": true,
+    "noEmit": false,
+    "rootDir": "src",
+    "tsBuildInfoFile": "../../node_modules/.cache/editor-web.types.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"]
+}

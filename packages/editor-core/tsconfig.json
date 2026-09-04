@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.workspace.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "tsBuildInfoFile": "../../node_modules/.cache/editor-core.tsbuildinfo"
+  },
+  "include": ["src/**/*.ts"]
+}

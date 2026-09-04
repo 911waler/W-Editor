@@ -1,0 +1,26 @@
+{
+  "name": "@w-editor/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-dialog": "2.7.2",
+    "@w-editor/editor-vue": "workspace:*",
+    "@w-editor/editor-web": "workspace:*",
+    "@w-editor/playground": "workspace:*",
+    "vue": "3.5.41"
+  },
+  "scripts": {
+    "typecheck": "corepack pnpm exec vue-tsc --noEmit -p tsconfig.json",
+    "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
+    "build": "corepack pnpm run build:frontend",
+    "build:frontend": "corepack pnpm run typecheck && vite build",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build:debug": "tauri build --debug --no-bundle"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.4"
+  }
+}

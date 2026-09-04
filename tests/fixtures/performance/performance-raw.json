@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "task": "1.9",
+  "capturedAt": "2026-08-26T02:52:48.025Z",
+  "status": "completed",
+  "environment": {
+    "baseUrl": "http://127.0.0.1:4185",
+    "browser": "Playwright bundled Chromium",
+    "browserVersion": "151.0.7922.34",
+    "deviceScaleFactor": 1,
+    "viewport": {
+      "height": 1000,
+      "width": 1440
+    },
+    "node": "v24.18.0",
+    "pnpm": "pnpm@11.19.0",
+    "productBaselineCommit": "39dddc311f0afb23339b4bba6d816fcfb285ef91",
+    "workingTreeHead": "e8c4e314f6ac416b806834df07defcc95d747395",
+    "workingTreeStatus": "historical baseline captured before minimal-source cleanup; detailed audit worktree paths intentionally omitted",
+    "seam": "verified absent before measurement",
+    "seamEvidence": "E2E authority marker is absent in dist."
+  },
+  "samples": {
+    "firstEditable": {
+      "count": 5,
+      "max": 1058.5,
+      "median": 1045.49,
+      "p95NearestRank": 1058.5,
+      "raw": [
+        1058.5,
+        1051.07,
+        1034.81,
+        1038.1,
+        1045.49
+      ],
+      "unit": "ms"
+    },
+    "ordinaryInput": {
+      "count": 5,
+      "max": 3.73,
+      "median": 2.17,
+      "p95NearestRank": 3.73,
+      "raw": [
+        2.46,
+        1.77,
+        3.73,
+        1.62,
+        2.17
+      ],
+      "unit": "ms"
+    }
+  },
+  "readerFinal": {
+    "reader": {
+      "status": "not-implemented-at-baseline",
+      "reason": "Current feature manifest has Source, Visual and Final Preview only."
+    },
+    "final": {
+      "count": 5,
+      "max": 63.01,
+      "median": 45.67,
+      "p95NearestRank": 63.01,
+      "raw": [
+        63.01,
+        45.67,
+        46.29,
+        43.55,
+        44.54
+      ],
+      "unit": "ms"
+    }
+  },
+  "documents": {
+    "representativeLongDocument": {
+      "fixture": "e2e/fixtures/documents/representative-long.md",
+      "bytes": 167953,
+      "importToVisibleSourceMs": 1240.52
+    },
+    "approximately1MiB": {
+      "fixture": "e2e/fixtures/documents/approximately-1mb.md",
+      "bytes": 1049010,
+      "importToVisibleSourceMs": 8404.48
+    }
+  },
+  "diagnostics": [],
+  "budgetCandidates": {
+    "firstEditable": {
+      "basis": "observed nearest-rank P95 × 1.25; candidate only, not a frozen formal budget",
+      "valueMs": 1324
+    },
+    "ordinaryInput": {
+      "basis": "observed nearest-rank P95 × 1.25; candidate only, not a frozen formal budget",
+      "valueMs": 5
+    },
+    "finalRender": {
+      "basis": "observed nearest-rank P95 × 1.25; candidate only, not a frozen formal budget",
+      "valueMs": 79
+    },
+    "representativeLongDocument": {
+      "basis": "diagnostic sample only; no formal latency budget frozen in Phase 0",
+      "valueMs": null
+    },
+    "approximately1MiB": {
+      "basis": "diagnostic sample only; no formal latency budget frozen in Phase 0",
+      "valueMs": null
+    }
+  }
+}

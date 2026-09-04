@@ -1,0 +1,165 @@
+{
+  "matrixVersion": 1,
+  "change": "dual-target-release",
+  "pipelineId": "w-editor-shared-renderer-v1",
+  "authority": "Markdown",
+  "comparisonContract": {
+    "readerToFinal": ["canonical-markdown", "structure", "formatting", "key-dom", "controlled-pixels"],
+    "visualToReader": ["canonical-markdown", "structure", "formatting", "content-result"],
+    "excludedEditorState": ["caret", "selection", "block-handles", "native-undo-dom"]
+  },
+  "rows": [
+    {
+      "capabilityId": "markdown-authority-and-round-trip",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "Markdown remains the only persisted content authority and reload input.",
+      "visual": "Visual projection edits supported blocks through checked Markdown patches.",
+      "finalPreview": "Final renders the canonical Markdown through the shared Cherry pipeline.",
+      "reader": "Reader renders the same canonical Markdown with read-only capabilities."
+    },
+    {
+      "capabilityId": "raw-source-preservation",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "Unknown or untouched source spans remain visible and exportable byte-for-byte.",
+      "visual": "Raw projection keeps unknown blocks visible without inventing a second authority.",
+      "finalPreview": "Final preserves sanitized visible raw content without executable markup.",
+      "reader": "Reader displays the same safe raw content without edit controls."
+    },
+    {
+      "capabilityId": "inline-marks",
+      "fixture": "tests/fixtures/cherry/inline-marks.md",
+      "source": "Bold, italic, strike, underline, subscript, superscript, ruby and rich marks retain meaning.",
+      "visual": "Tiptap marks map to the registered Markdown dialect and preserve selection formatting.",
+      "finalPreview": "Cherry renders the mark semantics and safe style values.",
+      "reader": "Reader renders the same mark semantics without author actions."
+    },
+    {
+      "capabilityId": "headings-and-quote",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "Heading levels and block quote source syntax remain canonical.",
+      "visual": "Visual exposes native heading and contextual quote structure.",
+      "finalPreview": "Final renders headings, anchors and block quote structure.",
+      "reader": "Reader keeps headings, anchors and quote reading navigation."
+    },
+    {
+      "capabilityId": "lists-and-task-lists",
+      "fixture": "tests/fixtures/cherry/lists.md",
+      "source": "Ordered, unordered and task list Markdown remains round-trippable.",
+      "visual": "Visual uses native list and task item editing semantics.",
+      "finalPreview": "Final renders list markers and checked task state.",
+      "reader": "Reader displays list and task state without mutation events."
+    },
+    {
+      "capabilityId": "panels-and-disclosures",
+      "fixture": "tests/fixtures/cherry/panels.md",
+      "source": "Cherry panel variants and source payloads remain portable Markdown.",
+      "visual": "Visual presents a semantic node with its bounded editing route.",
+      "finalPreview": "Final renders sanitized panel title/body and variant semantics.",
+      "reader": "Reader presents panel content and reading controls only."
+    },
+    {
+      "capabilityId": "columns-and-layout",
+      "fixture": "tests/fixtures/cherry/column-layouts.md",
+      "source": "Two-column, multi-column, tabs, accordion and timeline source stays authoritative.",
+      "visual": "Visual exposes structured layout nodes and local editing controls.",
+      "finalPreview": "Final renders layout/disclosure content through the shared safe path.",
+      "reader": "Reader keeps layout reading interactions while omitting author mutation."
+    },
+    {
+      "capabilityId": "alignment",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "Paragraph alignment is preserved in the Markdown dialect.",
+      "visual": "Visual alignment state maps to the checked source range.",
+      "finalPreview": "Final applies sanitized alignment classes and styles.",
+      "reader": "Reader displays the same aligned content."
+    },
+    {
+      "capabilityId": "ordinary-tables",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "Pipe tables, delimiters and one-time sort results remain Markdown authority.",
+      "visual": "Visual uses Tiptap table structure and commits bounded patches.",
+      "finalPreview": "Final renders the table through Cherry table semantics.",
+      "reader": "Reader displays table structure without edit or mutation events."
+    },
+    {
+      "capabilityId": "chart-tables",
+      "fixture": "tests/fixtures/cherry/chart-tables.md",
+      "source": "Chart table declarations and data/options remain portable source.",
+      "visual": "Visual exposes the chart semantic node and its data editor.",
+      "finalPreview": "Shared hydration validates dataset values before ECharts mount.",
+      "reader": "Reader keeps chart output and safe chart reading surface."
+    },
+    {
+      "capabilityId": "fenced-code-and-language-highlighting",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "Fenced code and language info strings remain exact Markdown.",
+      "visual": "Visual directly edits code and uses session-only fold/highlight state.",
+      "finalPreview": "Shared code enhancement adds copy/fold and author edit actions.",
+      "reader": "Shared code enhancement adds copy/fold but no edit action."
+    },
+    {
+      "capabilityId": "mermaid",
+      "fixture": "tests/fixtures/cherry/mermaid.md",
+      "source": "Mermaid fenced source remains visible and editable in source Markdown.",
+      "visual": "Visual shows a semantic Mermaid node with local rendering/error state.",
+      "finalPreview": "Shared Mermaid hydration validates and renders sanitized SVG previews.",
+      "reader": "Reader shows Mermaid SVG when hydration succeeds and a bounded error otherwise."
+    },
+    {
+      "capabilityId": "formula-inline-and-block",
+      "fixture": "tests/fixtures/cherry/formula.md",
+      "source": "Inline and block KaTeX source remains Markdown authority.",
+      "visual": "Visual exposes formula nodes with the existing dedicated picker.",
+      "finalPreview": "Shared sanitizer rehydrates formulas through the safe KaTeX renderer.",
+      "reader": "Reader keeps inline/block formulas without exposing author controls."
+    },
+    {
+      "capabilityId": "toc",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "TOC source and heading anchors remain derived from Markdown.",
+      "visual": "Visual represents TOC as a navigable semantic node.",
+      "finalPreview": "Final renders the TOC and stable heading anchors.",
+      "reader": "Reader keeps TOC and anchor navigation."
+    },
+    {
+      "capabilityId": "media-and-attachments",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "URL media and attachment metadata remain Markdown fields.",
+      "visual": "Visual uses semantic media/attachment nodes and host upload policy.",
+      "finalPreview": "Final sanitizes URL media and attachment links.",
+      "reader": "Reader displays supported URL media and attachments without upload/edit entry."
+    },
+    {
+      "capabilityId": "drawio-markdown-closure",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "PNG data URL plus URI-encoded mxfile XML remain the sole authority.",
+      "visual": "Visual routes draw.io edits through the controlled bridge and one patch.",
+      "finalPreview": "Final renders the portable PNG preview from the shared safe output.",
+      "reader": "Reader shows the PNG and never initializes the author editor bridge."
+    },
+    {
+      "capabilityId": "search-and-replace",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "Search matches are derived from current Markdown and replacements are explicit edits.",
+      "visual": "Visual decorations do not become persisted content.",
+      "finalPreview": "Final search decorations operate on rendered text only.",
+      "reader": "Reader remains content-read-only while navigation/search is allowed."
+    },
+    {
+      "capabilityId": "themes-and-line-spacing",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "Theme and line spacing are presentation settings, not Markdown fields.",
+      "visual": "Visual consumes resolved settings for editing presentation.",
+      "finalPreview": "Final consumes the same resolved theme/font/line-height context.",
+      "reader": "Reader consumes the resolved reading theme and line spacing."
+    },
+    {
+      "capabilityId": "mode-and-history-boundaries",
+      "fixture": "tests/fixtures/cherry/representative.md",
+      "source": "Mode changes and saves do not rewrite Markdown or clear session history.",
+      "visual": "Visual keeps native history inside the mounted document session.",
+      "finalPreview": "Final derives from the current revision and has no edit history.",
+      "reader": "Reader has no document mutation/history surface."
+    }
+  ]
+}

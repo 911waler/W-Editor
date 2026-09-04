@@ -1,0 +1,149 @@
+{
+  "task": "1.4",
+  "capturedAt": "2026-08-26",
+  "rawReport": "tests/fixtures/baseline/vitest-red.json",
+  "status": "classified",
+  "summary": {
+    "testFiles": { "total": 152, "passed": 139, "failed": 13 },
+    "tests": { "total": 730, "passed": 712, "failed": 18 },
+    "categories": {
+      "product-defect": 0,
+      "stale-contract": 8,
+      "crlf-or-fixture": 10,
+      "jsdom-canvas-environment": 0
+    }
+  },
+  "failures": [
+    {
+      "id": "VITEST-001",
+      "file": "tests/adapters/tiptapLocalization.spec.ts",
+      "test": "Tiptap NodeView localization updates mounted TOC, formula, code, and table copy without rebuilding the editor or mutating content",
+      "category": "stale-contract",
+      "evidence": "The test selects the first data-code-actions element, while the current code marks both the toolbar and language select; the current localization source defines codeNode.actions as the toolbar label."
+    },
+    {
+      "id": "VITEST-002",
+      "file": "tests/adapters/tiptapLocalization.spec.ts",
+      "test": "Tiptap NodeView localization uses an English localization store when the adapter is created without one",
+      "category": "stale-contract",
+      "evidence": "The current code-localized advanced code control no longer exposes the exact legacy text-only label expected by this test; the existing localization drift is isolated to this assertion."
+    },
+    {
+      "id": "VITEST-003",
+      "file": "tests/adapters/tiptapLocalization.spec.ts",
+      "test": "Tiptap NodeView localization relocalizes mounted Mermaid and formula error states without storing translated fallback detail",
+      "category": "stale-contract",
+      "evidence": "The current localized error contract intentionally uses a localized generic formula error when no safe detail is available; the test expects the former English detail to remain in the Chinese message."
+    },
+    {
+      "id": "VITEST-004",
+      "file": "tests/adapters/tiptapSemanticNodeView.spec.ts",
+      "test": "common typed semantic NodeView shows identity and preview with contextual edit controls that select the node and emit current source",
+      "category": "stale-contract",
+      "evidence": "The current uiLocalization contract uses the accessible `semanticNode.editSourceLabel` form (`Edit source: {label}`); the test expects the earlier shorter label."
+    },
+    {
+      "id": "VITEST-005",
+      "file": "tests/codecs/chartTableCodecs.spec.ts",
+      "test": "Cherry chart-table codecs and semantic projection recognizes, projects, validates, and serializes all eight exact upstream fixtures",
+      "category": "crlf-or-fixture",
+      "evidence": "tests/fixtures/cherry/chart-tables.md is CRLF; the codec round-trip assertion exposes LF/CRLF mismatch without a semantic content mismatch."
+    },
+    {
+      "id": "VITEST-006",
+      "file": "tests/codecs/mermaidCodecs.spec.ts",
+      "test": "Mermaid codecs and semantic projection recognizes, projects, validates, and serializes all six exact Cherry fixtures",
+      "category": "crlf-or-fixture",
+      "evidence": "tests/fixtures/cherry/mermaid.md is CRLF; the failure is an exact source line-ending mismatch."
+    },
+    {
+      "id": "VITEST-007",
+      "file": "tests/codecs/panelCodecs.spec.ts",
+      "test": "Cherry panel codecs recognizes, projects, validates, and serializes every exact panel fixture",
+      "category": "crlf-or-fixture",
+      "evidence": "tests/fixtures/cherry/panels.md is CRLF; serialized source differs only in line-ending representation."
+    },
+    {
+      "id": "VITEST-008",
+      "file": "tests/codecs/simpleInsertCodecs.spec.ts",
+      "test": "link, inline-code, hard-break, horizontal-rule, and TOC codecs recognizes exact inline and block safe units and projects direct structures",
+      "category": "crlf-or-fixture",
+      "evidence": "The hard-break recognizer requires the explicit `  \\n` contract while tests/fixtures/cherry/simple-inserts.md supplies CRLF, so the hard-break match is skipped."
+    },
+    {
+      "id": "VITEST-009",
+      "file": "tests/codecs/timelineCodec.spec.ts",
+      "test": "timeline codec recognizes exact Cherry timeline syntax as one semantic safe unit",
+      "category": "crlf-or-fixture",
+      "evidence": "tests/fixtures/cherry/timeline.md is CRLF; exact safe-unit serialization reports LF/CRLF mismatch."
+    },
+    {
+      "id": "VITEST-010",
+      "file": "tests/harness/fixtures.spec.ts",
+      "test": "deterministic production-app fixtures provides a representative blocking document and an approximately 1 MB diagnostic document",
+      "category": "crlf-or-fixture",
+      "evidence": "e2e/fixtures/documents/approximately-1mb.md is 1,110,180 bytes, above the asserted upper bound of 1,050,000 bytes."
+    },
+    {
+      "id": "VITEST-011",
+      "file": "tests/harness/fixtures.spec.ts",
+      "test": "deterministic production-app fixtures returns serializable deterministic upload results and a local official-protocol draw.io editor",
+      "category": "crlf-or-fixture",
+      "evidence": "e2e/fixtures/drawio/fake-drawio.html still uses the older eventName/setData/getData protocol while the test expects the current init/action export protocol."
+    },
+    {
+      "id": "VITEST-012",
+      "file": "tests/services/referenceBaselineManifest.spec.ts",
+      "test": "frozen reference baseline manifest pins reviewed local assets and deterministic W-Editor fixtures with complete capture metadata",
+      "category": "crlf-or-fixture",
+      "evidence": "tests/fixtures/parity/w-editor-parity.md is CRLF on disk and hashes to 98754d81..., while the manifest freezes the reviewed LF digest 0c3d156d...."
+    },
+    {
+      "id": "VITEST-013",
+      "file": "tests/ui/appAttachmentIntegration.spec.ts",
+      "test": "application attachment integration commits deterministic local upload metadata as URL-only source and reloads it",
+      "category": "stale-contract",
+      "evidence": "The assertion scans the whole welcome envelope for data URLs, but the current welcome seed intentionally contains an embedded draw.io PNG data URL; it does not isolate the uploaded PDF result."
+    },
+    {
+      "id": "VITEST-014",
+      "file": "tests/ui/appMediaIntegration.spec.ts",
+      "test": "application media integration inserts, persists, reloads, previews, falls back, and edits URL-only media through visible UI",
+      "category": "stale-contract",
+      "evidence": "The assertion scans the whole welcome envelope for data:image, while the current welcome seed contains an embedded local PNG; the inserted media URL itself remains HTTP(S)."
+    },
+    {
+      "id": "VITEST-015",
+      "file": "tests/ui/appShell.spec.ts",
+      "test": "desktop workspace shell shows real fixed-article state, resizes accessibly, and preserves per-document edits on switching",
+      "category": "crlf-or-fixture",
+      "evidence": "The fixed product-notes source is CRLF and the exact textarea expectation compares it with the normalized runtime representation."
+    },
+    {
+      "id": "VITEST-016",
+      "file": "tests/ui/appShell.spec.ts",
+      "test": "desktop workspace shell does not defer TOC selection into another article before Visual entry",
+      "category": "crlf-or-fixture",
+      "evidence": "The same product-notes exact-source expectation fails on the fixture line-ending representation."
+    },
+    {
+      "id": "VITEST-017",
+      "file": "tests/ui/uploadNoResidue.spec.ts",
+      "test": "upload failure and cancellation leave no document residue keeps revision 7 and creates no node or binary storage after an injected failure",
+      "category": "stale-contract",
+      "evidence": "The test expects #markdown-source immediately after mount, but the current product baseline starts in Visual mode."
+    },
+    {
+      "id": "VITEST-018",
+      "file": "tests/ui/uploadNoResidue.spec.ts",
+      "test": "upload failure and cancellation leave no document residue aborts an in-flight upload on Cancel and retains no partial result",
+      "category": "stale-contract",
+      "evidence": "The test expects English Uploading text while the current baseline default locale is Chinese; the current localization source defines the translated uploading status."
+    }
+  ],
+  "environmentWarnings": [
+    "jsdom reports HTMLCanvasElement.getContext as not implemented when Canvas paths are exercised.",
+    "jsdom reports Window.scrollBy as not implemented when scroll paths are exercised."
+  ],
+  "dispositionBoundary": "No failure was reclassified as a product defect or silently ignored. Stale contracts and deterministic inputs require explicit updates in tasks 1.5–1.7, with affected evidence invalidated before rerun."
+}

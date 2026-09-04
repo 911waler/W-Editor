@@ -1,0 +1,2036 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "w-editor-current-visual-reference-freeze",
+  "capturedAt": "2026-08-26T02:58:23.158Z",
+  "productBaselineCommit": "39dddc311f0afb23339b4bba6d816fcfb285ef91",
+  "currentHead": "e8c4e314f6ac416b806834df07defcc95d747395",
+  "browser": "Playwright bundled Chromium",
+  "browserVersion": "151.0.7922.34",
+  "viewport": {
+    "height": 1000,
+    "width": 1440
+  },
+  "dpr": 1,
+  "fixture": "apps/playground/src/content/articles/welcome.md",
+  "reviewedReferenceManifest": {
+    "path": "tests/fixtures/parity/reference-baseline-manifest.json",
+    "pixelCanonicalEngine": "Playwright bundled Chromium 151.0.7922.34",
+    "assetIds": [
+      "cherry-toolbar-main-right",
+      "cherry-components",
+      "cherry-panel-picker",
+      "cherry-formula-picker",
+      "cherry-table-picker",
+      "tiptap-notion-like-visual",
+      "tiptap-notion-like-code",
+      "tiptap-table-node",
+      "w-editor-parity-document",
+      "w-editor-parity-state"
+    ],
+    "unreviewedRerecordingForbidden": true
+  },
+  "pagesAndComponents": [
+    {
+      "id": "workspace",
+      "selector": ".workspace-shell",
+      "purpose": "full current application shell and theme surface"
+    },
+    {
+      "id": "toolbar",
+      "selector": ".toolbar-region",
+      "purpose": "80-command toolbar, menus, sticky geometry and theme entry"
+    },
+    {
+      "id": "editor-surface",
+      "selector": ".editor-surface",
+      "purpose": "active Source/Visual/Final surface boundary"
+    },
+    {
+      "id": "status",
+      "selector": ".status-region",
+      "purpose": "synchronization, autosave, checkpoint and mode status"
+    }
+  ],
+  "themes": [
+    "default",
+    "dark",
+    "gray",
+    "abyss",
+    "green",
+    "red",
+    "violet",
+    "blue"
+  ],
+  "captures": [
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "default-workspace",
+      "localPath": "tests/fixtures/parity/current-visual-references/default-workspace.png",
+      "masks": [],
+      "ownership": "Current W-Editor workspace local baseline for theme default.",
+      "screenshotRegion": ".workspace-shell",
+      "sha256": "dce47fa56d30de1433cd4395f438178aeeafbeefe34d9cb6650a8118f8cc6e05",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "default",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "default-toolbar",
+      "localPath": "tests/fixtures/parity/current-visual-references/default-toolbar.png",
+      "masks": [],
+      "ownership": "Current W-Editor toolbar local baseline for theme default.",
+      "screenshotRegion": ".toolbar-region",
+      "sha256": "73eb690021d38d46ec8718d924fca8c4de01cac8f5235672755c84678eb9b7bc",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "default",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "default-editor-surface",
+      "localPath": "tests/fixtures/parity/current-visual-references/default-editor-surface.png",
+      "masks": [],
+      "ownership": "Current W-Editor editor-surface local baseline for theme default.",
+      "screenshotRegion": ".editor-surface",
+      "sha256": "c439477dac3454444f794b8d3b5ff1f6c47ab09c899dc106f9541aa761e2dc89",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "default",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "default-status",
+      "localPath": "tests/fixtures/parity/current-visual-references/default-status.png",
+      "masks": [],
+      "ownership": "Current W-Editor status local baseline for theme default.",
+      "screenshotRegion": ".status-region",
+      "sha256": "b8859786f9bc8c8068a027a9eab3b151e121556ad30039ec87f1293c164d10f5",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "default",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "dark-workspace",
+      "localPath": "tests/fixtures/parity/current-visual-references/dark-workspace.png",
+      "masks": [],
+      "ownership": "Current W-Editor workspace local baseline for theme dark.",
+      "screenshotRegion": ".workspace-shell",
+      "sha256": "74126c1b8bf1959557af2b6f402e4beed8511b05d21331e966cb86a33902478e",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "dark",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "dark-toolbar",
+      "localPath": "tests/fixtures/parity/current-visual-references/dark-toolbar.png",
+      "masks": [],
+      "ownership": "Current W-Editor toolbar local baseline for theme dark.",
+      "screenshotRegion": ".toolbar-region",
+      "sha256": "34a129b34322dfc3c8456a2b9e50b8e4b95dfc8b07436cf2fcc486a841e7cd76",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "dark",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "dark-editor-surface",
+      "localPath": "tests/fixtures/parity/current-visual-references/dark-editor-surface.png",
+      "masks": [],
+      "ownership": "Current W-Editor editor-surface local baseline for theme dark.",
+      "screenshotRegion": ".editor-surface",
+      "sha256": "be25b77fb770daea43918e568cd06e9c851afad39ce054b21976f3534fbcd02c",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "dark",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "dark-status",
+      "localPath": "tests/fixtures/parity/current-visual-references/dark-status.png",
+      "masks": [],
+      "ownership": "Current W-Editor status local baseline for theme dark.",
+      "screenshotRegion": ".status-region",
+      "sha256": "e17b2d36053c0ad6a5334e20fec7ddaaf9a1930a979d91e189d3c2e2da2387d4",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "dark",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "gray-workspace",
+      "localPath": "tests/fixtures/parity/current-visual-references/gray-workspace.png",
+      "masks": [],
+      "ownership": "Current W-Editor workspace local baseline for theme gray.",
+      "screenshotRegion": ".workspace-shell",
+      "sha256": "50ac6feadf6958f2efb5268e1a56d8786278d5cceaa5ad98e92d127f181408ad",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "gray",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "gray-toolbar",
+      "localPath": "tests/fixtures/parity/current-visual-references/gray-toolbar.png",
+      "masks": [],
+      "ownership": "Current W-Editor toolbar local baseline for theme gray.",
+      "screenshotRegion": ".toolbar-region",
+      "sha256": "b94b67dc625b615b9dd4b3371f23318f9e71ece032f031926dbce8eace1904b9",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "gray",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "gray-editor-surface",
+      "localPath": "tests/fixtures/parity/current-visual-references/gray-editor-surface.png",
+      "masks": [],
+      "ownership": "Current W-Editor editor-surface local baseline for theme gray.",
+      "screenshotRegion": ".editor-surface",
+      "sha256": "fab9281178f737dbcae971950f1f9dd41d0448efc036d64cef2c3d50b64bacba",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "gray",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "gray-status",
+      "localPath": "tests/fixtures/parity/current-visual-references/gray-status.png",
+      "masks": [],
+      "ownership": "Current W-Editor status local baseline for theme gray.",
+      "screenshotRegion": ".status-region",
+      "sha256": "f12c9dcfaa216c95d69657baab884f0ab6edbd09346e1122f76dc4d5e8ff43df",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "gray",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "abyss-workspace",
+      "localPath": "tests/fixtures/parity/current-visual-references/abyss-workspace.png",
+      "masks": [],
+      "ownership": "Current W-Editor workspace local baseline for theme abyss.",
+      "screenshotRegion": ".workspace-shell",
+      "sha256": "227e42b7a7eeea09495e8b944ade14db3ac420fc67123ffd366f21031b91a4c4",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "abyss",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "abyss-toolbar",
+      "localPath": "tests/fixtures/parity/current-visual-references/abyss-toolbar.png",
+      "masks": [],
+      "ownership": "Current W-Editor toolbar local baseline for theme abyss.",
+      "screenshotRegion": ".toolbar-region",
+      "sha256": "e286a2f3fb2208eb5071547de61cd9f0ee38ee85f2ff1b727197ce92ed48002c",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "abyss",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "abyss-editor-surface",
+      "localPath": "tests/fixtures/parity/current-visual-references/abyss-editor-surface.png",
+      "masks": [],
+      "ownership": "Current W-Editor editor-surface local baseline for theme abyss.",
+      "screenshotRegion": ".editor-surface",
+      "sha256": "0a48b690b0ffc1bd594c1c4b08c9c14ab8f637ac28f58c98e56c425edea1b391",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "abyss",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "abyss-status",
+      "localPath": "tests/fixtures/parity/current-visual-references/abyss-status.png",
+      "masks": [],
+      "ownership": "Current W-Editor status local baseline for theme abyss.",
+      "screenshotRegion": ".status-region",
+      "sha256": "34f65f930fea186f23aba90e945d50c087b53fa1fb56fb5592c7ab5ad37c8b36",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "abyss",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "green-workspace",
+      "localPath": "tests/fixtures/parity/current-visual-references/green-workspace.png",
+      "masks": [],
+      "ownership": "Current W-Editor workspace local baseline for theme green.",
+      "screenshotRegion": ".workspace-shell",
+      "sha256": "dd09d8c41a8f2de1ed105b26aae7d4c6d41a2ed212f84768d284ef00d274bb89",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "green",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "green-toolbar",
+      "localPath": "tests/fixtures/parity/current-visual-references/green-toolbar.png",
+      "masks": [],
+      "ownership": "Current W-Editor toolbar local baseline for theme green.",
+      "screenshotRegion": ".toolbar-region",
+      "sha256": "2628d063e5a638161ebdbda634926d758426840d4c568364c30543a12ff8e391",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "green",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "green-editor-surface",
+      "localPath": "tests/fixtures/parity/current-visual-references/green-editor-surface.png",
+      "masks": [],
+      "ownership": "Current W-Editor editor-surface local baseline for theme green.",
+      "screenshotRegion": ".editor-surface",
+      "sha256": "70e93ded01a3a1e3993bfd2e6ab748614992cdeb2ac4c129661839cfef7de619",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "green",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "green-status",
+      "localPath": "tests/fixtures/parity/current-visual-references/green-status.png",
+      "masks": [],
+      "ownership": "Current W-Editor status local baseline for theme green.",
+      "screenshotRegion": ".status-region",
+      "sha256": "b72a29a1b5590732b7626655417877e70b2d724c65128de89c021e4e4e9850f6",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "green",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "red-workspace",
+      "localPath": "tests/fixtures/parity/current-visual-references/red-workspace.png",
+      "masks": [],
+      "ownership": "Current W-Editor workspace local baseline for theme red.",
+      "screenshotRegion": ".workspace-shell",
+      "sha256": "83a746d6e7720c383694a7e102a4a5239d489ac312d2e2287ab5ba369fc5beed",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "red",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "red-toolbar",
+      "localPath": "tests/fixtures/parity/current-visual-references/red-toolbar.png",
+      "masks": [],
+      "ownership": "Current W-Editor toolbar local baseline for theme red.",
+      "screenshotRegion": ".toolbar-region",
+      "sha256": "b4a64e6716150fa99e69baa92361030670c74bb9ea274e43a5b7fa002bfe9499",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "red",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "red-editor-surface",
+      "localPath": "tests/fixtures/parity/current-visual-references/red-editor-surface.png",
+      "masks": [],
+      "ownership": "Current W-Editor editor-surface local baseline for theme red.",
+      "screenshotRegion": ".editor-surface",
+      "sha256": "cf75cb13d3af88759a5f21daf0e354c0c05f5cd0da33472f216aad2031ffdcd1",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "red",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "red-status",
+      "localPath": "tests/fixtures/parity/current-visual-references/red-status.png",
+      "masks": [],
+      "ownership": "Current W-Editor status local baseline for theme red.",
+      "screenshotRegion": ".status-region",
+      "sha256": "2993a0f46bb37c7692a2a6e1459bdfbdbbb4223f2def633720f01dc9aedef437",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "red",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "violet-workspace",
+      "localPath": "tests/fixtures/parity/current-visual-references/violet-workspace.png",
+      "masks": [],
+      "ownership": "Current W-Editor workspace local baseline for theme violet.",
+      "screenshotRegion": ".workspace-shell",
+      "sha256": "8612ac60e15dee2683973db82f4c4cf1b4f422b0d214e5115eac7511942bec82",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "violet",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "violet-toolbar",
+      "localPath": "tests/fixtures/parity/current-visual-references/violet-toolbar.png",
+      "masks": [],
+      "ownership": "Current W-Editor toolbar local baseline for theme violet.",
+      "screenshotRegion": ".toolbar-region",
+      "sha256": "6bd7ee4d78daa1641971027158d78eac4feabbdefa274fa28c202ec365b5a002",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "violet",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "violet-editor-surface",
+      "localPath": "tests/fixtures/parity/current-visual-references/violet-editor-surface.png",
+      "masks": [],
+      "ownership": "Current W-Editor editor-surface local baseline for theme violet.",
+      "screenshotRegion": ".editor-surface",
+      "sha256": "606ca5abf99b30c027b253eb43b58e034b7bc9e3ece7fc60c475ea70c479a82a",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "violet",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "violet-status",
+      "localPath": "tests/fixtures/parity/current-visual-references/violet-status.png",
+      "masks": [],
+      "ownership": "Current W-Editor status local baseline for theme violet.",
+      "screenshotRegion": ".status-region",
+      "sha256": "6552a20460101ba3cee1cf51a070b64d15b900fa2cad8013d83b90f63cc9b1a4",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "violet",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "blue-workspace",
+      "localPath": "tests/fixtures/parity/current-visual-references/blue-workspace.png",
+      "masks": [],
+      "ownership": "Current W-Editor workspace local baseline for theme blue.",
+      "screenshotRegion": ".workspace-shell",
+      "sha256": "c8e466cbf33da05cf1dd26408e25ea2bfbf6ba0030a9b87806148eae6d60d52d",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "blue",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "blue-toolbar",
+      "localPath": "tests/fixtures/parity/current-visual-references/blue-toolbar.png",
+      "masks": [],
+      "ownership": "Current W-Editor toolbar local baseline for theme blue.",
+      "screenshotRegion": ".toolbar-region",
+      "sha256": "a47a834ba0ce3db1397de86a9eb7d7f72d272619d0b9fdf891d5d1dcd058e43a",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "blue",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "blue-editor-surface",
+      "localPath": "tests/fixtures/parity/current-visual-references/blue-editor-surface.png",
+      "masks": [],
+      "ownership": "Current W-Editor editor-surface local baseline for theme blue.",
+      "screenshotRegion": ".editor-surface",
+      "sha256": "47e3beee1ce115d29939465a66a16d649f79da77ec7e8cf0ae7a194fad3bb819",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "blue",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "animationControls": "All CSS animations and transitions disabled; caret hidden before capture.",
+      "baselineReviewEvidence": "Task 1.10 current production W-Editor baseline freeze 2026-08-26",
+      "browser": "Playwright bundled Chromium",
+      "browserVersion": "151.0.7922.34",
+      "captureDate": "2026-08-26",
+      "dpr": 1,
+      "fixture": "apps/playground/src/content/articles/welcome.md",
+      "fonts": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "id": "blue-status",
+      "localPath": "tests/fixtures/parity/current-visual-references/blue-status.png",
+      "masks": [],
+      "ownership": "Current W-Editor status local baseline for theme blue.",
+      "screenshotRegion": ".status-region",
+      "sha256": "0d09f7a0d28a8ae9c6ccb6f33ea97fd7a3a62317493b7bb5ade0e3cf98bcbe72",
+      "sourceUrl": "repository://dist production preview",
+      "theme": "blue",
+      "timeControls": "Clock-independent current playground seed; capture after document.fonts.ready and fixed 250 ms settle.",
+      "tolerance": {
+        "maxDiffPixelRatio": 0,
+        "threshold": 0
+      },
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    }
+  ],
+  "behaviorSnapshots": [
+    {
+      "theme": "default",
+      "lineSpacingIds": [
+        "single",
+        "compact",
+        "standard",
+        "double"
+      ],
+      "commandIds": [
+        "text.bold",
+        "text.italic",
+        "text.strike",
+        "text.underline",
+        "text.subscript",
+        "text.superscript",
+        "text.ruby",
+        "block.quote",
+        "text.size",
+        "text.color",
+        "text.background",
+        "block.h1",
+        "block.h2",
+        "block.h3",
+        "block.h4",
+        "block.h5",
+        "insert.drawio",
+        "list.ordered",
+        "list.unordered",
+        "list.task",
+        "panel.primary",
+        "panel.info",
+        "panel.warning",
+        "panel.danger",
+        "panel.success",
+        "layout.two-column",
+        "layout.multi-column",
+        "layout.tabs",
+        "layout.timeline",
+        "align.left",
+        "align.center",
+        "align.right",
+        "align.justify",
+        "layout.accordion",
+        "insert.image",
+        "insert.audio",
+        "insert.video",
+        "insert.link",
+        "insert.horizontal-rule",
+        "insert.hard-break",
+        "insert.code-block",
+        "insert.inline-code",
+        "insert.formula",
+        "insert.toc",
+        "insert.table",
+        "insert.pdf",
+        "insert.word",
+        "insert.file",
+        "mermaid.flowchart",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.class",
+        "mermaid.pie",
+        "mermaid.gantt",
+        "chart.line",
+        "chart.bar",
+        "chart.radar",
+        "chart.map",
+        "chart.heatmap",
+        "chart.scatter",
+        "chart.pie",
+        "chart.sankey",
+        "history.undo",
+        "history.redo",
+        "settings.shortcuts",
+        "search.replace",
+        "document.manual-save",
+        "document.word-count",
+        "language.zh",
+        "language.en",
+        "language.ru",
+        "export.markdown",
+        "export.html",
+        "export.word",
+        "export.pdf",
+        "export.screenshot",
+        "application.fullscreen",
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "componentCounts": {
+        ".workspace-shell": 1,
+        ".toolbar-region": 1,
+        ".editor-surface": 1,
+        ".visual-surface": 1,
+        ".status-region": 1
+      },
+      "dpr": 1,
+      "fontFamilies": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "modeIds": [
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "shellTheme": "default",
+      "themeOptionIds": [
+        "default",
+        "dark",
+        "gray",
+        "abyss",
+        "green",
+        "red",
+        "violet",
+        "blue"
+      ],
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "theme": "dark",
+      "lineSpacingIds": [
+        "single",
+        "compact",
+        "standard",
+        "double"
+      ],
+      "commandIds": [
+        "text.bold",
+        "text.italic",
+        "text.strike",
+        "text.underline",
+        "text.subscript",
+        "text.superscript",
+        "text.ruby",
+        "block.quote",
+        "text.size",
+        "text.color",
+        "text.background",
+        "block.h1",
+        "block.h2",
+        "block.h3",
+        "block.h4",
+        "block.h5",
+        "insert.drawio",
+        "list.ordered",
+        "list.unordered",
+        "list.task",
+        "panel.primary",
+        "panel.info",
+        "panel.warning",
+        "panel.danger",
+        "panel.success",
+        "layout.two-column",
+        "layout.multi-column",
+        "layout.tabs",
+        "layout.timeline",
+        "align.left",
+        "align.center",
+        "align.right",
+        "align.justify",
+        "layout.accordion",
+        "insert.image",
+        "insert.audio",
+        "insert.video",
+        "insert.link",
+        "insert.horizontal-rule",
+        "insert.hard-break",
+        "insert.code-block",
+        "insert.inline-code",
+        "insert.formula",
+        "insert.toc",
+        "insert.table",
+        "insert.pdf",
+        "insert.word",
+        "insert.file",
+        "mermaid.flowchart",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.class",
+        "mermaid.pie",
+        "mermaid.gantt",
+        "chart.line",
+        "chart.bar",
+        "chart.radar",
+        "chart.map",
+        "chart.heatmap",
+        "chart.scatter",
+        "chart.pie",
+        "chart.sankey",
+        "history.undo",
+        "history.redo",
+        "settings.shortcuts",
+        "search.replace",
+        "document.manual-save",
+        "document.word-count",
+        "language.zh",
+        "language.en",
+        "language.ru",
+        "export.markdown",
+        "export.html",
+        "export.word",
+        "export.pdf",
+        "export.screenshot",
+        "application.fullscreen",
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "componentCounts": {
+        ".workspace-shell": 1,
+        ".toolbar-region": 1,
+        ".editor-surface": 1,
+        ".visual-surface": 1,
+        ".status-region": 1
+      },
+      "dpr": 1,
+      "fontFamilies": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "modeIds": [
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "shellTheme": "dark",
+      "themeOptionIds": [
+        "default",
+        "dark",
+        "gray",
+        "abyss",
+        "green",
+        "red",
+        "violet",
+        "blue"
+      ],
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "theme": "gray",
+      "lineSpacingIds": [
+        "single",
+        "compact",
+        "standard",
+        "double"
+      ],
+      "commandIds": [
+        "text.bold",
+        "text.italic",
+        "text.strike",
+        "text.underline",
+        "text.subscript",
+        "text.superscript",
+        "text.ruby",
+        "block.quote",
+        "text.size",
+        "text.color",
+        "text.background",
+        "block.h1",
+        "block.h2",
+        "block.h3",
+        "block.h4",
+        "block.h5",
+        "insert.drawio",
+        "list.ordered",
+        "list.unordered",
+        "list.task",
+        "panel.primary",
+        "panel.info",
+        "panel.warning",
+        "panel.danger",
+        "panel.success",
+        "layout.two-column",
+        "layout.multi-column",
+        "layout.tabs",
+        "layout.timeline",
+        "align.left",
+        "align.center",
+        "align.right",
+        "align.justify",
+        "layout.accordion",
+        "insert.image",
+        "insert.audio",
+        "insert.video",
+        "insert.link",
+        "insert.horizontal-rule",
+        "insert.hard-break",
+        "insert.code-block",
+        "insert.inline-code",
+        "insert.formula",
+        "insert.toc",
+        "insert.table",
+        "insert.pdf",
+        "insert.word",
+        "insert.file",
+        "mermaid.flowchart",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.class",
+        "mermaid.pie",
+        "mermaid.gantt",
+        "chart.line",
+        "chart.bar",
+        "chart.radar",
+        "chart.map",
+        "chart.heatmap",
+        "chart.scatter",
+        "chart.pie",
+        "chart.sankey",
+        "history.undo",
+        "history.redo",
+        "settings.shortcuts",
+        "search.replace",
+        "document.manual-save",
+        "document.word-count",
+        "language.zh",
+        "language.en",
+        "language.ru",
+        "export.markdown",
+        "export.html",
+        "export.word",
+        "export.pdf",
+        "export.screenshot",
+        "application.fullscreen",
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "componentCounts": {
+        ".workspace-shell": 1,
+        ".toolbar-region": 1,
+        ".editor-surface": 1,
+        ".visual-surface": 1,
+        ".status-region": 1
+      },
+      "dpr": 1,
+      "fontFamilies": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "modeIds": [
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "shellTheme": "gray",
+      "themeOptionIds": [
+        "default",
+        "dark",
+        "gray",
+        "abyss",
+        "green",
+        "red",
+        "violet",
+        "blue"
+      ],
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "theme": "abyss",
+      "lineSpacingIds": [
+        "single",
+        "compact",
+        "standard",
+        "double"
+      ],
+      "commandIds": [
+        "text.bold",
+        "text.italic",
+        "text.strike",
+        "text.underline",
+        "text.subscript",
+        "text.superscript",
+        "text.ruby",
+        "block.quote",
+        "text.size",
+        "text.color",
+        "text.background",
+        "block.h1",
+        "block.h2",
+        "block.h3",
+        "block.h4",
+        "block.h5",
+        "insert.drawio",
+        "list.ordered",
+        "list.unordered",
+        "list.task",
+        "panel.primary",
+        "panel.info",
+        "panel.warning",
+        "panel.danger",
+        "panel.success",
+        "layout.two-column",
+        "layout.multi-column",
+        "layout.tabs",
+        "layout.timeline",
+        "align.left",
+        "align.center",
+        "align.right",
+        "align.justify",
+        "layout.accordion",
+        "insert.image",
+        "insert.audio",
+        "insert.video",
+        "insert.link",
+        "insert.horizontal-rule",
+        "insert.hard-break",
+        "insert.code-block",
+        "insert.inline-code",
+        "insert.formula",
+        "insert.toc",
+        "insert.table",
+        "insert.pdf",
+        "insert.word",
+        "insert.file",
+        "mermaid.flowchart",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.class",
+        "mermaid.pie",
+        "mermaid.gantt",
+        "chart.line",
+        "chart.bar",
+        "chart.radar",
+        "chart.map",
+        "chart.heatmap",
+        "chart.scatter",
+        "chart.pie",
+        "chart.sankey",
+        "history.undo",
+        "history.redo",
+        "settings.shortcuts",
+        "search.replace",
+        "document.manual-save",
+        "document.word-count",
+        "language.zh",
+        "language.en",
+        "language.ru",
+        "export.markdown",
+        "export.html",
+        "export.word",
+        "export.pdf",
+        "export.screenshot",
+        "application.fullscreen",
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "componentCounts": {
+        ".workspace-shell": 1,
+        ".toolbar-region": 1,
+        ".editor-surface": 1,
+        ".visual-surface": 1,
+        ".status-region": 1
+      },
+      "dpr": 1,
+      "fontFamilies": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "modeIds": [
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "shellTheme": "abyss",
+      "themeOptionIds": [
+        "default",
+        "dark",
+        "gray",
+        "abyss",
+        "green",
+        "red",
+        "violet",
+        "blue"
+      ],
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "theme": "green",
+      "lineSpacingIds": [
+        "single",
+        "compact",
+        "standard",
+        "double"
+      ],
+      "commandIds": [
+        "text.bold",
+        "text.italic",
+        "text.strike",
+        "text.underline",
+        "text.subscript",
+        "text.superscript",
+        "text.ruby",
+        "block.quote",
+        "text.size",
+        "text.color",
+        "text.background",
+        "block.h1",
+        "block.h2",
+        "block.h3",
+        "block.h4",
+        "block.h5",
+        "insert.drawio",
+        "list.ordered",
+        "list.unordered",
+        "list.task",
+        "panel.primary",
+        "panel.info",
+        "panel.warning",
+        "panel.danger",
+        "panel.success",
+        "layout.two-column",
+        "layout.multi-column",
+        "layout.tabs",
+        "layout.timeline",
+        "align.left",
+        "align.center",
+        "align.right",
+        "align.justify",
+        "layout.accordion",
+        "insert.image",
+        "insert.audio",
+        "insert.video",
+        "insert.link",
+        "insert.horizontal-rule",
+        "insert.hard-break",
+        "insert.code-block",
+        "insert.inline-code",
+        "insert.formula",
+        "insert.toc",
+        "insert.table",
+        "insert.pdf",
+        "insert.word",
+        "insert.file",
+        "mermaid.flowchart",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.class",
+        "mermaid.pie",
+        "mermaid.gantt",
+        "chart.line",
+        "chart.bar",
+        "chart.radar",
+        "chart.map",
+        "chart.heatmap",
+        "chart.scatter",
+        "chart.pie",
+        "chart.sankey",
+        "history.undo",
+        "history.redo",
+        "settings.shortcuts",
+        "search.replace",
+        "document.manual-save",
+        "document.word-count",
+        "language.zh",
+        "language.en",
+        "language.ru",
+        "export.markdown",
+        "export.html",
+        "export.word",
+        "export.pdf",
+        "export.screenshot",
+        "application.fullscreen",
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "componentCounts": {
+        ".workspace-shell": 1,
+        ".toolbar-region": 1,
+        ".editor-surface": 1,
+        ".visual-surface": 1,
+        ".status-region": 1
+      },
+      "dpr": 1,
+      "fontFamilies": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "modeIds": [
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "shellTheme": "green",
+      "themeOptionIds": [
+        "default",
+        "dark",
+        "gray",
+        "abyss",
+        "green",
+        "red",
+        "violet",
+        "blue"
+      ],
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "theme": "red",
+      "lineSpacingIds": [
+        "single",
+        "compact",
+        "standard",
+        "double"
+      ],
+      "commandIds": [
+        "text.bold",
+        "text.italic",
+        "text.strike",
+        "text.underline",
+        "text.subscript",
+        "text.superscript",
+        "text.ruby",
+        "block.quote",
+        "text.size",
+        "text.color",
+        "text.background",
+        "block.h1",
+        "block.h2",
+        "block.h3",
+        "block.h4",
+        "block.h5",
+        "insert.drawio",
+        "list.ordered",
+        "list.unordered",
+        "list.task",
+        "panel.primary",
+        "panel.info",
+        "panel.warning",
+        "panel.danger",
+        "panel.success",
+        "layout.two-column",
+        "layout.multi-column",
+        "layout.tabs",
+        "layout.timeline",
+        "align.left",
+        "align.center",
+        "align.right",
+        "align.justify",
+        "layout.accordion",
+        "insert.image",
+        "insert.audio",
+        "insert.video",
+        "insert.link",
+        "insert.horizontal-rule",
+        "insert.hard-break",
+        "insert.code-block",
+        "insert.inline-code",
+        "insert.formula",
+        "insert.toc",
+        "insert.table",
+        "insert.pdf",
+        "insert.word",
+        "insert.file",
+        "mermaid.flowchart",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.class",
+        "mermaid.pie",
+        "mermaid.gantt",
+        "chart.line",
+        "chart.bar",
+        "chart.radar",
+        "chart.map",
+        "chart.heatmap",
+        "chart.scatter",
+        "chart.pie",
+        "chart.sankey",
+        "history.undo",
+        "history.redo",
+        "settings.shortcuts",
+        "search.replace",
+        "document.manual-save",
+        "document.word-count",
+        "language.zh",
+        "language.en",
+        "language.ru",
+        "export.markdown",
+        "export.html",
+        "export.word",
+        "export.pdf",
+        "export.screenshot",
+        "application.fullscreen",
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "componentCounts": {
+        ".workspace-shell": 1,
+        ".toolbar-region": 1,
+        ".editor-surface": 1,
+        ".visual-surface": 1,
+        ".status-region": 1
+      },
+      "dpr": 1,
+      "fontFamilies": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "modeIds": [
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "shellTheme": "red",
+      "themeOptionIds": [
+        "default",
+        "dark",
+        "gray",
+        "abyss",
+        "green",
+        "red",
+        "violet",
+        "blue"
+      ],
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "theme": "violet",
+      "lineSpacingIds": [
+        "single",
+        "compact",
+        "standard",
+        "double"
+      ],
+      "commandIds": [
+        "text.bold",
+        "text.italic",
+        "text.strike",
+        "text.underline",
+        "text.subscript",
+        "text.superscript",
+        "text.ruby",
+        "block.quote",
+        "text.size",
+        "text.color",
+        "text.background",
+        "block.h1",
+        "block.h2",
+        "block.h3",
+        "block.h4",
+        "block.h5",
+        "insert.drawio",
+        "list.ordered",
+        "list.unordered",
+        "list.task",
+        "panel.primary",
+        "panel.info",
+        "panel.warning",
+        "panel.danger",
+        "panel.success",
+        "layout.two-column",
+        "layout.multi-column",
+        "layout.tabs",
+        "layout.timeline",
+        "align.left",
+        "align.center",
+        "align.right",
+        "align.justify",
+        "layout.accordion",
+        "insert.image",
+        "insert.audio",
+        "insert.video",
+        "insert.link",
+        "insert.horizontal-rule",
+        "insert.hard-break",
+        "insert.code-block",
+        "insert.inline-code",
+        "insert.formula",
+        "insert.toc",
+        "insert.table",
+        "insert.pdf",
+        "insert.word",
+        "insert.file",
+        "mermaid.flowchart",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.class",
+        "mermaid.pie",
+        "mermaid.gantt",
+        "chart.line",
+        "chart.bar",
+        "chart.radar",
+        "chart.map",
+        "chart.heatmap",
+        "chart.scatter",
+        "chart.pie",
+        "chart.sankey",
+        "history.undo",
+        "history.redo",
+        "settings.shortcuts",
+        "search.replace",
+        "document.manual-save",
+        "document.word-count",
+        "language.zh",
+        "language.en",
+        "language.ru",
+        "export.markdown",
+        "export.html",
+        "export.word",
+        "export.pdf",
+        "export.screenshot",
+        "application.fullscreen",
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "componentCounts": {
+        ".workspace-shell": 1,
+        ".toolbar-region": 1,
+        ".editor-surface": 1,
+        ".visual-surface": 1,
+        ".status-region": 1
+      },
+      "dpr": 1,
+      "fontFamilies": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "modeIds": [
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "shellTheme": "violet",
+      "themeOptionIds": [
+        "default",
+        "dark",
+        "gray",
+        "abyss",
+        "green",
+        "red",
+        "violet",
+        "blue"
+      ],
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    },
+    {
+      "theme": "blue",
+      "lineSpacingIds": [
+        "single",
+        "compact",
+        "standard",
+        "double"
+      ],
+      "commandIds": [
+        "text.bold",
+        "text.italic",
+        "text.strike",
+        "text.underline",
+        "text.subscript",
+        "text.superscript",
+        "text.ruby",
+        "block.quote",
+        "text.size",
+        "text.color",
+        "text.background",
+        "block.h1",
+        "block.h2",
+        "block.h3",
+        "block.h4",
+        "block.h5",
+        "insert.drawio",
+        "list.ordered",
+        "list.unordered",
+        "list.task",
+        "panel.primary",
+        "panel.info",
+        "panel.warning",
+        "panel.danger",
+        "panel.success",
+        "layout.two-column",
+        "layout.multi-column",
+        "layout.tabs",
+        "layout.timeline",
+        "align.left",
+        "align.center",
+        "align.right",
+        "align.justify",
+        "layout.accordion",
+        "insert.image",
+        "insert.audio",
+        "insert.video",
+        "insert.link",
+        "insert.horizontal-rule",
+        "insert.hard-break",
+        "insert.code-block",
+        "insert.inline-code",
+        "insert.formula",
+        "insert.toc",
+        "insert.table",
+        "insert.pdf",
+        "insert.word",
+        "insert.file",
+        "mermaid.flowchart",
+        "mermaid.sequence",
+        "mermaid.state",
+        "mermaid.class",
+        "mermaid.pie",
+        "mermaid.gantt",
+        "chart.line",
+        "chart.bar",
+        "chart.radar",
+        "chart.map",
+        "chart.heatmap",
+        "chart.scatter",
+        "chart.pie",
+        "chart.sankey",
+        "history.undo",
+        "history.redo",
+        "settings.shortcuts",
+        "search.replace",
+        "document.manual-save",
+        "document.word-count",
+        "language.zh",
+        "language.en",
+        "language.ru",
+        "export.markdown",
+        "export.html",
+        "export.word",
+        "export.pdf",
+        "export.screenshot",
+        "application.fullscreen",
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "componentCounts": {
+        ".workspace-shell": 1,
+        ".toolbar-region": 1,
+        ".editor-surface": 1,
+        ".visual-surface": 1,
+        ".status-region": 1
+      },
+      "dpr": 1,
+      "fontFamilies": [
+        "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+        "\"Helvetica Neue\", Arial, \"Hiragino Sans GB\", STHeiti, \"Microsoft YaHei\", \"WenQuanYi Micro Hei\", sans-serif"
+      ],
+      "modeIds": [
+        "mode.source",
+        "mode.visual",
+        "mode.preview"
+      ],
+      "shellTheme": "blue",
+      "themeOptionIds": [
+        "default",
+        "dark",
+        "gray",
+        "abyss",
+        "green",
+        "red",
+        "violet",
+        "blue"
+      ],
+      "viewport": {
+        "height": 1000,
+        "width": 1440
+      }
+    }
+  ],
+  "seamEvidence": "E2E authority marker is absent in dist.",
+  "approvalRules": {
+    "replaceRequires": [
+      "explicit approved behavior/visual contract change",
+      "review evidence string",
+      "new capture metadata and SHA-256",
+      "affected focused/full gates rerun from earliest changed input"
+    ],
+    "forbidden": [
+      "test mismatch as review evidence",
+      "unreviewed overwrite",
+      "masking a changed product region to preserve a pass",
+      "changing tolerance to make a mismatch green"
+    ],
+    "reviewer": "User or explicitly authorized release reviewer; no automatic refresh.",
+    "externalAssetBoundary": "Existing reviewed upstream assets remain immutable; this manifest freezes repository-local current W-Editor output only."
+  },
+  "sourceInputs": [
+    "tests/fixtures/manifests/feature-manifest.json",
+    "tests/fixtures/parity/reference-baseline-manifest.json",
+    "docs/reference-baseline.md",
+    "apps/playground/src/content/articles/welcome.md",
+    "tests/fixtures/parity/w-editor-parity-state.json"
+  ]
+}

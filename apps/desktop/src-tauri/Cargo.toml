@@ -1,0 +1,37 @@
+[package]
+name = "w-editor-desktop"
+version = "0.1.0"
+description = "Product-representative W-Editor Tauri spike"
+authors = ["W-Editor contributors"]
+edition = "2024"
+rust-version = "1.97.1"
+
+[lib]
+name = "w_editor_desktop_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+serde_json = "=1.0.151"
+tauri-build = { version = "=2.6.3", features = [] }
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+rusqlite = { version = "=0.40.2", features = ["backup", "bundled"] }
+base64 = "=0.22.1"
+flate2 = "=1.1.9"
+hex = "=0.4.3"
+sha2 = "=0.10.9"
+tauri = { version = "=2.11.5", features = [] }
+tauri-plugin-dialog = "=2.7.2"
+tauri-plugin-single-instance = "=2.4.3"
+
+[profile.dev]
+incremental = true
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

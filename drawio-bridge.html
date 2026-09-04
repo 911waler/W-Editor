@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>W-Editor draw.io bridge</title>
+    <style>
+      html, body, iframe { width: 100%; height: 100%; margin: 0; border: 0; }
+      body { overflow: hidden; background: #f7f7f5; }
+      [data-drawio-bridge-status] { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: #475569; font: 14px system-ui, sans-serif; }
+      iframe { position: relative; z-index: 1; display: block; background: white; }
+    </style>
+  </head>
+  <body>
+    <p data-drawio-bridge-status>Loading diagram editor…</p>
+    <iframe
+      id="drawio-editor"
+      allow="clipboard-read; clipboard-write"
+      referrerpolicy="no-referrer"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads"
+      title="diagrams.net editor"
+    ></iframe>
+    <script type="module" src="/src/integrations/drawioBridgePage.ts"></script>
+  </body>
+</html>

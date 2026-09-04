@@ -1,0 +1,34 @@
+diff --git a/templates/blog_edit.html b/templates/blog_edit.html
+--- a/templates/blog_edit.html
++++ b/templates/blog_edit.html
+@@ -152,5 +152,6 @@
+     <section class="blog-editor-grid">
+       <section class="panel blog-editor-panel">
++        <div data-nwu-w-editor-reference data-document-id="{{ post.id or 'new' }}"></div>
+         <label class="editor-source-field">
+           <span class="pane-label">Markdown 源文</span>
+           <div class="source-block-editor" aria-hidden="true"></div>
+@@ -2616,2 +2617,5 @@
+ </script>
++<link rel="stylesheet" href="{{ url_for('static', filename='vendor/w-editor/0.1.0/w-editor.css') }}">
++<script src="{{ url_for('static', filename='vendor/w-editor/0.1.0/w-editor.global.js') }}"></script>
++<script src="{{ url_for('static', filename='nwu-w-editor-reference-adapter.js') }}"></script>
+ {% endblock %}
+diff --git a/templates/blog_view.html b/templates/blog_view.html
+--- a/templates/blog_view.html
++++ b/templates/blog_view.html
+@@ -31,5 +31,7 @@
+   <section class="panel tutorial-panel">
+-    <article class="tutorial-content blog-content">
++    <article class="tutorial-content blog-content" data-nwu-w-renderer-fallback>
+       {{ content_html|safe }}
+     </article>
++    <div data-nwu-w-renderer-reference></div>
++    <script type="application/json" data-nwu-w-renderer-markdown>{{ post.content|tojson }}</script>
+   </section>
+@@ -98,2 +100,5 @@
+ </script>
++<link rel="stylesheet" href="{{ url_for('static', filename='vendor/w-editor/0.1.0/w-editor.css') }}">
++<script src="{{ url_for('static', filename='vendor/w-editor/0.1.0/w-editor.global.js') }}"></script>
++<script src="{{ url_for('static', filename='nwu-w-editor-reference-adapter.js') }}"></script>
+ {% endblock %}
