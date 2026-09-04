@@ -18,3 +18,8 @@ artifacts/
 output/
 artifacts/release/
 artifacts/renderer/parity-candidates/
+
+# Desktop installers intentionally staged for the GitHub source upload
+!release/installers/
+!release/installers/*.exe
+!release/installers/*.msi
