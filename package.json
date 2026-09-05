@@ -2,6 +2,7 @@
   "name": "w-editor",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "imports": {
     "#testing-capability-loader": "./src/testing/capabilityLoader.ts",
