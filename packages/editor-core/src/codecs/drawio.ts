@@ -11,6 +11,16 @@ export interface DrawioModel {
 
 const PNG_DATA_URL = /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/u
 
+function validPreview(value: string): boolean {
+  if (PNG_DATA_URL.test(value)) return true
+  if (/[\s()\\]/u.test(value) || value.startsWith('//')) return false
+  if (value.startsWith('/')) return true
+  try {
+    const url = new URL(value)
+    return (url.protocol === 'http:' || url.protocol === 'https:') && !url.username && !url.password
+  } catch { return false }
+}
+
 function validXml(value: string): boolean {
   return /^\s*<mxfile(?:\s|>)/u.test(value)
 }
@@ -20,7 +30,7 @@ export function drawioSource(nameInput: string, pngInput: string, xmlInput: stri
   const png = pngInput.trim()
   if (name.length === 0) throw new RangeError('draw.io diagram name is required.')
   if (/[\]\r\n]/u.test(name)) throw new RangeError('draw.io diagram name cannot contain a closing bracket or line break.')
-  if (!PNG_DATA_URL.test(png)) throw new RangeError('draw.io preview must be a PNG data URL.')
+  if (!validPreview(png)) throw new RangeError('draw.io preview must be a PNG data URL or HTTP(S) asset address.')
   if (!validXml(xmlInput)) throw new RangeError('draw.io source must be an mxfile XML document.')
   return `![${name}](${png}){data-type=drawio data-xml=${encodeURI(xmlInput)}}`
 }
@@ -30,7 +40,7 @@ export function parseDrawioAt(markdown: string, offset: number): DrawioModel | n
   const newline = markdown.indexOf('\n', offset)
   const lineEnd = newline === -1 ? markdown.length : newline > offset && markdown[newline - 1] === '\r' ? newline - 1 : newline
   const source = markdown.slice(offset, lineEnd)
-  const match = /^!\[([^\]\r\n]+)\]\((data:image\/png;base64,[A-Za-z0-9+/]+={0,2})\)\{data-type=drawio data-xml=([^}]+)\}$/u.exec(source)
+  const match = /^!\[([^\]\r\n]+)\]\(([^\s)]+)\)\{data-type=drawio data-xml=([^}]+)\}$/u.exec(source)
   if (match === null) return null
   let xml: string
   try {
@@ -40,7 +50,7 @@ export function parseDrawioAt(markdown: string, offset: number): DrawioModel | n
   }
   const name = match[1]?.trim() ?? ''
   const png = match[2] ?? ''
-  if (name.length === 0 || !PNG_DATA_URL.test(png) || !validXml(xml)) return null
+  if (name.length === 0 || !validPreview(png) || !validXml(xml)) return null
   return Object.freeze({
     commandId: 'insert.drawio',
     name,

@@ -128,7 +128,7 @@ for (const recovery of [
   })
 }
 
-test('article switching keeps both recovery drafts through explicit dirty decisions and preserves manual state per document', async ({ page }) => {
+test('article switching saves both documents through explicit decisions and preserves manual state per document', async ({ page }) => {
   await openReadyApp(page)
   await useEnglishUi(page)
   const welcome = '# Dirty welcome\n\nAutosaved but not manually checkpointed.'
@@ -141,7 +141,7 @@ test('article switching keeps both recovery drafts through explicit dirty decisi
   await page.locator('.article-card').filter({ hasText: 'Product notes' }).click()
   let decision = page.getByTestId('article-switch-decision')
   await expect(decision).toBeVisible()
-  await decision.getByTestId('article-switch-draft').click()
+  await decision.getByTestId('article-switch-save').click()
   await expect.poll(async () => (await authority(page))?.documentId).toBe('product-notes')
   await expect(page.locator('[role="dialog"]')).toHaveCount(0)
   const welcomeCard = page.locator('.article-card').filter({ hasText: 'Welcome to W-Editor' })
@@ -154,9 +154,9 @@ test('article switching keeps both recovery drafts through explicit dirty decisi
   await page.locator('.article-card').filter({ hasText: 'Welcome to W-Editor' }).click()
   decision = page.getByTestId('article-switch-decision')
   await expect(decision).toBeVisible()
-  await decision.getByTestId('article-switch-draft').click()
+  await decision.getByTestId('article-switch-save').click()
   await expect.poll(async () => (await authority(page))?.markdown).toBe(welcome)
-  await expect(page.locator('.status-region')).toContainText('Manual checkpoint dirty')
+  await expect(page.locator('.status-region')).toContainText('Manual checkpoint clean')
   await page.locator('[data-command-id="document.manual-save"]').click()
   await expect(page.locator('.status-region')).toContainText('Manual checkpoint clean')
 
@@ -165,7 +165,7 @@ test('article switching keeps both recovery drafts through explicit dirty decisi
     welcome: JSON.parse(localStorage.getItem(welcomeKey) ?? 'null') as unknown,
   }), [WELCOME_KEY, PRODUCT_KEY] as const)
   expect(stored.welcome).toMatchObject({ autosave: { markdown: welcome }, manualCheckpoint: { markdown: welcome } })
-  expect(stored.product).toMatchObject({ autosave: { markdown: product }, manualCheckpoint: null })
+  expect(stored.product).toMatchObject({ autosave: { markdown: product }, manualCheckpoint: { markdown: product } })
 })
 
 test('autosave failure remains visible and recoverable while exact in-memory Markdown survives retry and reload', async ({ page }) => {
@@ -213,4 +213,26 @@ test('same-document tabs expose no conflict claim and the last successful persis
   const reopened = await context.newPage()
   await openReadyApp(reopened)
   await expect.poll(async () => (await authority(reopened))?.markdown).toBe(second)
+})
+
+test('discard replaces autosaved edits with the manual save and survives switching and reload', async ({page}) => {
+  await openReadyApp(page)
+  await useEnglishUi(page)
+  await page.locator('[data-command-id="mode.source"]').click()
+  const saved='# Saved baseline\n\nKeep this text.'
+  await page.locator('#markdown-source-editor').fill(saved)
+  await page.locator('[data-command-id="document.manual-save"]').click()
+  await expect(page.locator('.status-region')).toContainText('Manual checkpoint clean')
+  await page.locator('#markdown-source-editor').fill('# Discard these edits')
+  await expect(page.locator('.status-region')).toContainText('Autosave saved')
+  await page.locator('.article-card').filter({hasText:'Product notes'}).click()
+  const dialog=page.getByTestId('article-switch-decision')
+  await expect(dialog.getByRole('button')).toHaveText(['Cancel', 'Discard changes', 'Save changes'])
+  await dialog.getByTestId('article-switch-discard').click()
+  await expect.poll(async () => (await authority(page))?.documentId).toBe('product-notes')
+  await page.locator('.article-card').filter({hasText:'Welcome to W-Editor'}).click()
+  await expect.poll(async () => (await authority(page))?.markdown).toBe(saved)
+  await expect(page.locator('.status-region')).toContainText('Manual checkpoint clean')
+  await page.reload()
+  await expect.poll(async () => (await authority(page))?.markdown).toBe(saved)
 })

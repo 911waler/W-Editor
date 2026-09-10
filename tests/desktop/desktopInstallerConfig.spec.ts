@@ -31,7 +31,7 @@ describe('Tauri desktop installer scope', () => {
       scripts?: { 'build:e2e'?: string; 'preview:e2e'?: string }
     }
 
-    expect(packageJson.scripts?.['build:e2e']).toBe('corepack pnpm run typecheck && vite build --mode e2e')
+    expect(packageJson.scripts?.['build:e2e']).toBe('corepack pnpm run typecheck && vite build --mode e2e && corepack pnpm --filter @w-editor/editor-web run build && corepack pnpm --filter @w-editor/nwu-host run build')
     expect(packageJson.scripts?.['preview:e2e']).toBe('corepack pnpm run build:e2e && vite preview --host 127.0.0.1 --port 4173 --strictPort')
   })
 

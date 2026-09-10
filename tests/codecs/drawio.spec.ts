@@ -56,3 +56,16 @@ describe('Cherry draw.io codec', () => {
     expect(parseDrawioAt(`prefix ${source}`, 0)).toBeNull()
   })
 })
+
+describe('durable draw.io preview URLs', () => {
+  it('round trips a stored PNG address with editable XML through the original codec', () => {
+    const xml = '<mxfile><diagram>editable</diagram></mxfile>'
+    const source = drawioSource('Diagram', '/api/blog-editor/assets/abc.png', xml)
+    expect(parseDrawioAt(source, 0)).toMatchObject({png:'/api/blog-editor/assets/abc.png',xml})
+  })
+  it('rejects executable and protocol-relative previews', () => {
+    for (const url of ['javascript:alert(1)', '//evil.test/image.png', '/\\evil.test/x']) {
+      expect(() => drawioSource('Diagram', url, '<mxfile/>')).toThrow()
+    }
+  })
+})

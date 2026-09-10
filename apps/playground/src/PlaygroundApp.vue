@@ -174,6 +174,13 @@ import {
 } from '@w-editor/editor-vue'
 
 const props = defineProps<{
+  readonly articleModes?: Readonly<Record<string, EditorMode>>
+  readonly articleGroupLabels?: readonly string[]
+  readonly articleGroupOverrides?: Readonly<Record<string, string>>
+  readonly articleTitles?: Readonly<Record<string, string>>
+  readonly readonlyMode?: boolean
+  readonly loadArticle?: (documentId: string) => Promise<ArticleDefinition>
+  readonly persistDrawio?: (payload: DrawioSavePayload) => Promise<Readonly<{png: string; xml: string}>>
   readonly articleCatalog?: readonly ArticleDefinition[]
   readonly createArticle?: (input: Readonly<{ title: string }>) => ArticleDefinition | Promise<ArticleDefinition>
   readonly drawioAdapter?: DrawioAdapterPort
@@ -191,8 +198,10 @@ const props = defineProps<{
     readonly synchronizationStatus: string
     readonly title: string
   }>) => void
+  readonly savedMarkdown?: (documentId: string) => string | undefined
   readonly persistence?: Readonly<{
     readonly saveAutosave?: (input: Readonly<{ documentId: string; markdown: string; revision: number }>) => void | Promise<void>
+    readonly savePublish?: (input: Readonly<{ documentId: string; markdown: string; revision: number }>) => void | Promise<void>
     readonly saveManual?: (input: Readonly<{ documentId: string; markdown: string; revision: number; title: string }>) => void | Promise<void>
     readonly saveWorkspace?: (input: Readonly<{ documentId: string; mode: string; sidebar: Readonly<Record<string, unknown>> }>) => void | Promise<void>
   }>
@@ -221,10 +230,10 @@ const uploadAdapter = props.uploadAdapter ?? new BrowserLocalUploadAdapter()
 const configuredEditorUrl = new URL(
   import.meta.env.MODE === 'e2e'
     ? '/e2e/fixtures/drawio/fake-drawio.html'
-    : LOCAL_DRAWIO_EDITOR_PATH,
+    : `${import.meta.env.BASE_URL}${LOCAL_DRAWIO_EDITOR_PATH.replace(/^\//u, '')}`,
   window.location.href,
 ).href
-const configuredBridgeUrl = new URL('/drawio-bridge.html', window.location.href)
+const configuredBridgeUrl = new URL(`${import.meta.env.BASE_URL}drawio-bridge.html`, window.location.href)
 configuredBridgeUrl.searchParams.set('editor', configuredEditorUrl)
 const ownedDrawioAdapter = props.drawioAdapter === undefined ? new DrawioAdapter({
   allowedOrigin: window.location.origin,
@@ -372,10 +381,11 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
         markdown: definition.initialMarkdown,
         revision: 0,
       })
+  const initialMode = props.articleModes?.[definition.documentId] ?? 'visual'
   const modeSurfaces = new WorkspaceModeAdapters(
     initialDocument,
     previewRenderer,
-    'visual',
+    initialMode,
     (snapshot) => { prepareTiptapVisualProjection(snapshot, visualProjector) },
     'visual-readonly',
   )
@@ -409,7 +419,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
       await flushVisualSynchronization()
     },
     initialDocument,
-    initialMode: 'visual',
+    initialMode,
   })
   let runtime: ArticleRuntime
   const autosave = new AutosaveCoordinator({
@@ -465,6 +475,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
       const synchronization = root.synchronization.snapshot()
       if (synchronization.status === 'failed') throw synchronization.failure
     },
+    ...(props.savedMarkdown?.(definition.documentId) === undefined ? {} : { initialBaselineMarkdown: props.savedMarkdown!(definition.documentId)! }),
     initialCheckpoint: stored.status === 'valid' ? stored.value.manualCheckpoint : null,
     session: root.session,
     writeLatest: async (checkpoint) => {
@@ -549,6 +560,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
   }
   root.setManualDirty(manualCheckpoint.dirty())
   runtimes.set(definition.documentId, runtime)
+  articleTimestampVersion.value += 1
   return runtime
 }
 
@@ -602,8 +614,9 @@ const articleSwitch = new ArticleSwitchCoordinator({
     await guard.flush(article)
   },
   initialArticle: Object.freeze({ definition: initialRuntime.definition, session: initialRuntime.root.session }),
-  openArticle: (definition) => {
-    const runtime = runtimes.get(definition.documentId) ?? createArticleRuntime(definition)
+  openArticle: async (definition) => {
+    const loaded = runtimes.has(definition.documentId) ? definition : await props.loadArticle?.(definition.documentId) ?? definition
+    const runtime = runtimes.get(definition.documentId) ?? createArticleRuntime(loaded)
     return Object.freeze({ definition, session: runtime.root.session })
   },
 })
@@ -611,8 +624,7 @@ articleSwitch.subscribe((article) => {
   const runtime = runtimes.get(article.definition.documentId)
   if (runtime === undefined) throw new Error('Active article runtime was not prepared.')
   activeRuntime.value = runtime
-  workspace.value = runtime.state
-  surface.value = runtime.surface
+  publishRuntime(runtime)
   persistWorkspaceState()
   void focusActiveSurface()
 })
@@ -846,6 +858,9 @@ const attachmentDraftUrl = ref('')
 const attachmentDraftMediaType = ref('')
 const attachmentDraftSize = ref(0)
 const drawioDialogOpen = ref(false)
+const drawioUploadError = ref('')
+const drawioUploadBusy = ref(false)
+const pendingDrawioPayload = shallowRef<DrawioSavePayload | null>(null)
 const drawioInitialXml = ref('')
 const drawioName = ref('draw.io diagram')
 const drawioRequestId = ref('')
@@ -997,7 +1012,7 @@ type LifecycleConfirmation = Readonly<{
   title: UiNotice
 }>
 const lifecycleConfirmation = shallowRef<LifecycleConfirmation | null>(null)
-type LifecycleDecision = 'cancel' | 'draft' | 'export' | 'save'
+type LifecycleDecision = 'cancel' | 'save' | 'discard'
 type LifecycleDecisionState = Readonly<{
   body: UiNotice
   kind: 'article-switch'
@@ -1516,6 +1531,14 @@ function localTimeLabel(timestamp: number): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+const collapsedArticleGroups = ref<ReadonlySet<string>>(new Set())
+function toggleArticleGroup(key: string): void {
+  const next = new Set(collapsedArticleGroups.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  collapsedArticleGroups.value = next
+}
+
 const articleGroups = computed(() => {
   void catalogVersion.value
   void articleTimestampVersion.value
@@ -1533,7 +1556,9 @@ const articleGroups = computed(() => {
       ?? (stored?.status === 'valid' ? stored.value.autosave.savedAt : null)
     const parsed = lastUpdated === null ? Number.NaN : Date.parse(lastUpdated)
     const timestamp = Number.isFinite(parsed) ? parsed : null
-    const dateKey = timestamp === null ? 'unupdated' : localDateKey(timestamp)
+    const dateKey = props.articleGroupLabels === undefined
+      ? timestamp === null ? 'unupdated' : localDateKey(timestamp)
+      : props.articleGroupOverrides?.[definition.documentId] ?? runtime?.definition.group ?? definition.group ?? props.articleGroupLabels.at(-1) ?? ''
     const article = Object.freeze({
       definition,
       lastUpdated,
@@ -1546,6 +1571,13 @@ const articleGroups = computed(() => {
   })
   return Object.freeze([...groups.entries()]
     .sort(([left], [right]) => {
+      if (props.articleGroupLabels !== undefined) {
+        const rank = (label: string) => {
+          const index = props.articleGroupLabels?.indexOf(label) ?? -1
+          return index < 0 ? Number.MAX_SAFE_INTEGER : index
+        }
+        return rank(left) - rank(right) || left.localeCompare(right)
+      }
       if (left === 'unupdated') return 1
       if (right === 'unupdated') return -1
       return right.localeCompare(left)
@@ -1557,7 +1589,7 @@ const articleGroups = computed(() => {
         return right.timestamp - left.timestamp
       })),
       dateKey,
-      label: dateKey === 'unupdated' ? t('workspace.notUpdated') : localDateLabel(dateKey, todayKey),
+      label: props.articleGroupLabels !== undefined ? dateKey : dateKey === 'unupdated' ? t('workspace.notUpdated') : localDateLabel(dateKey, todayKey),
     })))
 })
 async function writeExportArtifact(artifact: ExportArtifact): Promise<void> {
@@ -1567,7 +1599,7 @@ async function writeExportArtifact(artifact: ExportArtifact): Promise<void> {
   }
   browserFileExporter.download(artifact)
 }
-const activeArticleTitle = computed(() => activeRuntime.value.definition.title)
+const activeArticleTitle = computed(() => props.articleTitles?.[activeRuntime.value.definition.documentId] ?? activeRuntime.value.definition.title)
 const articleOutline = computed(() => createMarkdownOutline(workspace.value.activeDocument.markdown))
 watch(articleOutline, (items) => {
   if (activeOutlineAnchor.value !== null && !items.some((item) => item.anchor === activeOutlineAnchor.value)) {
@@ -2414,6 +2446,8 @@ async function openDrawioDialog(event?: VisualSemanticBlockSelection): Promise<v
 
 async function closeDrawioDialog(): Promise<void> {
   drawioDialogOpen.value = false
+  drawioUploadError.value = ''
+  pendingDrawioPayload.value = null
   drawioName.value = 'draw.io diagram'
   drawioRequestId.value = ''
   activeRuntime.value.root.setModalActivity(null)
@@ -2422,7 +2456,16 @@ async function closeDrawioDialog(): Promise<void> {
   else visualSurface.value?.focus()
 }
 
-async function acceptDrawioPayload(payload: DrawioSavePayload): Promise<void> {
+async function acceptDrawioPayload(originalPayload: DrawioSavePayload): Promise<void> {
+  if(drawioUploadBusy.value) return
+  pendingDrawioPayload.value = originalPayload
+  drawioUploadBusy.value = true
+  let payload: Readonly<{png: string; xml: string}>
+  try { payload = await props.persistDrawio?.(originalPayload) ?? originalPayload }
+  catch (failure) {
+    drawioUploadError.value = failure instanceof Error ? failure.message : 'Upload failed'
+    return
+  } finally { drawioUploadBusy.value = false }
   if (mode.value === 'source') {
     const result = createDrawioCommandPlan(
       activeRuntime.value.root.session.snapshot(),
@@ -3502,6 +3545,7 @@ async function selectMode(nextMode: EditorMode, eventOrTrigger?: Event | HTMLEle
       actionCount.value += 1
       if (nextMode === 'preview' && previousMode !== 'preview') lastEditingMode.value = previousMode
       if (nextMode !== 'preview') lastEditingMode.value = nextMode
+      persistWorkspaceState()
     }
     await focusActiveSurface()
   } catch {
@@ -4347,6 +4391,7 @@ function previewTaskHistoryDirection(event: KeyboardEvent): 'redo' | 'undo' | nu
 }
 
 function handleApplicationShortcut(event: KeyboardEvent): void {
+  if (props.readonlyMode) return
   if (mode.value !== 'preview' && (event.target as Element | null)?.closest('.ProseMirror') !== null) return
   if (isCherrySourceHistoryShortcutEvent(event)) return
   const previewHistory = mode.value === 'preview' ? previewTaskHistoryDirection(event) : null
@@ -4373,6 +4418,18 @@ async function flushForLifecycle(): Promise<void> {
   await flushLifecycleComposition(runtime, `lifecycle:${runtime.definition.documentId}:${crypto.randomUUID()}`)
   await flushLifecycleSynchronization(runtime)
   await runtime.autosave.flush()
+}
+
+async function publishForLifecycle(): Promise<void> {
+  const runtime = activeRuntime.value
+  await flushLifecycleComposition(runtime, `publish:${runtime.definition.documentId}:${crypto.randomUUID()}`)
+  await flushLifecycleSynchronization(runtime)
+  await runtime.autosave.flush()
+  const snapshot = runtime.root.session.snapshot()
+  if (props.persistence?.savePublish) {
+    await props.persistence.savePublish(snapshot)
+    runtime.manualCheckpoint.acceptSavedMarkdown(snapshot.markdown)
+  }
 }
 
 async function saveForLifecycle(): Promise<void> {
@@ -4549,11 +4606,10 @@ async function selectArticle(documentId: string, eventOrTrigger: Event | HTMLEle
       if (decision === 'save') {
         await runtime.manualCheckpoint.save()
         runtime.root.clearError()
-      } else if (decision === 'draft') {
-        await runtime.autosave.flush()
-      } else {
-        await runtime.autosave.flush()
-        await downloadRawMarkdown()
+      } else if (decision === 'discard') {
+        await runtime.manualCheckpoint.discard(async (snapshot) => {
+          await props.persistence?.saveAutosave?.(snapshot)
+        })
       }
     }
     await articleSwitch.request(documentId)
@@ -4744,6 +4800,7 @@ defineExpose({
   flushForLifecycle,
   openHostArticle,
   saveForLifecycle,
+  publishForLifecycle,
 })
 </script>
 
@@ -4762,7 +4819,7 @@ defineExpose({
     :style="workspaceShellStyle"
   >
     <div
-      v-if="startupRecovery === null"
+      v-if="startupRecovery === null && !props.readonlyMode"
       class="workspace-body"
       :style="workspaceBodyStyle"
     >
@@ -4838,34 +4895,66 @@ defineExpose({
               v-for="group in articleGroups"
               :key="group.dateKey"
               class="article-date-group"
-              data-testid="article-date-group"
+              :data-testid="props.articleGroupLabels ? 'article-category-group' : 'article-date-group'"
             >
               <h3
+                v-if="props.articleGroupLabels"
+                class="article-category-heading"
+              >
+                <button
+                  class="article-category-toggle"
+                  data-testid="article-category-toggle"
+                  type="button"
+                  :aria-expanded="!collapsedArticleGroups.has(group.dateKey)"
+                  :aria-controls="`article-group-${encodeURIComponent(group.dateKey)}`"
+                  @click="toggleArticleGroup(group.dateKey)"
+                >
+                  <svg
+                    class="article-category-chevron"
+                    aria-hidden="true"
+                    viewBox="0 0 16 16"
+                  ><path d="m6 3 5 5-5 5" /></svg>
+                  <span
+                    class="article-category-label"
+                    data-testid="article-category-heading"
+                  >{{ group.label }}</span>
+                  <span class="article-category-count">{{ group.articles.length }}</span>
+                </button>
+              </h3>
+              <h3
+                v-else
                 class="article-date-group__heading"
                 data-testid="article-date-heading"
               >
                 {{ group.label }}
               </h3>
-              <button
-                v-for="article in group.articles"
-                :key="article.definition.documentId"
-                :aria-current="workspace.activeDocument.documentId === article.definition.documentId ? 'page' : undefined"
-                class="article-card"
-                :class="{ 'article-card--active': workspace.activeDocument.documentId === article.definition.documentId }"
-                :data-document-id="article.definition.documentId"
-                data-testid="desktop-library-article"
-                :disabled="articleSwitching || modeSwitching || lifecycleOperation"
-                type="button"
-                @click="selectArticle(article.definition.documentId, $event)"
+              <div
+                :id="`article-group-${encodeURIComponent(group.dateKey)}`"
+                class="article-group-items"
+                :class="{ 'article-group-items--category': props.articleGroupLabels }"
+                :hidden="props.articleGroupLabels !== undefined && collapsedArticleGroups.has(group.dateKey)"
               >
-                <span class="article-card__title">{{ article.definition.title }}</span>
-                <time
-                  class="article-card__time"
-                  :datetime="article.lastUpdated ?? undefined"
+                <button
+                  v-for="article in group.articles"
+                  :key="article.definition.documentId"
+                  :aria-current="workspace.activeDocument.documentId === article.definition.documentId ? 'page' : undefined"
+                  class="article-card"
+                  :class="{ 'article-card--active': workspace.activeDocument.documentId === article.definition.documentId }"
+                  :data-document-id="article.definition.documentId"
+                  data-testid="desktop-library-article"
+                  :disabled="articleSwitching || modeSwitching || lifecycleOperation"
+                  type="button"
+                  @click="selectArticle(article.definition.documentId, $event)"
                 >
-                  {{ article.timeLabel }}
-                </time>
-              </button>
+                  <span class="article-card__title">{{ props.articleTitles?.[article.definition.documentId] ?? article.definition.title }}</span>
+                  <time
+                    class="article-card__time"
+                    :datetime="article.lastUpdated ?? undefined"
+                  >
+                    {{ article.timeLabel }}
+                  </time>
+                </button>
+              </div>
             </section>
           </nav>
           <section
@@ -4976,6 +5065,13 @@ defineExpose({
         class="editor-workspace"
         :aria-label="t('workspace.editor')"
       >
+        <div
+          v-if="$slots['document-actions']"
+          class="toolbar-region"
+          aria-label="笔记操作"
+        >
+          <slot name="document-actions"></slot>
+        </div>
         <div
           ref="toolbarRegion"
           class="toolbar-region"
@@ -5561,6 +5657,7 @@ defineExpose({
       </section>
     </div>
 
+    <slot name="document-dialogs"></slot>
     <section
       v-if="props.showReaderPreview === true && startupRecovery === null"
       aria-labelledby="desktop-reader-preview-title"
@@ -5740,7 +5837,7 @@ defineExpose({
       <section
         aria-labelledby="article-switch-decision-title"
         aria-modal="true"
-        class="dialog-panel"
+        class="dialog-panel lifecycle-decision-panel"
         data-testid="article-switch-decision"
         role="dialog"
       >
@@ -5762,18 +5859,11 @@ defineExpose({
             {{ t('lifecycle.cancel') }}
           </button>
           <button
-            data-testid="article-switch-draft"
+            data-testid="article-switch-discard"
             type="button"
-            @click="settleLifecycleDecision('draft')"
+            @click="settleLifecycleDecision('discard')"
           >
-            {{ t('lifecycle.keepDraft') }}
-          </button>
-          <button
-            data-testid="article-switch-export"
-            type="button"
-            @click="settleLifecycleDecision('export')"
-          >
-            {{ t('lifecycle.exportAndContinue') }}
+            {{ t('lifecycle.discardAndContinue') }}
           </button>
           <button
             class="primary-action"
@@ -6361,6 +6451,9 @@ defineExpose({
       :initial-xml="drawioInitialXml"
       :locale="toolbarLocale"
       :request-id="drawioRequestId"
+      :upload-error="drawioUploadError"
+      :upload-busy="drawioUploadBusy"
+      @retry-upload="pendingDrawioPayload && acceptDrawioPayload(pendingDrawioPayload)"
       @apply="acceptDrawioPayload"
       @cancel="closeDrawioDialog()"
     />

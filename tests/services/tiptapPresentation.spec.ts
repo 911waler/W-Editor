@@ -21,6 +21,20 @@ function mountFixture(path: string) {
 }
 
 describe('canonical Tiptap presentation coverage', () => {
+  it('uses shared inline images with saved dimensions in read-only aligned paragraphs', () => {
+    const container = document.createElement('div'); document.body.append(container)
+    const instance = createTiptapPresentation(container, { profile: 'reader', snapshot: {
+      documentId: 'sized-images', revision: 0,
+      markdown: '::: center\n![A](/a.png){width=320 height=180} ![B](/b.png)\n:::',
+    } })
+    try {
+      expect(container.querySelectorAll('[data-inline-image] img[src]')).toHaveLength(2)
+      expect(container.querySelector('[data-inline-image] img')?.getAttribute('width')).toBe('320')
+      expect(container.querySelector('[data-alignment="center"]')).not.toBeNull()
+      expect(container.querySelector('[data-image-resize-handle], [data-image-toolbar]')).toBeNull()
+    } finally { instance.destroy() }
+  })
+
   it('maps the representative Cherry capability fixture into one read-only Tiptap tree', () => {
     const { container, instance, markdown } = mountFixture('tests/fixtures/cherry/representative.md')
     const root = container.querySelector<HTMLElement>('.ProseMirror')

@@ -82,8 +82,8 @@ test('source composition blocks article switching and persists only the complete
   await endComposition(editor, '中文')
   const decision = page.getByTestId('article-switch-decision')
   await expect(decision).toBeVisible()
-  await expect(decision).toContainText('revision 2')
-  await decision.getByTestId('article-switch-draft').click()
+  await expect(decision).toContainText('Unsaved changes')
+  await decision.getByTestId('article-switch-save').click()
   await expect.poll(async () => (await authority(page))?.documentId).toBe('product-notes')
   const stored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null') as {
     autosave?: { markdown?: string; revision?: number }

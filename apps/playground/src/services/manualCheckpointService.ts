@@ -6,6 +6,7 @@ export const MANUAL_SAVE_COMMAND_ID = 'manual-save'
 export interface ManualCheckpointServiceOptions {
   readonly flushPersistence: () => void | Promise<void>
   readonly flushSynchronization: () => void | Promise<void>
+  readonly initialBaselineMarkdown?: string
   readonly initialCheckpoint: PersistedSnapshotV1 | null
   readonly now?: () => Date
   readonly session: DocumentSession
@@ -33,7 +34,7 @@ export class ManualCheckpointService {
     this.#session = options.session
     this.#writeLatest = options.writeLatest
     this.#checkpoint = options.initialCheckpoint
-    this.#baselineMarkdown = options.initialCheckpoint?.markdown ?? options.session.snapshot().markdown
+    this.#baselineMarkdown = options.initialBaselineMarkdown ?? options.initialCheckpoint?.markdown ?? options.session.snapshot().markdown
     this.#dirty = options.session.snapshot().markdown !== this.#baselineMarkdown
     this.#unsubscribe = options.session.subscribe(({ current }) => this.#compare(current))
   }
@@ -69,6 +70,21 @@ export class ManualCheckpointService {
     this.#baselineMarkdown = checkpoint.markdown
     this.#setDirty(false)
     return checkpoint
+  }
+
+  acceptSavedMarkdown(markdown: string): void {
+    this.#baselineMarkdown = markdown
+    this.#compare(this.#session.snapshot())
+  }
+
+  async discard(persist: (snapshot: DocumentSnapshot) => void | Promise<void>): Promise<void> {
+    await this.#flushSynchronization()
+    await this.#flushPersistence()
+    const current = this.#session.snapshot()
+    // Persist the replacement before changing the live document; failure keeps edits open.
+    await persist({ ...current, markdown: this.#baselineMarkdown, revision: current.revision + 1 })
+    this.#session.commitSource({ markdown: this.#baselineMarkdown, origin: 'cherry-source' })
+    await this.#flushPersistence()
   }
 
   destroy(): void {

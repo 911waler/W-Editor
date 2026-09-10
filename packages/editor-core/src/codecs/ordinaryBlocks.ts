@@ -388,7 +388,7 @@ function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
       continue
     }
     const media = parseMediaAt(markdown, offset)
-    if (media !== null) {
+    if (media !== null && media.kind !== 'image') {
       blocks.push(Object.freeze({
         body: media.source,
         codecId: `media-${media.kind}`,
@@ -565,7 +565,7 @@ function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
         || parseFencedCodeAt(markdown, cursor) !== null
         || rawFencedCodeCandidateAt(markdown, cursor) !== null
         || parseDrawioAt(markdown, cursor) !== null
-        || parseMediaAt(markdown, cursor) !== null
+        || isBlockMediaAt(markdown, cursor)
         || parseAttachmentAt(markdown, cursor) !== null
         || parseOrdinaryTableAt(markdown, cursor) !== null
         || rawTableCandidateAt(markdown, cursor) !== null
@@ -582,6 +582,11 @@ function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
     offset = cursor
   }
   return preserveExplicitEmptyParagraphs(markdown, blocks)
+}
+
+function isBlockMediaAt(markdown: string, offset: number): boolean {
+  const media = parseMediaAt(markdown, offset)
+  return media !== null && media.kind !== 'image'
 }
 
 function inlineContent(text: string): JSONContent[] | undefined {

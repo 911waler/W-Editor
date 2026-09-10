@@ -272,68 +272,6 @@ body {
   font-weight: 700;
 }
 
-.desktop-reader-preview {
-  position: fixed;
-  z-index: 80;
-  inset: 5vh 5vw;
-  display: grid;
-  overflow: hidden;
-  border: 1px solid #b6c9bd;
-  border-radius: 16px;
-  background: #f8fbf9;
-  box-shadow: 0 24px 80px rgb(21 51 37 / 30%);
-}
-
-.desktop-reader-preview__panel {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
-}
-
-.desktop-reader-preview__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: .8rem 1rem;
-  border-bottom: 1px solid #d5e0da;
-  background: #f2f7f4;
-}
-
-.desktop-reader-preview__header h2,
-.desktop-reader-preview__header p {
-  margin: 0;
-}
-
-.desktop-reader-preview__header h2 {
-  color: #173f2e;
-  font-size: .95rem;
-}
-
-.desktop-reader-preview__header button {
-  min-height: 2rem;
-  padding: .35rem .65rem;
-  border: 1px solid #aebfb4;
-  border-radius: 7px;
-  background: #fff;
-  color: #315345;
-  cursor: pointer;
-  font-size: .75rem;
-  font-weight: 700;
-}
-
-.desktop-reader-preview__header button:hover,
-.desktop-reader-preview__header button:focus-visible {
-  border-color: #176b4d;
-  background: #eff8f2;
-}
-
-.desktop-reader-preview .preview-rendered-theme {
-  min-height: 0;
-  overflow: auto;
-  background: #fff;
-}
-
 .desktop-dialog-backdrop {
   position: fixed;
   z-index: 100;

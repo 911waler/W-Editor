@@ -1,0 +1,29 @@
+.workspace-shell.nwu-reader-shell.w-editor-instance { display: grid; grid-template-rows: minmax(0,1fr); grid-template-columns: 252px minmax(0,1fr); height: 100%; min-height: 0; overflow: hidden; }
+.workspace-shell.nwu-reader-shell.w-editor-instance.is-collapsed { grid-template-columns: 52px minmax(0,1fr); }
+.nwu-reader-sidebar { width: auto; }
+.nwu-reader-sidebar .article-panel__header h2 { font-size: .9rem; }
+.nwu-reader-sidebar .article-card { text-decoration: none; grid-template-columns: minmax(0,1fr); }
+.nwu-reader-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--app-canvas,#eef2ef); }
+.nwu-reader-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #d4ddd8; background: var(--app-panel,#f8faf9); color: var(--app-text,#253d31); }
+.nwu-reader-actions h1 { min-width: 0; flex: 1; margin: 0; font: 600 .95rem/1.4 sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nwu-reader-back { font-size: .8rem; color: var(--app-text-secondary,#315a46); text-decoration: none; }
+.nwu-reader-options { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+.nwu-reader-options label { display: flex; gap: 5px; align-items: center; font-size: .75rem; }
+.nwu-reader-options select { max-width: 125px; padding: 6px; border: 1px solid #cbd8d0; border-radius: 5px; background: var(--app-surface,#fff); color: var(--app-text,#263e31); font: inherit; }
+.nwu-reader-edit,.nwu-reader-export summary { padding: 7px 12px; border: 1px solid #cbd8d0; border-radius: 5px; cursor: pointer; font-size: .8rem; text-decoration: none; }
+.nwu-reader-edit { background: #216b4c; color: #fff; }
+.nwu-reader-export { position: relative; }
+.nwu-reader-export-menu { position: absolute; right: 0; top: calc(100% + 5px); z-index: 30; display: grid; width: 150px; padding: 5px; border: 1px solid #cbd8d0; border-radius: 6px; background: var(--app-surface,#fff); color: var(--app-text,#263e31); box-shadow: 0 6px 20px #15261b26; }
+.nwu-reader-export-menu button { padding: 9px; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.nwu-reader-export-menu button:hover { background: var(--app-hover,#e9f0eb); }
+.nwu-reader-message { margin: 0; padding: 8px 20px; font-size: .8rem; }
+.nwu-reader-content { flex: 1; min-height: 0; overflow: auto; }
+.nwu-reader-content .tiptap-reader-presentation { overflow: visible; min-height: 100%; }
+.nwu-reader-content :is(h1,h2,h3,h4,h5,h6) { scroll-margin-top: 20px; }
+.nwu-reader-shell :is(a,button,select,summary):focus-visible { outline: 2px solid #278558; outline-offset: 2px; }
+@media (max-width:700px) { .workspace-shell.nwu-reader-shell.w-editor-instance { grid-template-columns: min(220px,48vw) minmax(0,1fr); } .nwu-reader-actions { padding: 10px; } .nwu-reader-options { gap: 6px; } }
+
+/* Reader navigation remains available when the editor's phone layout hides its sidebar. */
+.w-editor-instance.nwu-reader-shell .article-panel.nwu-reader-sidebar { width: auto; }
+.w-editor-instance.nwu-reader-shell .article-panel.nwu-reader-sidebar .article-panel__tabs { display: grid; }
+.w-editor-instance.nwu-reader-shell .article-panel.nwu-reader-sidebar .article-panel__view { display: block; }

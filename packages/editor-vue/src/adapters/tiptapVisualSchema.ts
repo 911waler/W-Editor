@@ -30,6 +30,7 @@ import {
   type UiLocalizationStore,
   type UiMessageKey,
 } from '../services/uiLocalization'
+import { InlineImage } from './imageNode'
 import { highlightCodeTokens } from './codeSyntaxHighlighting'
 import { renderFormulaVisual } from './formulaVisualRenderer'
 
@@ -2806,6 +2807,7 @@ export function createTiptapVisualExtensions(options?: Readonly<TiptapVisualExte
     RawInline.configure({ localization, onEdit: resolvedOptions.onRawEdit ?? null }),
     RawBlock.configure({ localization, onEdit: resolvedOptions.onRawEdit ?? null }),
     PresentationFallback,
+    InlineImage.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     InlineFormula.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     FormulaBlock.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     TocBlock.configure({ localization }),

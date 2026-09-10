@@ -1,3 +1,4 @@
+import { normalizeImageUrl } from '@w-editor/editor-core'
 import { type AssetKind, type UploadAdapter, type UploadSignal, type UploadedAsset, type UploadedAssetDisplayMetadata, type UploadRequest } from '@w-editor/editor-core'
 
 export { ASSET_KINDS } from '@w-editor/editor-core'
@@ -44,6 +45,9 @@ export function validateAssetUrl(input: string, options: AssetUrlValidationOptio
   const value = input.trim()
   if (value.length === 0) {
     return Object.freeze({ code: 'ASSET_URL_REQUIRED', message: 'Asset URL is required.', valid: false })
+  }
+  if (options.allowInlineImage === true && value.startsWith('/') && normalizeImageUrl(value) !== null) {
+    return Object.freeze({ valid: true, url: value })
   }
   if (options.allowInlineImage === true && INLINE_IMAGE_URL.test(value)) {
     return Object.freeze({ valid: true, url: value })
