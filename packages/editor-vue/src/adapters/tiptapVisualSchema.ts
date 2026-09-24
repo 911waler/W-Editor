@@ -440,7 +440,9 @@ function formulaAttributes(includeProjection: boolean): Attributes {
     ...(includeProjection ? projectionAttributes() : {}),
     content: {
       default: '',
-      renderHTML: () => ({}),
+      parseHTML: (element) => element.getAttribute('data-formula-content')
+        ?? (element.childElementCount === 0 ? element.textContent ?? '' : ''),
+      renderHTML: (attributes) => ({ 'data-formula-content': attributes['content'] }),
     },
     formulaMode: {
       default: includeProjection ? 'block' : 'inline',
