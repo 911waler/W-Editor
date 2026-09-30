@@ -972,6 +972,7 @@ function projectedInlineText(node: JSONContent): string {
   if (node.type === 'inlineFormula' && typeof node.attrs?.['content'] === 'string') {
     return node.attrs['content'] as string
   }
+  if (node.type === 'citation') return `[${String(node.attrs?.['number'] ?? '')}]`
   if (node.type === 'hardBreak') return ' '
   return node.content?.map(projectedInlineText).join('') ?? ''
 }

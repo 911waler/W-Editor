@@ -25,3 +25,5 @@ export * from './media'
 export * from './images'
 export * from './attachments'
 export * from './drawio'
+
+export * from './references'

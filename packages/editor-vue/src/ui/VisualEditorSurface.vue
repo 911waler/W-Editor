@@ -498,6 +498,7 @@ defineExpose({
   applyList: (commandId: ListCommandId) => adapter?.applyList(commandId)
     ?? Object.freeze({ active: false, changed: false }),
   applyLink: (href: string) => adapter?.applyLink(href) ?? Object.freeze({ active: false, changed: false }),
+  applyReference: (reference: { id: string; number: number; text: string }) => adapter?.applyReference(reference) ?? { active: false, changed: false },
   applyFormula: (mode: FormulaMode, content: string) => adapter?.applyFormula(mode, content)
     ?? Object.freeze({ active: false, changed: false }),
   applyCodeBlock: (language: string, code: string) => adapter?.applyCodeBlock(language, code)

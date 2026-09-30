@@ -1,3 +1,5 @@
+import { buildReferenceList } from '../adapters/referenceNode'
+import { scanReferences } from '@w-editor/editor-core'
 import type { DocumentSnapshot } from '@w-editor/editor-core'
 import { sanitizeCherryHtmlWithSafeFormulas } from './rehydrateCherryFormulas'
 import type { PreviewRenderer } from './workspaceModeAdapters'
@@ -47,6 +49,8 @@ export interface HtmlDerivedExportArtifacts {
 }
 
 export const EXPORT_STYLES = `
+.w-reference { font-size: .8em; vertical-align: super; }
+.w-reference-list { border-top: 1px solid #aaa; margin-top: 24px; overflow-wrap: anywhere; }
 html { --w-editor-content-font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --w-editor-heading-font-family: Georgia, serif; color: #17211d; background: #fff; font-family: var(--w-editor-content-font-family); font-synthesis: weight style; line-height: 1.75; }
 body { margin: 0; }
 .rendered-document-theme { position: static; display: block; width: 100%; min-height: 0; height: auto; background: transparent; box-shadow: none; }
@@ -161,7 +165,7 @@ export function renderSafeTiptapExportDocument(
     element.removeAttribute('aria-readonly')
   }
   return Object.freeze({
-    bodyHtml: clone.innerHTML,
+    bodyHtml: clone.innerHTML + (scanReferences(snapshot.markdown).length ? buildReferenceList(scanReferences(snapshot.markdown), clone.ownerDocument).outerHTML : ''),
     documentId: snapshot.documentId,
     ...(presentation === undefined ? {} : { lineHeight: presentation.lineHeight, theme: presentation.theme }),
     presentationEngine: 'tiptap',

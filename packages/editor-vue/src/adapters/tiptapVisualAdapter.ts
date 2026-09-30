@@ -1,3 +1,4 @@
+import { referenceRegistry } from '@w-editor/editor-core'
 import { parseInlineImageAt } from '@w-editor/editor-core'
 import { imageAttributes, imageMarkdown } from './imageNode'
 import { Editor, getSchema, type JSONContent } from '@tiptap/core'
@@ -541,6 +542,7 @@ export class TiptapVisualAdapter {
       content: this.#projection.content,
       element: options.host,
       extensions: createTiptapVisualExtensions({
+        referenceRegistry: referenceRegistry(options.session),
         localization,
         mountChart: (target, source) => (
           options.chartRenderer ?? defaultCherryChartPreviewRenderer
@@ -1324,6 +1326,14 @@ export class TiptapVisualAdapter {
 
   selectedFormulaSource(): string | null {
     return this.selectedFormula()?.source ?? null
+  }
+
+  applyReference(reference: { id: string; number: number; text: string }): VisualCommandResult {
+    this.#assertAlive()
+    const node = this.#editor.schema.nodes['citation']?.create(reference)
+    if (!node || !this.#editor.isEditable) return { active: false, changed: false }
+    this.#editor.view.dispatch(closeHistory(this.#editor.state.tr.replaceSelectionWith(node)))
+    return { active: true, changed: true }
   }
 
   applyFormula(source: string): VisualCommandResult

@@ -1090,3 +1090,12 @@
 .lifecycle-decision-panel .dialog-panel__actions button { flex: 0 0 auto; white-space: nowrap; }
 .lifecycle-option-help { padding-left: 1.3rem; line-height: 1.6; }
 .lifecycle-option-help li + li { margin-top: .4rem; }
+
+.w-reference { font-size: .8em; vertical-align: super; cursor: pointer; text-decoration: none; padding-inline: 1px; }
+.w-reference-list { margin: 24px 0; padding: 16px; border-top: 1px solid #a0aaa5; overflow-wrap: anywhere; }
+.w-reference-list h2 { font-size: 1.1em; }
+.w-reference-list p { margin: 8px 0; scroll-margin: 24px; }
+
+.visual-surface .ProseMirror:has(+ .w-reference-list:not([hidden])) { min-height: 0; }
+.reference-toolbar-button { margin: 4px 8px; padding: 6px 12px; border: 1px solid var(--app-border, #c7d1cb); border-radius: 6px; background: var(--app-surface, #fff); color: inherit; cursor: pointer; }
+.reference-toolbar-button:disabled { cursor: default; opacity: .5; }

@@ -26,3 +26,5 @@ export * from './workspaceModeAdapters'
 export * from '@w-editor/editor-core'
 
 export * from './outlinePresentation'
+
+export * from './referencePublication'

@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Component, type CSSProperties } from 'vue'
+import ReferencePanel from './ReferencePanel.vue'
+import { referenceRegistry, scanReferences, referenceMarkdown, type DocumentReference } from '@w-editor/editor-core'
+import { publishReferenceSnapshot } from '@w-editor/editor-vue/services'
 import MarkdownImportZone from './MarkdownImportZone.vue'
 import { loadCapabilityProbe } from './testing/capabilityLoader'
 
@@ -427,6 +430,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
     initialMode,
   })
   let runtime: ArticleRuntime
+  referenceRegistry(root.session)
   const autosave = new AutosaveCoordinator({
     pageLifecycle: window,
     persist: async (nextSnapshot) => {
@@ -708,6 +712,7 @@ const visualSurface = ref<{
   readonly applyColumnLayout: (source: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyHeading: (commandId: HeadingCommandId) => { readonly active: boolean; readonly changed: boolean }
   readonly applyList: (commandId: ListCommandId) => { readonly active: boolean; readonly changed: boolean }
+  readonly applyReference: (reference: DocumentReference) => { readonly active: boolean; readonly changed: boolean }
   readonly applyLink: (href: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyMermaid: (source: string, fallbackType?: MermaidDiagramType | null) => { readonly active: boolean; readonly changed: boolean }
   readonly applyFormula: (mode: FormulaMode, content: string) => { readonly active: boolean; readonly changed: boolean }
@@ -1922,6 +1927,61 @@ async function applyRichPicker(): Promise<void> {
     await nextTick()
     richPickerInput.value?.focus()
   }
+}
+
+const referencePanelOpen = ref(false)
+const referenceEntries = shallowRef<readonly DocumentReference[]>([])
+const referenceSelected = ref<string | null>(null)
+const referenceError = ref('')
+const referenceBusy = ref(false)
+let referenceContext: DedicatedEditorOpenContext | null = null
+function refreshReferences(): void {
+  const snapshot = activeRuntime.value.root.session.snapshot()
+  referenceEntries.value = [...new Map(scanReferences(snapshot.markdown).map(item => [item.id, item])).values()].sort((a, b) => a.number - b.number)
+}
+async function openReferences(id: string | null = null): Promise<void> {
+  try {
+    await flushLifecycleSynchronization(activeRuntime.value)
+    referenceContext = captureDedicatedEditorContext(null)
+    referenceSelected.value = id
+    referenceError.value = ''
+    refreshReferences()
+    referencePanelOpen.value = true
+    await nextTick()
+    if (!id) workspaceShell.value?.querySelector<HTMLTextAreaElement>('#reference-input')?.focus()
+  } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
+}
+function onReferenceOpen(event: Event): void {
+  void openReferences((event as CustomEvent<{ id: string }>).detail.id)
+}
+function jumpToReference(id: string): void {
+  const entry = [...(workspaceShell.value?.querySelectorAll<HTMLElement>('.w-reference-list p') ?? [])].find(item => item.id === `reference-${id}`)
+  entry?.scrollIntoView({ block: 'center' })
+}
+async function insertReference(text: string): Promise<void> {
+  if (!referenceContext || referenceBusy.value) return
+  referenceBusy.value = true
+  referenceError.value = ''
+  try {
+    await flushLifecycleSynchronization(activeRuntime.value)
+    assertDedicatedEditorContext(referenceContext)
+    const snapshot = activeRuntime.value.root.session.snapshot()
+    const registry = referenceRegistry(activeRuntime.value.root.session)
+    registry.observe(scanReferences(snapshot.markdown))
+    const reference = registry.adopt({ id: createRandomId(), number: 1, text })
+    if (mode.value === 'source' && referenceContext.sourceSelection) {
+      const { from, to } = referenceContext.sourceSelection
+      const replacement = referenceMarkdown(reference)
+      await applySourcePlan({ baseRevision: snapshot.revision, transactionId: `reference:${createRandomId()}`, patches: [{ codecId: 'reference', from, to, expected: snapshot.markdown.slice(from, to), replacement }] }, { from: from + replacement.length, to: from + replacement.length })
+    } else {
+      if (!visualSurface.value?.applyReference(reference).changed) throw new Error('当前光标位置无法插入引用。')
+      await flushLifecycleSynchronization(activeRuntime.value)
+      visualSurface.value?.focus()
+    }
+    refreshReferences()
+    referencePanelOpen.value = false
+  } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
+  finally { referenceBusy.value = false }
 }
 
 async function openLinkDialog(): Promise<void> {
@@ -4448,15 +4508,26 @@ async function flushForLifecycle(): Promise<void> {
   await runtime.autosave.flush()
 }
 
-async function publishForLifecycle(): Promise<void> {
+async function publishForLifecycle(persist = props.persistence?.savePublish): Promise<void> {
+  if (!persist) return
   const runtime = activeRuntime.value
-  await flushLifecycleComposition(runtime, `publish:${runtime.definition.documentId}:${createRandomId()}`)
-  await flushLifecycleSynchronization(runtime)
-  await runtime.autosave.flush()
-  const snapshot = runtime.root.session.snapshot()
-  if (props.persistence?.savePublish) {
-    await props.persistence.savePublish(snapshot)
-    runtime.manualCheckpoint.acceptSavedMarkdown(snapshot.markdown)
+  const flush = async () => {
+    await flushLifecycleComposition(runtime, `publish:${runtime.definition.documentId}:${createRandomId()}`)
+    await flushLifecycleSynchronization(runtime)
+    await runtime.autosave.flush()
+  }
+  try {
+    const published = await publishReferenceSnapshot(runtime.root.session, async snapshot => { await persist(snapshot) }, flush)
+    runtime.manualCheckpoint.acceptSavedMarkdown(published.markdown)
+  } catch (failure) {
+    // A host may have saved a normalized candidate before a second publish request failed.
+    // Restore the latest draft to both host recovery storage and private draft persistence.
+    try {
+      await flushLifecycleComposition(runtime, `publish-recovery:${createRandomId()}`)
+      await flushLifecycleSynchronization(runtime)
+      await props.persistence?.saveAutosave?.(runtime.root.session.snapshot())
+    } catch { /* Host save adapters retain a local recovery record even when offline. */ }
+    throw failure
   }
 }
 
@@ -4871,7 +4942,18 @@ defineExpose({
     :data-error-code="workspace.error?.code ?? undefined"
     :data-theme="appearanceTheme"
     :style="workspaceShellStyle"
+    @w-reference-open="onReferenceOpen"
   >
+    <ReferencePanel
+      v-if="referencePanelOpen"
+      :entries="referenceEntries"
+      :selected="referenceSelected"
+      :error="referenceError"
+      :busy="referenceBusy"
+      @close="referencePanelOpen = false"
+      @insert="insertReference"
+      @jump="jumpToReference"
+    />
     <input
       ref="lifecycleFileInput"
       accept=".md,.markdown,text/markdown,text/plain"
@@ -5134,11 +5216,21 @@ defineExpose({
         :aria-label="t('workspace.editor')"
       >
         <div
-          v-if="$slots['document-actions'] || props.toolbarImport"
+          v-if="!props.readonlyMode"
           class="toolbar-region"
           aria-label="文档操作"
         >
           <slot name="document-actions"></slot>
+          <button
+            type="button"
+            data-testid="insert-reference"
+            class="reference-toolbar-button"
+            :disabled="mode === 'preview' || lifecycleOperation || articleSwitching"
+            @mousedown.prevent
+            @click="openReferences()"
+          >
+            参考文献 [n]
+          </button>
           <MarkdownImportZone
             v-if="props.toolbarImport"
             class="announcement-import-button"
