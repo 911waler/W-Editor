@@ -107,6 +107,7 @@
       "insert.word",
       "insert.file",
       "insert.drawio",
+      "insert.reference",
       "mermaid.flowchart",
       "mermaid.sequence",
       "mermaid.state",
@@ -136,7 +137,6 @@
       "document.word-count",
       "export.markdown",
       "export.html",
-      "export.word",
       "export.pdf",
       "export.screenshot"
     ],
@@ -342,7 +342,6 @@
   "exports": [
     { "id": "export.markdown", "format": "markdown", "source": "packages/editor-vue/src/services/browserFileExport.ts" },
     { "id": "export.html", "format": "html", "source": "packages/editor-vue/src/services/browserFileExport.ts" },
-    { "id": "export.word", "format": "word-compatible", "source": "packages/editor-vue/src/services/browserFileExport.ts" },
     { "id": "export.pdf", "format": "pdf", "source": "packages/editor-vue/src/services/browserRenderedExport.ts" },
     { "id": "export.screenshot", "format": "png-long-screenshot", "source": "packages/editor-vue/src/services/browserRenderedExport.ts" }
   ],

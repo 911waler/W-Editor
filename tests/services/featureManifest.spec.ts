@@ -41,12 +41,12 @@ const commandIds = [
   'panel.danger', 'panel.success', 'align.left', 'align.center', 'align.right', 'align.justify', 'layout.two-column',
   'layout.multi-column', 'layout.tabs', 'layout.accordion', 'layout.timeline', 'insert.image', 'insert.audio',
   'insert.video', 'insert.link', 'insert.horizontal-rule', 'insert.hard-break', 'insert.code-block', 'insert.inline-code',
-  'insert.formula', 'insert.toc', 'insert.table', 'insert.pdf', 'insert.word', 'insert.file', 'insert.drawio',
+  'insert.formula', 'insert.toc', 'insert.table', 'insert.pdf', 'insert.word', 'insert.file', 'insert.drawio', 'insert.reference',
   'mermaid.flowchart', 'mermaid.sequence', 'mermaid.state', 'mermaid.class', 'mermaid.pie', 'mermaid.gantt',
   'chart.line', 'chart.bar', 'chart.radar', 'chart.map', 'chart.heatmap', 'chart.scatter', 'chart.pie', 'chart.sankey',
   'history.undo', 'history.redo', 'document.manual-save', 'search.replace', 'settings.shortcuts', 'mode.source',
   'mode.visual', 'mode.preview', 'application.fullscreen', 'language.zh', 'language.en', 'language.ru',
-  'document.word-count', 'export.markdown', 'export.html', 'export.word', 'export.pdf', 'export.screenshot',
+  'document.word-count', 'export.markdown', 'export.html', 'export.pdf', 'export.screenshot',
 ] as const
 const componentIds = [
   'component.toolbar', 'component.appearance-theme', 'component.text-marks', 'component.heading', 'component.ruby-pinyin',
@@ -98,7 +98,7 @@ describe('dual-target feature manifest', () => {
     expect(manifest.lineSpacing.map(({ id }) => id)).toEqual(['single', 'compact', 'standard', 'double'])
     expect(manifest.lineSpacing.map(({ value }) => value)).toEqual(LINE_SPACING_OPTIONS.map(({ value }) => value))
     expect(manifest.exports.map(({ id }) => id)).toEqual([
-      'export.markdown', 'export.html', 'export.word', 'export.pdf', 'export.screenshot',
+      'export.markdown', 'export.html', 'export.pdf', 'export.screenshot',
     ])
     expect(manifest.history.editableModes).toEqual(['source', 'visual'])
     expect(manifest.drawio.vendorFileCount).toBe(352)

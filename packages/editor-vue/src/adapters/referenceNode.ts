@@ -1,7 +1,7 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
 import { Plugin } from '@tiptap/pm/state'
-import { referenceMarkdown, referenceUrl, ReferenceRegistry, parseReferenceAt, parseReferenceMetadata, parseReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
+import { referenceMarkdown, ReferenceRegistry, parseReferenceAt, parseReferenceMetadata, parseReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
 
 import { formatReference } from '../services/citationFormatting'
 
@@ -63,10 +63,8 @@ export function buildReferenceList(references: readonly DocumentReference[], doc
     back.textContent = `[${reference.number}]`
     back.setAttribute('aria-label', `返回引用 ${reference.number} / Back to citation`)
     row.append(back, doc.createTextNode(' '))
-    const url = referenceUrl(reference.metadata?.doi ?? reference.metadata?.url ?? reference.text)
-    const text = doc.createElement(url ? 'a' : 'span')
+    const text = doc.createElement('span')
     text.textContent = formatReference(reference)
-    if (url) { text.setAttribute('href', url); text.setAttribute('rel', 'noopener noreferrer'); text.setAttribute('target', '_blank') }
     row.append(text)
     section.append(row)
   }

@@ -1717,7 +1717,7 @@ describe('desktop workspace shell', () => {
     }
   })
 
-  it('exports safe standalone HTML and Word files from one settled Tiptap presentation per request and exposes failures', async () => {
+  it('exports safe standalone HTML files from one settled Tiptap presentation per request and exposes failures', async () => {
     const originalCreateObjectURL = Object.getOwnPropertyDescriptor(URL, 'createObjectURL')
     const originalRevokeObjectURL = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL')
     const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:rendered-export')
@@ -1732,7 +1732,7 @@ describe('desktop workspace shell', () => {
     const wrapper = mount(App, { attachTo: document.body, props: { previewRenderer: { render } } })
     await activateSourceMode(wrapper)
 
-    const invokeExport = async (commandId: 'export.html' | 'export.word') => {
+    const invokeExport = async (commandId: 'export.html') => {
       await wrapper.get('[data-toolbar-menu="export"] .toolbar-menu__trigger').trigger('click')
       await wrapper.get(`[data-command-id="${commandId}"]`).trigger('click')
       await flushPromises()
@@ -1744,28 +1744,23 @@ describe('desktop workspace shell', () => {
       const envelopeBefore = window.localStorage.getItem('w-editor:v1:document:welcome')
 
       await invokeExport('export.html')
-      await invokeExport('export.word')
+      expect(wrapper.find('[data-command-id="export.word"]').exists()).toBe(false)
 
       expect(render).not.toHaveBeenCalled()
-      expect(createObjectURL).toHaveBeenCalledTimes(2)
-      const [htmlBlob, wordBlob] = createObjectURL.mock.calls.map(([blob]) => blob)
+      expect(createObjectURL).toHaveBeenCalledTimes(1)
+      const [htmlBlob] = createObjectURL.mock.calls.map(([blob]) => blob)
       expect(htmlBlob).toBeInstanceOf(Blob)
-      expect(wordBlob).toBeInstanceOf(Blob)
       const html = await htmlBlob?.text()
-      const word = await wordBlob?.text()
       expect(html).toContain('<!doctype html>')
       expect(html).toContain('class="w-editor-export tiptap ProseMirror rendered-document-content"')
       expect(html).toContain('Rendered export')
       expect(html).toContain('unsafe')
-      expect([...new Uint8Array(await (wordBlob as Blob).arrayBuffer()).slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
-      expect(word?.startsWith('<!doctype html>')).toBe(true)
-      expect(word).toContain('xmlns:w="urn:schemas-microsoft-com:office:word"')
-      for (const exported of [html, word]) {
+      for (const exported of [html]) {
         const parsed = new DOMParser().parseFromString(exported ?? '', 'text/html')
         expect(parsed.querySelector('main script, main [onclick], main a[href^="javascript:"]')).toBeNull()
       }
-      expect(click).toHaveBeenCalledTimes(2)
-      expect(revokeObjectURL).toHaveBeenCalledTimes(2)
+      expect(click).toHaveBeenCalledTimes(1)
+      expect(revokeObjectURL).toHaveBeenCalledTimes(1)
       expect((wrapper.get('#markdown-source').element as HTMLTextAreaElement).value).toBe(exactMarkdown)
       expect(window.localStorage.getItem('w-editor:v1:document:welcome')).toBe(envelopeBefore)
       expect(wrapper.get('[aria-label="Workspace status"]').text()).toContain('Autosave pending')

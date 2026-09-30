@@ -29,7 +29,6 @@ const MENU_COMMANDS = Object.freeze({
   export: Object.freeze([
     'export.markdown',
     'export.html',
-    'export.word',
     'export.pdf',
     'export.screenshot',
   ]),
@@ -49,6 +48,7 @@ const MENU_COMMANDS = Object.freeze({
     'insert.pdf',
     'insert.word',
     'insert.file',
+    'insert.reference',
   ]),
   language: Object.freeze(['language.zh', 'language.en', 'language.ru']),
   panel: Object.freeze([

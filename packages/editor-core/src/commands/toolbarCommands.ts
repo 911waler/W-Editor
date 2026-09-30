@@ -151,6 +151,7 @@ const COMMAND_SEEDS: readonly CommandSeed[] = Object.freeze([
   seed('insert.word', 'insert', 13, 'W', 'Word attachment', 'Word 附件', 'Документ Word', { menuId: 'insert', selection: insertionSelection }),
   seed('insert.file', 'insert', 14, '⌑', 'File attachment', '文件附件', 'Файл', { menuId: 'insert', selection: insertionSelection }),
   seed('insert.drawio', 'insert', 15, '◇', 'draw.io diagram', 'draw.io 图表', 'Диаграмма draw.io', { region: 'main', selection: insertionSelection }),
+  seed('insert.reference', 'insert', 16, 'Ref', 'Reference', '参考文献', 'Библиографическая ссылка', { menuId: 'insert', selection: insertionSelection }),
   ...MERMAID_DESCRIPTORS.map((descriptor, index) => seed(
     descriptor.commandId,
     'mermaid',
@@ -184,7 +185,6 @@ const COMMAND_SEEDS: readonly CommandSeed[] = Object.freeze([
   seed('language.ru', 'language', 3, 'RU', 'Russian', '俄语', 'Русский', { menuId: 'language', selection: anySelection }),
   seed('export.markdown', 'export', 1, 'MD', 'Markdown file', 'Markdown 文件', 'Файл Markdown', { menuId: 'export', selection: anySelection }),
   seed('export.html', 'export', 2, 'HTML', 'HTML file', 'HTML 文件', 'Файл HTML', { menuId: 'export', selection: anySelection }),
-  seed('export.word', 'export', 3, 'W', 'Word-compatible file', 'Word 兼容文件', 'Файл Word', { menuId: 'export', selection: anySelection }),
   seed('export.pdf', 'export', 4, 'PDF', 'Export PDF', '导出 PDF', 'Экспорт PDF', { menuId: 'export', selection: anySelection }),
   seed('export.screenshot', 'export', 5, 'PNG', 'Long screenshot', '长截图', 'Длинный снимок', { menuId: 'export', selection: anySelection }),
 ])

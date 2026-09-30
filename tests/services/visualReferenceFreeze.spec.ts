@@ -47,9 +47,10 @@ interface VisualReferenceManifest {
 }
 
 const manifestPath = 'tests/fixtures/parity/visual-reference-manifest.json'
-const featureManifestPath = 'tests/fixtures/manifests/feature-manifest.json'
+// The captured images are historical evidence; never rewrite their command inventory.
+const featureManifestPath = 'tests/fixtures/manifests/archived-acceptance-commands.json'
 
-describe('current visual reference freeze', () => {
+describe('archived visual reference freeze', () => {
   it('pins all themes, current regions, behavior snapshots, hashes, and review policy', () => {
     expect(existsSync(manifestPath)).toBe(true)
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as VisualReferenceManifest

@@ -216,6 +216,51 @@ describe('browser rendered export adapter', () => {
     expect(document.querySelector('[data-tiptap-presentation]')).toBeNull()
   }, 30_000)
 
+  it('filters only ProseMirror helper images in the capture clone while retaining content and live DOM', async () => {
+    let source: HTMLElement | undefined
+    const adapter = new BrowserRenderedExportAdapter({
+      assetSettler: async () => undefined,
+      capture: async (node, options) => {
+        source = node
+        const clone = node.cloneNode(true) as HTMLElement
+        for (const element of clone.querySelectorAll<HTMLElement>('*')) {
+          if (!options.filter(element)) element.remove()
+        }
+        expect(clone.querySelector('img.ProseMirror-separator')).toBeNull()
+        expect(clone.querySelector('img[alt="real"]')).not.toBeNull()
+        expect(clone.querySelector('span.ProseMirror-separator')?.textContent).toBe('content')
+        expect(clone.querySelector('.katex')?.textContent).toBe('x²')
+        expect(clone.querySelector('[data-reference]')?.textContent).toBe('[1]')
+        expect(node.querySelector('img.ProseMirror-separator')).not.toBeNull()
+        return new Blob([PNG_BYTES], { type: 'image/png' })
+      },
+      document,
+      measure: () => ({ height: 600, width: 900 }),
+      window,
+    })
+    await adapter.captureLongScreenshot({ ...rendered, bodyHtml: '<p><img alt="real" src="data:image/png;base64,iVBORw0KGgo="><img class="ProseMirror-separator"><span class="ProseMirror-separator">content</span><span class="katex">x²</span><a data-reference>[1]</a></p>' })
+    expect(source?.querySelector('img.ProseMirror-separator')).not.toBeNull()
+  })
+
+  it('explains browser image error events during capture', async () => {
+    const image = document.createElement('img')
+    let failure: Event | undefined
+    image.addEventListener('error', (event) => { failure = event })
+    image.dispatchEvent(new Event('error'))
+    const adapter = new BrowserRenderedExportAdapter({
+      assetSettler: async () => undefined,
+      capture: async () => { throw failure },
+      document,
+      measure: () => ({ height: 600, width: 900 }),
+      window,
+    })
+    await expect(adapter.captureLongScreenshot(rendered)).rejects.toMatchObject({
+      code: 'CAPTURE_FAILED',
+      message: expect.stringMatching(/image resource.*capture/iu),
+      cause: failure,
+    })
+  })
+
   it('rejects dimensions beyond the browser-safe canvas boundary before capture', async () => {
     expect(() => assertLongScreenshotSize(900, 100_000)).toThrow(expect.objectContaining({ code: 'CAPTURE_OVERSIZE' }))
     const capture = vi.fn()

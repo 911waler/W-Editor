@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Component, type CSSProperties } from 'vue'
 import ReferencePanel from './ReferencePanel.vue'
+import ReferenceInsertDialog from './ReferenceInsertDialog.vue'
 import { referenceRegistry, scanReferences, referenceMarkdown, updateReferencePlan, removeReferencePlan, type ReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
 import { createLocalReferenceServices, type ReferenceEditorServices, type ReferenceNote, publishReferenceSnapshot } from '@w-editor/editor-vue/services'
 import MarkdownImportZone from './MarkdownImportZone.vue'
@@ -1668,14 +1669,14 @@ type ToolbarSlotDefinition =
   | Readonly<{ commandId: string; id: string; kind: 'command-alias' }>
   | Readonly<{ id: string; kind: 'menu'; menuId: ToolbarMenuId }>
   | Readonly<{ id: string; kind: 'line-spacing' }>
-  | Readonly<{ id: string; kind: 'preview-alias' | 'separator' | 'spacer' }>
+  | Readonly<{ id: string; kind: 'preview-alias' | 'separator' | 'spacer' | 'references' }>
 
 type ToolbarSlotView =
   | Readonly<{ command: CommandView; id: string; kind: 'command' }>
   | Readonly<{ command: CommandView; id: string; kind: 'command-alias' }>
   | Readonly<{ id: string; kind: 'menu'; menu: CommandMenuView }>
   | Readonly<{ id: string; kind: 'line-spacing' }>
-  | Readonly<{ id: string; kind: 'preview-alias' | 'separator' | 'spacer' }>
+  | Readonly<{ id: string; kind: 'preview-alias' | 'separator' | 'spacer' | 'references' }>
 
 const TOOLBAR_SLOT_DEFINITIONS: readonly ToolbarSlotDefinition[] = Object.freeze([
   ...['text.bold', 'text.italic']
@@ -1696,6 +1697,7 @@ const TOOLBAR_SLOT_DEFINITIONS: readonly ToolbarSlotDefinition[] = Object.freeze
   Object.freeze({ commandId: 'layout.accordion', id: 'layout.accordion', kind: 'command' }),
   Object.freeze({ id: 'separator.structure', kind: 'separator' }),
   Object.freeze({ commandId: 'insert.formula', id: 'insert.formula.alias', kind: 'command-alias' }),
+  Object.freeze({ id: 'references', kind: 'references' }),
   Object.freeze({ id: 'menu.insert', kind: 'menu', menuId: 'insert' }),
   Object.freeze({ id: 'menu.mermaid', kind: 'menu', menuId: 'mermaid' }),
   Object.freeze({ id: 'menu.chart', kind: 'menu', menuId: 'chart' }),
@@ -1934,6 +1936,7 @@ async function applyRichPicker(): Promise<void> {
 }
 
 const referencePanelOpen = ref(false)
+const referenceInsertOpen = ref(false)
 const referenceEntries = shallowRef<readonly DocumentReference[]>([])
 const referenceSelected = ref<string | null>(null)
 const referenceError = ref('')
@@ -1989,6 +1992,7 @@ watch(() => workspace.value.activeDocument.markdown, () => {
 watch(referencePanelOpen, open => { if (!open) clearTimeout(referenceRefreshTimer) })
 watch(() => workspace.value.activeDocument.documentId, () => {
   referencePanelOpen.value = false
+  referenceInsertOpen.value = false
   notesGeneration++
   referenceNotes.value = {}
   referenceNotesBusy.value = false
@@ -2013,9 +2017,25 @@ async function openReferences(id: string | null = null): Promise<void> {
     referencePanelOpen.value = true
     void loadReferenceNotes()
     await nextTick()
-    if (!id) workspaceShell.value?.querySelector<HTMLTextAreaElement>('#reference-input')?.focus()
+    workspaceShell.value?.querySelector<HTMLButtonElement>('[data-testid="reference-panel"] button')?.focus()
   } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
 }
+async function openReferenceInsert(): Promise<void> {
+  if (props.readonlyMode || mode.value === 'preview' || referenceBusy.value) return
+  try {
+    await flushLifecycleSynchronization(activeRuntime.value)
+    referenceContext = captureDedicatedEditorContext(null)
+    referenceError.value = ''
+    referenceInsertOpen.value = true
+    activeRuntime.value.root.setModalActivity('reference-insert')
+  } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
+}
+function closeReferenceInsert(): void {
+  if (referenceBusy.value) return
+  referenceInsertOpen.value = false
+  activeRuntime.value.root.setModalActivity(null)
+}
+
 function onReferenceOpen(event: Event): void {
   void openReferences((event as CustomEvent<{ id: string }>).detail.id)
 }
@@ -2045,6 +2065,8 @@ async function insertReference(input: Pick<DocumentReference, 'text' | 'metadata
     }
     refreshReferences()
     referencePanelOpen.value = false
+    referenceInsertOpen.value = false
+    activeRuntime.value.root.setModalActivity(null)
   } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
   finally { referenceBusy.value = false }
 }
@@ -2969,6 +2991,10 @@ const sourceEditorDispatcher = Object.freeze({
         semanticOutcome: `cherry:${commandId}`,
       })
     }
+    if (commandId === 'insert.reference') {
+      await openReferenceInsert()
+      return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
+    }
     if (commandId === 'insert.drawio') {
       await openDrawioDialog()
       return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
@@ -3215,6 +3241,10 @@ const visualEditorDispatcher = Object.freeze({
         semanticOutcome: `cherry:${commandId}`,
       })
     }
+    if (commandId === 'insert.reference') {
+      await openReferenceInsert()
+      return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
+    }
     if (commandId === 'insert.drawio') {
       await openDrawioDialog()
       return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
@@ -3434,7 +3464,7 @@ const applicationDispatcher = Object.freeze({
         return Object.freeze({ changed: false, commandId, detail: uiNoticeText(exportError.value)!, semanticOutcome: `application:${commandId}` })
       }
     }
-    if (commandId === 'export.html' || commandId === 'export.word') {
+    if (commandId === 'export.html') {
       try {
         const snapshot = await flushAuthoritativeSnapshotForUtility()
         const rendered = createTiptapRenderedExportDocument(snapshot, {
@@ -3448,10 +3478,10 @@ const applicationDispatcher = Object.freeze({
           workspaceShell.value?.ownerDocument ?? document,
         )
         const artifacts = createHtmlDerivedExportArtifacts(materialized)
-        await writeExportArtifact(commandId === 'export.html' ? artifacts.html : artifacts.word)
+        await writeExportArtifact(artifacts.html)
         exportError.value = null
         commandFeedback.value = uiNotice('export.renderedDownloaded', {
-          format: commandId === 'export.html' ? 'HTML' : 'Word',
+          format: 'HTML',
           revision: snapshot.revision,
         })
         return Object.freeze({
@@ -4590,7 +4620,9 @@ function previewTaskHistoryDirection(event: KeyboardEvent): 'redo' | 'undo' | nu
 }
 
 function handleApplicationShortcut(event: KeyboardEvent): void {
-  if (props.readonlyMode) return
+  if (props.readonlyMode || workspace.value.modalActivity !== null) return
+  // Hosted and nested dialogs do not necessarily belong to the workspace modal state.
+  if (event.target instanceof Element && event.target.closest('[aria-modal="true"], dialog[open]') !== null) return
   if (mode.value !== 'preview' && (event.target as Element | null)?.closest('.ProseMirror') !== null) return
   if (isCherrySourceHistoryShortcutEvent(event)) return
   const previewHistory = mode.value === 'preview' ? previewTaskHistoryDirection(event) : null
@@ -5075,8 +5107,17 @@ defineExpose({
       @save-note="saveReferenceNote"
       @reload-notes="loadReferenceNotes"
       @close="referencePanelOpen = false"
+      @request-insert="openReferenceInsert"
       @insert="insertReference"
       @jump="jumpToReference"
+    />
+    <ReferenceInsertDialog
+      v-if="referenceInsertOpen"
+      :busy="referenceBusy"
+      :error="referenceError"
+      :lookup-doi="lookupReferenceDoi"
+      @close="closeReferenceInsert"
+      @insert="insertReference"
     />
     <input
       ref="lifecycleFileInput"
@@ -5345,16 +5386,6 @@ defineExpose({
           aria-label="文档操作"
         >
           <slot name="document-actions"></slot>
-          <button
-            type="button"
-            data-testid="insert-reference"
-            class="reference-toolbar-button"
-            :disabled="mode === 'preview' || lifecycleOperation || articleSwitching"
-            @mousedown.prevent
-            @click="openReferences()"
-          >
-            参考文献 [n]
-          </button>
           <MarkdownImportZone
             v-if="props.toolbarImport"
             class="announcement-import-button"
@@ -5444,6 +5475,28 @@ defineExpose({
                   >{{ lineSpacing === option.id ? '✓' : '' }}</span>
                 </button>
               </div>
+            </div>
+            <div
+              v-else-if="slot.kind === 'references'"
+              class="toolbar-command"
+              data-toolbar-slot="references"
+            >
+              <button
+                type="button"
+                class="tool-button"
+                data-testid="insert-reference"
+                aria-label="参考文献"
+                title="参考文献"
+                :aria-expanded="referencePanelOpen"
+                :disabled="mode === 'preview' || lifecycleOperation || articleSwitching"
+                @mousedown.prevent
+                @click="referencePanelOpen ? referencePanelOpen = false : openReferences()"
+              >
+                <span
+                  class="reference-ref-icon"
+                  aria-hidden="true"
+                >Ref</span>
+              </button>
             </div>
             <div
               v-else-if="slot.kind === 'command' || slot.kind === 'command-alias'"
@@ -6855,3 +6908,7 @@ defineExpose({
     <component :is="capabilityProbe" />
   </main>
 </template>
+
+<style scoped>
+.reference-ref-icon { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 1px solid currentColor; border-radius: 2px; font-size: 10px; line-height: 1; font-weight: 600; }
+</style>

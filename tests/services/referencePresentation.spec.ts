@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest'
+import { buildReferenceList } from '../../packages/editor-vue/src/adapters/referenceNode'
 import { referenceMarkdown } from '../../packages/editor-core/src'
 import { createTiptapPresentation } from '../../packages/editor-vue/src/rendering/tiptapPresentation'
 import { createSharedRendererPipeline } from '../../packages/editor-vue/src/rendering/sharedRendererPipeline'
 import { renderSafeTiptapExportDocument } from '../../packages/editor-vue/src/services/browserFileExport'
 
 describe('reference reader presentation', () => {
+  it('links only bibliography numbers, keeping URLs and DOI as plain text', () => {
+    const list = buildReferenceList([{ id: 'url', number: 1, text: 'https://example.org/paper' }, { id: 'doi', number: 2, text: '10.1234/book', metadata: { doi: '10.1234/book' } }], document)
+    expect([...list.querySelectorAll('a')].map(a => a.textContent)).toEqual(['[1]', '[2]'])
+    expect(list.textContent).toContain('https://example.org/paper')
+    expect(list.textContent).toContain('10.1234/book')
+  })
   const reference = referenceMarkdown({ id: 'book', number: 7, text: '<img src=x onerror=alert(1)> A book' })
   const snapshot = { documentId: 'refs', revision: 1, markdown: `First ${reference}\n\nSecond ${reference}` }
   it('renders one safe bibliography, returns to the clicked occurrence and exports the list', () => {

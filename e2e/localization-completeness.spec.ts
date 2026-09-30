@@ -211,6 +211,7 @@ const MENUS = Object.freeze([
       ['insert.pdf', localized('PDF attachment', 'PDF 附件', 'PDF-вложение')],
       ['insert.word', localized('Word attachment', 'Word 附件', 'Документ Word')],
       ['insert.file', localized('File attachment', '文件附件', 'Файл')],
+      ['insert.reference', localized('Reference', '参考文献', 'Библиографическая ссылка')],
     ] as const),
     id: 'insert',
     label: localized('Insert', '插入', 'Вставка'),
@@ -258,7 +259,6 @@ const MENUS = Object.freeze([
     commands: Object.freeze([
       ['export.markdown', localized('Markdown file', 'Markdown 文件', 'Файл Markdown')],
       ['export.html', localized('HTML file', 'HTML 文件', 'Файл HTML')],
-      ['export.word', localized('Word-compatible file', 'Word 兼容文件', 'Файл Word')],
       ['export.pdf', localized('Export PDF', '导出 PDF', 'Экспорт PDF')],
       ['export.screenshot', localized('Long screenshot', '长截图', 'Длинный снимок')],
     ] as const),

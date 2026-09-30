@@ -68,6 +68,7 @@ H6 is deliberately absent from the agreed top-toolbar surface.
 | `insert.word` | word | Cherry Word attachment source with URL metadata | URL/upload dialog | typed attachment card | disabled | apply/cancel/failure, reload, export, undo |
 | `insert.file` | file | Cherry arbitrary-file source with URL metadata | URL/upload dialog | typed attachment card | disabled | apply/cancel/failure, reload, export, undo |
 | `insert.drawio` | drawIo | Cherry PNG data plus encoded XML form | draw.io dialog | semantic diagram node/dialog | disabled | origin/window/request validation, apply/cancel, quota, undo |
+| `insert.reference` | reference | Reference citation link and bibliography entry | captured-cursor dialog insertion | captured-cursor dialog insertion | disabled | add, cancel, citation, bibliography, undo |
 
 `insert.formula` and `insert.drawio` are single public identities even when reachable from more than one menu location.
 
@@ -114,7 +115,6 @@ H6 is deliberately absent from the agreed top-toolbar surface.
 | `document.word-count` | wordCount | report statistics from the flushed revision | enabled | enabled | enabled | values advance with revision; no content revision |
 | `export.markdown` | export/Markdown | exact authoritative Markdown download | enabled | enabled | enabled | exact bytes; save states unchanged |
 | `export.html` | export/HTML | safe standalone Cherry-rendered HTML | enabled | enabled | enabled | same revision, sanitization, visible failure |
-| `export.word` | export/Word | Word-compatible document from safe rendered HTML | enabled | enabled | enabled | same revision, downloadable result, visible failure |
 | `export.pdf` | export/PDF | downloadable PDF from the safe rendered export document | enabled | enabled | enabled | valid `.pdf` download with opaque-image substitution/notice when needed, or visible genuine capture/encoding failure; no mutation |
 | `export.screenshot` | export/long screenshot | settled long PNG capture of safe rendered output | enabled | enabled | enabled | success with opaque-image substitution/notice when needed, or genuine taint/oversize failure; no mutation |
 

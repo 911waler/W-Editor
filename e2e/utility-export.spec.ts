@@ -125,11 +125,7 @@ test('every export command produces its real browser outcome from the same pendi
   expect(html).not.toMatch(/<script/iu)
   expect(html).toContain('&lt;script&gt;globalThis.pwned = true&lt;/script&gt;')
 
-  const wordDownload = await invokeDownload(page, 'export.word')
-  expect(wordDownload.suggestedFilename()).toBe('welcome.doc')
-  const word = await downloadedBytes(wordDownload)
-  expect([...word.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
-  expect(word.toString('utf8')).toContain('xmlns:w="urn:schemas-microsoft-com:office:word"')
+  await expect(page.locator('[data-command-id="export.word"]')).toHaveCount(0)
 
   const pdfDownload = await invokeDownload(page, 'export.pdf')
   expect(pdfDownload.suggestedFilename()).toBe('welcome.pdf')
@@ -190,4 +186,22 @@ test('remote images without CORS do not block rendered exports, while real captu
   await invokeToolbarCommand(page, 'export.screenshot')
   await expect(page.getByTestId('export-error')).toContainText('exceeds the browser-safe screenshot limit')
   await expect.poll(() => authorityMarkdown(page)).toBe(oversized)
+})
+
+
+test('PDF and PNG capture real inline images with formulas and references without fetching editor separator images', async ({ page }) => {
+  test.setTimeout(60_000)
+  await openReadyApp(page)
+  const image = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+  const markdown = `# Mixed export\n\nInline ![real export image](${image}) with $E=mc^2$ and [1](#wref-book~https%3A%2F%2Fexample.org%2Fpaper).`
+  await setSource(page, markdown)
+  await page.locator('[data-command-id="mode.visual"]').click()
+  await expect(page.locator('.ProseMirror img[alt="real export image"]').first()).toBeVisible()
+  await expect(page.locator('.ProseMirror .katex').first()).toBeVisible()
+  const pdf = await downloadedBytes(await invokeDownload(page, 'export.pdf'))
+  expect(pdf.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+  const png = await downloadedBytes(await invokeDownload(page, 'export.screenshot'))
+  expect([...png.subarray(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  await expect.poll(() => authorityMarkdown(page)).toBe(markdown)
+  await expect(page.locator('.w-editor-export-instance')).toHaveCount(0)
 })

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { referenceDialogFocus as vReferenceDialogFocus } from './referenceDialogFocus'
+import { ref, watch } from 'vue'
 import { referenceUrl, type DocumentReference, type ReferenceMetadata, type ReferenceStyle } from '@w-editor/editor-core'
 import { formatReference, type ReferenceNote } from '@w-editor/editor-vue/services'
-
+import ReferenceForm from './ReferenceForm.vue'
 const props = defineProps<{
   entries: readonly DocumentReference[]; selected: string | null; error: string; busy: boolean
   counts: Readonly<Record<string, number>>; notes: Readonly<Record<string, ReferenceNote>>
@@ -10,102 +11,34 @@ const props = defineProps<{
   lookupDoi?: ((doi: string, signal: AbortSignal) => Promise<ReferenceMetadata>) | undefined
 }>()
 const emit = defineEmits<{
-  close: []; insert: [reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]
+  requestInsert: []; close: []; insert: [reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]
   update: [original: DocumentReference, reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]
   remove: [id: string]; jump: [id: string]; style: [style: ReferenceStyle]
   saveNote: [id: string, text: string]; reloadNotes: []
 }>()
 const editing = ref<DocumentReference | null>(null)
-const text = ref('')
-const style = ref<ReferenceStyle>('plain')
-const metadata = ref<{ -readonly [K in keyof ReferenceMetadata]: ReferenceMetadata[K] }>({})
-const authors = ref('')
-const metadataOpen = ref(false)
 const deleteId = ref<string | null>(null)
+const noteEditing = ref<Record<string, boolean>>({})
 const noteDrafts = ref<Record<string, string>>({})
-const lookupPending = ref(false)
-const lookupError = ref('')
-let lookupVersion = 0
-let lookupController: AbortController | null = null
-function invalidateLookup(): void { lookupVersion++; lookupController?.abort(); lookupController = null; lookupPending.value = false }
-watch(text, invalidateLookup, { flush: 'sync' })
-watch(metadata, invalidateLookup, { deep: true, flush: 'sync' })
-watch(authors, invalidateLookup, { flush: 'sync' })
-watch(() => props.notes, (notes, previous) => {
-  for (const [id, note] of Object.entries(notes)) if (!(id in noteDrafts.value) || noteDrafts.value[id] === previous?.[id]?.text) noteDrafts.value[id] = note.text
-}, { immediate: true })
-function authorText(value: ReferenceMetadata): string {
-  return (value.authors ?? []).map(author => author.literal ?? [author.family, author.given].filter(Boolean).join(', ')).join('\n')
-}
-function edit(reference: DocumentReference): void {
-  invalidateLookup()
-  editing.value = reference
-  text.value = reference.text
-  metadata.value = { ...reference.metadata }
-  authors.value = authorText(metadata.value)
-  style.value = reference.style ?? 'plain'
-  metadataOpen.value = Boolean(reference.metadata)
-  lookupError.value = ''
-}
-watch(() => props.selected, id => { const entry = props.entries.find(item => item.id === id); if (entry) edit(entry) }, { immediate: true })
-watch(() => props.entries, entries => {
-  if (!editing.value) return
-  const current = entries.find(item => item.id === editing.value!.id)
-  if (!current) { reset(); return }
-  if (current.text === editing.value.text && JSON.stringify(current.metadata) === JSON.stringify(editing.value.metadata) && current.style !== editing.value.style) {
-    editing.value = current
-    style.value = current.style ?? 'plain'
+const pendingNotes = new Map<string, string>()
+function edit(reference: DocumentReference): void { editing.value = reference }
+function openNote(id: string): void { noteDrafts.value[id] = props.notes[id]?.text ?? ''; noteEditing.value[id] = true }
+function saveNote(id: string, text: string): void { pendingNotes.set(id, text); emit('saveNote', id, text) }
+watch(() => props.notes, notes => {
+  for (const [id, text] of pendingNotes) {
+    if ((notes[id]?.text ?? '') === text) { noteEditing.value[id] = false; pendingNotes.delete(id) }
   }
 })
-watch(() => props.savedVersion, () => {
-  const current = props.entries.find(item => item.id === editing.value?.id)
-  if (current) edit(current)
+watch(() => props.notesBusy, busy => { if (!busy && !props.notesError) { for (const id of pendingNotes.keys()) noteEditing.value[id] = false; pendingNotes.clear() } })
+watch(() => props.savedVersion, () => { editing.value = null })
+watch(() => props.entries, entries => {
+  if (!editing.value) return
+  const current = entries.find(entry => entry.id === editing.value?.id)
+  if (!current) { editing.value = null; return }
+  // A document-wide format change updates the conflict-check baseline, not local field edits.
+  if (current.text === editing.value.text && JSON.stringify(current.metadata) === JSON.stringify(editing.value.metadata) && current.style !== editing.value.style) editing.value = current
 })
-function reset(): void {
-  invalidateLookup(); editing.value = null; text.value = ''; metadata.value = {}; authors.value = ''; lookupError.value = ''; metadataOpen.value = false
-}
-const draft = computed(() => {
-  const parsedAuthors = authors.value.split('\n').map(line => line.trim()).filter(Boolean).map(line => {
-    const comma = line.indexOf(',')
-    return comma < 0 ? { literal: line } : { family: line.slice(0, comma).trim(), given: line.slice(comma + 1).trim() }
-  })
-  const clean: ReferenceMetadata = { ...metadata.value, ...(parsedAuthors.length ? { authors: parsedAuthors } : {}) }
-  if (!parsedAuthors.length) delete (clean as { authors?: unknown }).authors
-  const hasMetadata = Object.values(clean).some(value => typeof value === 'string' ? Boolean(value.trim()) : Array.isArray(value) && value.length > 0)
-  return { text: text.value.trim(), ...(hasMetadata ? { metadata: clean } : {}), style: style.value }
-})
-const preview = computed(() => {
-  if (!draft.value.text) return ''
-  try { return formatReference({ id: 'preview', number: 1, ...draft.value }) } catch { return '信息不完整，请补充或选择原始文本。' }
-})
-async function lookup(): Promise<void> {
-  if (!props.lookupDoi) return
-  invalidateLookup()
-  const token = lookupVersion
-  const input = metadata.value.doi?.trim() || text.value.trim()
-  const controller = new AbortController()
-  lookupController = controller
-  lookupPending.value = true; lookupError.value = ''
-  try {
-    const result = await props.lookupDoi(input, controller.signal)
-    if (token !== lookupVersion || controller.signal.aborted) return
-    metadata.value = { ...result }
-    authors.value = authorText(result)
-    metadataOpen.value = true
-    if (style.value === 'plain') style.value = 'gbt7714'
-  } catch (error) {
-    if (token === lookupVersion && !controller.signal.aborted) lookupError.value = error instanceof Error ? error.message : String(error)
-  } finally { if (token === lookupVersion) lookupPending.value = false }
-}
-function submit(): void {
-  if (editing.value) emit('update', editing.value, draft.value)
-  else emit('insert', draft.value)
-}
-function reloadNotes(): void { noteDrafts.value = {}; emit('reloadNotes') }
-onBeforeUnmount(invalidateLookup)
-const fields = [
-  ['title', '标题'], ['year', '年份'], ['journal', '期刊'], ['volume', '卷'], ['issue', '期'], ['pages', '页码或文章编号'], ['doi', 'DOI'], ['url', '网址'], ['publisher', '出版者'],
-] as const
+function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pendingNotes.clear(); emit('reloadNotes') }
 </script>
 <template>
   <aside
@@ -126,101 +59,50 @@ const fields = [
     <p class="reference-panel__hint">
       编辑时保留编号；发布时按正文首次出现顺序重排。
     </p>
-    <form
-      data-testid="reference-form"
-      @submit.prevent="submit"
+    <button
+      type="button"
+      data-testid="reference-add"
+      :disabled="busy"
+      @click="emit('requestInsert')"
     >
-      <fieldset :disabled="busy">
-        <div class="reference-panel__form-title">
-          <strong>{{ editing ? `修改文献 [${editing.number}]` : '新增文献' }}</strong><button
-            v-if="editing"
+      新增文献
+    </button>
+    <div
+      v-if="editing"
+      v-reference-dialog-focus
+      class="reference-edit-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="修改文献"
+      @keydown.esc.stop="editing = null"
+    >
+      <div class="reference-edit-dialog">
+        <header>
+          <strong>修改文献 [{{ editing.number }}]</strong><button
             type="button"
-            @click="reset"
+            aria-label="关闭修改文献"
+            @click="editing = null"
           >
-            新增另一条
+            ×
           </button>
-        </div>
-        <label for="reference-input">网址、DOI 或文献信息</label>
-        <textarea
-          id="reference-input"
-          v-model="text"
-          rows="3"
-          placeholder="https://… / 10.… / 作者、标题等"
-        ></textarea>
-        <div class="reference-panel__actions">
-          <button
-            type="button"
-            data-testid="reference-doi-lookup"
-            :disabled="!lookupDoi || lookupPending || !text.trim()"
-            @click="lookup"
-          >
-            {{ lookupPending ? '正在查询…' : '通过 DOI 补全信息' }}
-          </button>
-          <button
-            type="button"
-            :aria-expanded="metadataOpen"
-            @click="metadataOpen = !metadataOpen"
-          >
-            手工编辑字段
-          </button>
-        </div>
-        <small v-if="!lookupDoi">当前宿主尚未接入 DOI 查询，可手工填写字段。</small>
+        </header>
+        <ReferenceForm
+          :reference="editing"
+          :busy="busy"
+          :lookup-doi="lookupDoi"
+          submit-label="保存文献修改"
+          allow-apply-style
+          @save="emit('update', editing!, $event)"
+          @style="emit('style', $event)"
+        />
         <p
-          v-if="lookupError"
+          v-if="error"
           role="alert"
         >
-          {{ lookupError }}
+          {{ error }}
         </p>
-        <div
-          v-if="metadataOpen"
-          class="reference-fields"
-        >
-          <label>类型<select v-model="metadata.type"><option value="article-journal">期刊文章</option><option value="book">图书</option><option value="webpage">网页</option></select></label>
-          <label
-            v-for="[field, label] in fields"
-            :key="field"
-          >{{ label }}<input
-            v-model="metadata[field]"
-            :data-reference-field="field"
-            type="text"
-          /></label>
-          <label>作者（每行一位：姓, 名；或完整名称）<textarea
-            v-model="authors"
-            data-reference-field="authors"
-            rows="3"
-          ></textarea></label>
-        </div>
-        <label>文末条目格式<select
-          v-model="style"
-          data-testid="reference-style"
-        ><option value="plain">原始文本</option><option value="gbt7714">GB/T 7714—2025（顺序编码）</option><option value="apa">APA（条目）</option><option value="mla">MLA（条目）</option></select></label>
-        <small>正文始终使用数字编号。格式化需要结构化字段。</small>
-        <p
-          v-if="preview"
-          class="reference-preview"
-          data-testid="reference-preview"
-        >
-          {{ preview }}
-        </p>
-        <div class="reference-panel__actions">
-          <button
-            type="submit"
-            data-testid="reference-save"
-            :disabled="busy || !text.trim()"
-          >
-            {{ editing ? '保存文献修改' : '在光标处引用' }}
-          </button>
-          <button
-            v-if="entries.length"
-            type="button"
-            :disabled="busy"
-            @click="emit('style', style)"
-          >
-            将此格式用于本文全部文献
-          </button>
-        </div>
-      </fieldset>
-    </form>
+      </div>
+    </div>
     <p
       v-if="error"
       role="alert"
@@ -305,23 +187,58 @@ const fields = [
             取消
           </button>
         </div>
-        <label>备注（仅编辑者可见）<textarea
-          v-model="noteDrafts[entry.id]"
-          :data-reference-note="entry.id"
-          :disabled="notesLoading"
-          maxlength="10000"
-          rows="2"
-          placeholder="为什么引用？相关结论或待核对事项…"
-        ></textarea></label>
-        <button
-          type="button"
-          :data-reference-note-save="entry.id"
-          :disabled="notesBusy || notesLoading || Boolean(notesError)"
-          @click="emit('saveNote', entry.id, noteDrafts[entry.id] ?? '')"
+        <p
+          v-if="notes[entry.id]?.text && !noteEditing[entry.id]"
+          class="reference-note-text"
+          :data-reference-note-text="entry.id"
         >
-          保存备注
+          {{ notes[entry.id]?.text }}
+        </p>
+        <button
+          v-if="!noteEditing[entry.id]"
+          type="button"
+          :data-reference-note-open="entry.id"
+          :disabled="notesLoading"
+          @click="openNote(entry.id)"
+        >
+          备注
         </button>
-        <small v-if="notes[entry.id] && noteDrafts[entry.id] === notes[entry.id]?.text">已保存</small>
+        <div v-else>
+          <label>备注（仅编辑者可见）<textarea
+            v-model="noteDrafts[entry.id]"
+            :data-reference-note="entry.id"
+            :disabled="notesBusy || notesLoading"
+            maxlength="10000"
+            rows="3"
+          ></textarea></label>
+          <div class="reference-panel__actions">
+            <button
+              type="button"
+              :data-reference-note-save="entry.id"
+              :disabled="notesBusy || notesLoading || Boolean(notesError)"
+              @click="saveNote(entry.id, noteDrafts[entry.id] ?? '')"
+            >
+              保存备注
+            </button>
+            <button
+              type="button"
+              :data-reference-note-cancel="entry.id"
+              :disabled="notesBusy"
+              @click="noteEditing[entry.id] = false"
+            >
+              取消
+            </button>
+            <button
+              v-if="notes[entry.id]?.text"
+              type="button"
+              :data-reference-note-delete="entry.id"
+              :disabled="notesBusy || notesLoading || Boolean(notesError)"
+              @click="saveNote(entry.id, '')"
+            >
+              删除备注
+            </button>
+          </div>
+        </div>
       </li>
     </ol>
     <p v-if="!entries.length">
@@ -355,4 +272,7 @@ li.selected { border-left: 3px solid #38705b; }
 .reference-delete-confirm { padding: 8px; border: 1px solid #bd7364; }
 button { cursor: pointer; padding: 5px 8px; border: 1px solid #aab6af; border-radius: 4px; background: var(--app-surface, #fff); color: inherit; }
 button:disabled { cursor: default; opacity: .55; }
+.reference-note-text { color: var(--app-text-secondary, #68776f); white-space: pre-wrap; }
+.reference-edit-overlay { position: fixed; inset: 0; z-index: 70; background: #0005; display: flex; align-items: flex-start; justify-content: center; padding-top: 16vh; }
+.reference-edit-dialog { width: min(480px, calc(100vw - 64px)); max-height: 70vh; overflow: auto; padding: 20px; background: var(--app-surface, #fff); border: 1px solid #9caaa2; border-radius: 10px; box-shadow: 0 8px 32px #0002; }
 </style>

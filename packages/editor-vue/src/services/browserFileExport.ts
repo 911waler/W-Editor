@@ -45,7 +45,6 @@ export interface ExportPresentation {
 export interface HtmlDerivedExportArtifacts {
   readonly html: ExportArtifact
   readonly rendered: SafeRenderedExportDocument
-  readonly word: ExportArtifact
 }
 
 export const EXPORT_STYLES = `
@@ -89,14 +88,8 @@ function escapeHtmlText(value: string): string {
     .replaceAll("'", '&#39;')
 }
 
-export function createStandaloneExportHtml(rendered: SafeRenderedExportDocument, wordCompatible = false): string {
+export function createStandaloneExportHtml(rendered: SafeRenderedExportDocument): string {
   const title = escapeHtmlText(rendered.documentId)
-  const namespaces = wordCompatible
-    ? ' xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"'
-    : ' lang="en"'
-  const wordMetadata = wordCompatible
-    ? '<meta name="ProgId" content="Word.Document"><meta name="Generator" content="W-Editor">'
-    : '<meta name="generator" content="W-Editor">'
   const theme = isAppearanceTheme(rendered.theme) ? rendered.theme : 'default'
   const lineHeight = typeof rendered.lineHeight === 'number'
     && Number.isFinite(rendered.lineHeight)
@@ -105,7 +98,7 @@ export function createStandaloneExportHtml(rendered: SafeRenderedExportDocument,
     ? rendered.lineHeight
     : 1.75
   const engineClass = rendered.presentationEngine === 'tiptap' ? 'tiptap ProseMirror' : 'cherry-markdown'
-  return `<!doctype html>\n<html${namespaces}>\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n${wordMetadata}\n<title>${title}</title>\n<style>${EXPORT_STYLES}</style>\n</head>\n<body>\n<div class="cherry theme__${theme} rendered-document-theme w-editor-export-theme" style="--w-editor-line-height:${lineHeight}"><main class="w-editor-export ${engineClass} rendered-document-content" data-document-id="${title}" data-revision="${rendered.revision}">${rendered.bodyHtml}</main></div>\n</body>\n</html>\n`
+  return `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="generator" content="W-Editor">\n<title>${title}</title>\n<style>${EXPORT_STYLES}</style>\n</head>\n<body>\n<div class="cherry theme__${theme} rendered-document-theme w-editor-export-theme" style="--w-editor-line-height:${lineHeight}"><main class="w-editor-export ${engineClass} rendered-document-content" data-document-id="${title}" data-revision="${rendered.revision}">${rendered.bodyHtml}</main></div>\n</body>\n</html>\n`
 }
 
 export function renderSafeExportDocument(
@@ -249,7 +242,6 @@ export function createHtmlDerivedExportArtifacts(
     throw new BrowserFileExportError('Mounted presentations must be materialized before creating HTML-derived exports.')
   }
   const htmlMediaType = 'text/html;charset=utf-8'
-  const wordMediaType = 'application/msword;charset=utf-8'
   return Object.freeze({
     html: Object.freeze({
       blob: new Blob([createStandaloneExportHtml(rendered)], { type: htmlMediaType }),
@@ -258,12 +250,6 @@ export function createHtmlDerivedExportArtifacts(
       revision: rendered.revision,
     }),
     rendered,
-    word: Object.freeze({
-      blob: new Blob(['\uFEFF', createStandaloneExportHtml(rendered, true)], { type: wordMediaType }),
-      filename: `${rendered.documentId}.doc`,
-      mediaType: wordMediaType,
-      revision: rendered.revision,
-    }),
   })
 }
 

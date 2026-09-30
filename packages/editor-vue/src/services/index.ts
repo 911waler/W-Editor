@@ -31,3 +31,5 @@ export * from './referencePublication'
 
 export * from "./referenceEditorServices"
 export * from './citationFormatting'
+
+export type { DocumentHistoryVersion, DocumentHistorySnapshot, DocumentHistoryPage, DocumentHistoryServices } from './documentHistory'

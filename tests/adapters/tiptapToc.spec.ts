@@ -66,7 +66,7 @@ describe('heading-derived visual table of contents', () => {
 
     const { adapter, host, plans } = mount(POPULATED)
     try {
-      const headings = [...host.querySelectorAll<HTMLElement>('h1, h2, h3')]
+      const headings = [...host.querySelectorAll<HTMLElement>('.ProseMirror h1, .ProseMirror h2, .ProseMirror h3')]
       expect(headings.map((heading) => heading.id)).toEqual(['alpha', UNICODE_ANCHOR, 'alpha-2', 'chosen'])
       expect(headings[3]?.textContent).toBe('Custom')
 
