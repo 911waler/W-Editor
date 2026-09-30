@@ -77,6 +77,7 @@ export const TOOLBAR_MENU_DESCRIPTORS: readonly ToolbarMenuDescriptor[] = Object
   Object.freeze({ icon: '⇩', iconClass: null, id: 'export', labels: labels('Export', '导出', 'Экспорт'), order: 100, region: 'main' }),
 ])
 
+const alignmentSelection = Object.freeze<readonly CommandSelection[]>(['text', 'semantic-node'])
 const textSelection = Object.freeze<readonly CommandSelection[]>(['text'])
 const anySelection = Object.freeze<readonly CommandSelection[]>(['none', 'semantic-node', 'text'])
 const insertionSelection = Object.freeze<readonly CommandSelection[]>(['none', 'text'])
@@ -126,9 +127,9 @@ const COMMAND_SEEDS: readonly CommandSeed[] = Object.freeze([
     descriptor.labels.ru,
     { menuId: 'panel', selection: insertionSelection },
   )),
-  seed('align.left', 'alignment', 1, '≡', 'Align left', '左对齐', 'По левому краю', { menuId: 'alignment', selection: textSelection }),
-  seed('align.center', 'alignment', 2, '≡', 'Align center', '居中对齐', 'По центру', { menuId: 'alignment', selection: textSelection }),
-  seed('align.right', 'alignment', 3, '≡', 'Align right', '右对齐', 'По правому краю', { menuId: 'alignment', selection: textSelection }),
+  seed('align.left', 'alignment', 1, '≡', 'Align left', '左对齐', 'По левому краю', { menuId: 'alignment', selection: alignmentSelection }),
+  seed('align.center', 'alignment', 2, '≡', 'Align center', '居中对齐', 'По центру', { menuId: 'alignment', selection: alignmentSelection }),
+  seed('align.right', 'alignment', 3, '≡', 'Align right', '右对齐', 'По правому краю', { menuId: 'alignment', selection: alignmentSelection }),
   seed('align.justify', 'alignment', 4, '≡', 'Justify', '两端对齐', 'По ширине', { menuId: 'alignment', selection: textSelection }),
   seed('layout.two-column', 'layout', 1, 'Ⅱ', 'Two columns', '双栏', 'Две колонки', { menuId: 'panel', selection: insertionSelection }),
   seed('layout.multi-column', 'layout', 2, 'Ⅲ', 'Multiple columns', '多栏', 'Несколько колонок', { menuId: 'panel', selection: insertionSelection }),

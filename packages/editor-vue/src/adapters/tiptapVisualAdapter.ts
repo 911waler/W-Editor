@@ -1,3 +1,5 @@
+import { parseInlineImageAt } from '@w-editor/editor-core'
+import { imageAttributes, imageMarkdown } from './imageNode'
 import { Editor, getSchema, type JSONContent } from '@tiptap/core'
 import { joinBackward, joinForward, selectNodeBackward, selectNodeForward } from '@tiptap/pm/commands'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
@@ -1094,7 +1096,7 @@ export class TiptapVisualAdapter {
   canApplyAlignment(): boolean {
     this.#assertAlive()
     const selection = this.#editor.state.selection
-    if (selection instanceof NodeSelection) return false
+    if (selection instanceof NodeSelection && selection.node.type.name !== 'inlineImage') return false
     const alignmentDepth = this.#alignmentAncestorDepth(selection.$head)
     if (alignmentDepth !== null) {
       return this.#alignmentAncestorDepth(selection.$anchor) === alignmentDepth
@@ -1407,6 +1409,10 @@ export class TiptapVisualAdapter {
     const codeBlock = this.selectedCodeBlock()
     if (codeBlock !== null) return codeBlock
     const selection = this.#editor.state.selection
+    if (selection instanceof NodeSelection && selection.node.type.name === 'inlineImage') {
+      return Object.freeze({ ...imageAttributes(selection.node.attrs), kind: 'media', mediaKind: 'image',
+        layoutKind: null, source: imageMarkdown(selection.node.attrs) })
+    }
     if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'semanticBlock') return null
     const variant = selection.node.attrs['variant']
     const code = selection.node.attrs['code']
@@ -1560,6 +1566,7 @@ export class TiptapVisualAdapter {
 
   applySemanticBlock(input: VisualSemanticBlockInput): VisualCommandResult {
     this.#assertAlive()
+    if (input.kind === 'media' && input.mediaKind === 'image') return this.#applyInlineImage(input)
     if (input.kind === 'code-block') return this.applyCodeBlock(input.language ?? '', input.code ?? input.body ?? '')
     const before = this.#editor.state.doc.toJSON()
     const selection = this.#editor.state.selection
@@ -1621,6 +1628,35 @@ export class TiptapVisualAdapter {
       active: this.selectedSemanticBlock() !== null,
       changed: JSON.stringify(before) !== JSON.stringify(this.#editor.state.doc.toJSON()),
     })
+  }
+
+  #applyInlineImage(input: VisualSemanticBlockInput): VisualCommandResult {
+    if (!this.#editor.isEditable) return Object.freeze({ active: false, changed: false })
+    const parsed = parseInlineImageAt(input.source, 0)
+    if (parsed === null || parsed.sourceSpan.to !== input.source.length) return Object.freeze({ active: false, changed: false })
+    const selection = this.#editor.state.selection
+    const selected = selection instanceof NodeSelection && selection.node.type.name === 'inlineImage' ? selection.node : null
+    const attributes = {
+      name: parsed.name, url: parsed.url,
+      width: parsed.width ?? selected?.attrs['width'] ?? null,
+      height: parsed.height ?? selected?.attrs['height'] ?? null,
+      source: selected === null ? parsed.source : String(selected.attrs['source'] ?? ''),
+    }
+    attributes.source = imageMarkdown(attributes)
+    const node = this.#editor.schema.nodes['inlineImage']?.create(attributes)
+    if (node === undefined) return Object.freeze({ active: false, changed: false })
+    const before = this.#editor.state.doc.toJSON()
+    const transaction = selected === null
+      ? this.#editor.state.tr.replaceSelectionWith(node)
+      : this.#editor.state.tr.setNodeMarkup(selection.from, undefined, attributes)
+    if (selected === null) {
+      const pos = transaction.selection.from - node.nodeSize
+      if (pos >= 0 && transaction.doc.nodeAt(pos)?.type.name === 'inlineImage') {
+        transaction.setSelection(NodeSelection.create(transaction.doc, pos))
+      }
+    }
+    this.#editor.view.dispatch(closeHistory(transaction))
+    return Object.freeze({ active: true, changed: JSON.stringify(before) !== JSON.stringify(this.#editor.state.doc.toJSON()) })
   }
 
   applyCodeBlock(language: string, code: string): VisualCommandResult {

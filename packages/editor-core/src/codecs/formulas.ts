@@ -43,7 +43,11 @@ export function serializeFormula(mode: FormulaMode, content: string): string {
 
 export function parseInlineFormulaAt(source: string, offset: number): FormulaMatch | null {
   if (source[offset] !== '$' || source[offset + 1] === '$' || escapedAt(source, offset)) return null
-  for (let cursor = offset + 1; cursor < source.length && source[cursor] !== '\n' && source[cursor] !== '\r'; cursor += 1) {
+  for (let cursor = offset + 1; cursor < source.length; cursor += 1) {
+    // Inline math may wrap across source lines, but never across paragraphs or code fences.
+    if ((source[cursor] === '\n' || source[cursor] === '\r')
+      && /^(?:\r?\n[ \t]*\r?\n|\r[ \t]*\r|\r?\n {0,3}(?:`{3,}|~{3,}))/u.test(source.slice(cursor))) return null
+    if (source[cursor] === '$' && source[cursor + 1] === '$' && !escapedAt(source, cursor)) return null
     if (source[cursor] !== '$' || source[cursor + 1] === '$' || escapedAt(source, cursor)) continue
     const content = source.slice(offset + 1, cursor)
     if (content.trim().length === 0) return null

@@ -90,6 +90,7 @@ for (const asset of ASSET_CASES) {
     await page.locator('[data-command-id="mode.visual"]').click()
     const node = page.locator(`[data-semantic-kind="${asset.semanticKind}"]`)
     await expect(node).toHaveCount(1)
+    if (asset.kind === 'image') await node.locator('img[src]').click()
     await node.locator(`[data-semantic-edit="${asset.semanticKind === 'media' ? 'media-editor' : 'attachment-editor'}"]`).click()
     dialog = page.locator(`[data-editor-command="${commandId}"]`)
     await expect(dialog.locator(`#media-name-${asset.kind}`)).toHaveValue(initialName)
@@ -106,7 +107,7 @@ for (const asset of ASSET_CASES) {
 
     await page.locator('[data-command-id="mode.preview"]').click()
     const preview = asset.semanticKind === 'media'
-      ? page.locator(`.preview-rendered-content ${asset.kind === 'image' ? 'img' : asset.kind}`)
+      ? page.locator(`.preview-rendered-content ${asset.kind === 'image' ? 'img[src]' : asset.kind}`)
       : page.locator('.preview-rendered-content a')
     await expect(preview).toHaveAttribute(asset.semanticKind === 'media' ? 'src' : 'href', updatedUrl)
     if (asset.semanticKind === 'attachment') await expect(preview).toContainText(updatedName)

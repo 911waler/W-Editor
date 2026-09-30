@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Component, type CSSProperties } from 'vue'
+import MarkdownImportZone from './MarkdownImportZone.vue'
 import { loadCapabilityProbe } from './testing/capabilityLoader'
 
+import { createRandomId, numberOutline, activeOutlineIndex } from '@w-editor/editor-vue/services'
 import { BrowserLocalUploadAdapter, CherryRenderAdapter, DrawioAdapter, hydrateCherryChartPreviews, isCherrySourceHistoryShortcutEvent, prepareTiptapVisualProjection, type DrawioAdapterPort, type DrawioSavePayload, type SemanticNodeCopyEvent, type TiptapVisualProjector, type UploadAdapter, type VisualRawNodeSelection, type VisualSearchMatch, type VisualSemanticBlockSelection } from '@w-editor/editor-vue/adapters'
 import type { CommitAcknowledgement, PatchPlan } from '@w-editor/editor-core'
 import { LOCAL_DRAWIO_EDITOR_PATH } from './integrations/drawioBridge'
@@ -174,6 +176,16 @@ import {
 } from '@w-editor/editor-vue'
 
 const props = defineProps<{
+  /** Host lifecycle policy; standalone keeps recovery-draft and export choices. */
+  readonly articleSwitchPolicy?: 'draft-export' | 'save-discard'
+  readonly articleModes?: Readonly<Record<string, EditorMode>>
+  readonly articleGroupLabels?: readonly string[]
+  readonly articleGroupOverrides?: Readonly<Record<string, string>>
+  readonly articleTitles?: Readonly<Record<string, string>>
+  readonly readonlyMode?: boolean
+  readonly toolbarImport?: boolean
+  readonly loadArticle?: (documentId: string) => Promise<ArticleDefinition>
+  readonly persistDrawio?: (payload: DrawioSavePayload) => Promise<Readonly<{png: string; xml: string}>>
   readonly articleCatalog?: readonly ArticleDefinition[]
   readonly createArticle?: (input: Readonly<{ title: string }>) => ArticleDefinition | Promise<ArticleDefinition>
   readonly drawioAdapter?: DrawioAdapterPort
@@ -191,8 +203,10 @@ const props = defineProps<{
     readonly synchronizationStatus: string
     readonly title: string
   }>) => void
+  readonly savedMarkdown?: (documentId: string) => string | undefined
   readonly persistence?: Readonly<{
     readonly saveAutosave?: (input: Readonly<{ documentId: string; markdown: string; revision: number }>) => void | Promise<void>
+    readonly savePublish?: (input: Readonly<{ documentId: string; markdown: string; revision: number }>) => void | Promise<void>
     readonly saveManual?: (input: Readonly<{ documentId: string; markdown: string; revision: number; title: string }>) => void | Promise<void>
     readonly saveWorkspace?: (input: Readonly<{ documentId: string; mode: string; sidebar: Readonly<Record<string, unknown>> }>) => void | Promise<void>
   }>
@@ -221,10 +235,10 @@ const uploadAdapter = props.uploadAdapter ?? new BrowserLocalUploadAdapter()
 const configuredEditorUrl = new URL(
   import.meta.env.MODE === 'e2e'
     ? '/e2e/fixtures/drawio/fake-drawio.html'
-    : LOCAL_DRAWIO_EDITOR_PATH,
+    : `${import.meta.env.BASE_URL}${LOCAL_DRAWIO_EDITOR_PATH.replace(/^\//u, '')}`,
   window.location.href,
 ).href
-const configuredBridgeUrl = new URL('/drawio-bridge.html', window.location.href)
+const configuredBridgeUrl = new URL(`${import.meta.env.BASE_URL}drawio-bridge.html`, window.location.href)
 configuredBridgeUrl.searchParams.set('editor', configuredEditorUrl)
 const ownedDrawioAdapter = props.drawioAdapter === undefined ? new DrawioAdapter({
   allowedOrigin: window.location.origin,
@@ -372,10 +386,11 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
         markdown: definition.initialMarkdown,
         revision: 0,
       })
+  const initialMode = props.articleModes?.[definition.documentId] ?? 'visual'
   const modeSurfaces = new WorkspaceModeAdapters(
     initialDocument,
     previewRenderer,
-    'visual',
+    initialMode,
     (snapshot) => { prepareTiptapVisualProjection(snapshot, visualProjector) },
     'visual-readonly',
   )
@@ -405,11 +420,11 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
     checkpoints,
     flushRecoveryPersistence: () => flushRecoveryPersistence(),
     flushSynchronization: async () => {
-      await flushComposition(`mode-lifecycle:${definition.documentId}:${crypto.randomUUID()}`)
+      await flushComposition(`mode-lifecycle:${definition.documentId}:${createRandomId()}`)
       await flushVisualSynchronization()
     },
     initialDocument,
-    initialMode: 'visual',
+    initialMode,
   })
   let runtime: ArticleRuntime
   const autosave = new AutosaveCoordinator({
@@ -460,11 +475,12 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
   const manualCheckpoint = new ManualCheckpointService({
     flushPersistence: () => autosave.flush(),
     flushSynchronization: async () => {
-      await flushComposition(`manual-save:${definition.documentId}:${crypto.randomUUID()}`)
+      await flushComposition(`manual-save:${definition.documentId}:${createRandomId()}`)
       await flushVisualSynchronization()
       const synchronization = root.synchronization.snapshot()
       if (synchronization.status === 'failed') throw synchronization.failure
     },
+    ...(props.savedMarkdown?.(definition.documentId) === undefined ? {} : { initialBaselineMarkdown: props.savedMarkdown!(definition.documentId)! }),
     initialCheckpoint: stored.status === 'valid' ? stored.value.manualCheckpoint : null,
     session: root.session,
     writeLatest: async (checkpoint) => {
@@ -549,6 +565,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
   }
   root.setManualDirty(manualCheckpoint.dirty())
   runtimes.set(definition.documentId, runtime)
+  articleTimestampVersion.value += 1
   return runtime
 }
 
@@ -602,8 +619,9 @@ const articleSwitch = new ArticleSwitchCoordinator({
     await guard.flush(article)
   },
   initialArticle: Object.freeze({ definition: initialRuntime.definition, session: initialRuntime.root.session }),
-  openArticle: (definition) => {
-    const runtime = runtimes.get(definition.documentId) ?? createArticleRuntime(definition)
+  openArticle: async (definition) => {
+    const loaded = runtimes.has(definition.documentId) ? definition : await props.loadArticle?.(definition.documentId) ?? definition
+    const runtime = runtimes.get(definition.documentId) ?? createArticleRuntime(loaded)
     return Object.freeze({ definition, session: runtime.root.session })
   },
 })
@@ -611,8 +629,7 @@ articleSwitch.subscribe((article) => {
   const runtime = runtimes.get(article.definition.documentId)
   if (runtime === undefined) throw new Error('Active article runtime was not prepared.')
   activeRuntime.value = runtime
-  workspace.value = runtime.state
-  surface.value = runtime.surface
+  publishRuntime(runtime)
   persistWorkspaceState()
   void focusActiveSurface()
 })
@@ -642,7 +659,7 @@ const mode = computed(() => workspace.value.mode)
 const actionCount = ref(0)
 const articlePanelOpen = ref(storedWorkspace.status === 'valid' ? !storedWorkspace.value.articlePanel.collapsed : true)
 const articlePanelWidth = ref(storedWorkspace.status === 'valid' ? storedWorkspace.value.articlePanel.width : 252)
-const articlePanelView = ref<'articles' | 'outline'>('articles')
+const articlePanelView = ref<'articles' | 'outline'>(props.articleGroupLabels === undefined ? 'articles' : 'outline')
 const activeOutlineAnchor = ref<string | null>(null)
 const articleSwitching = ref(false)
 const newArticleDialogOpen = ref(false)
@@ -674,6 +691,7 @@ const sourceSurface = ref<{
   readonly selection: () => Readonly<{ anchor: number; head: number }>
   readonly setSelection: (selection: Readonly<{ anchor: number; head: number }>) => void
   readonly undo: () => boolean
+  readonly visibleSourceFrom: () => number | null
   readonly value: () => string
 } | null>(null)
 const visualSurface = ref<{
@@ -846,6 +864,9 @@ const attachmentDraftUrl = ref('')
 const attachmentDraftMediaType = ref('')
 const attachmentDraftSize = ref(0)
 const drawioDialogOpen = ref(false)
+const drawioUploadError = ref('')
+const drawioUploadBusy = ref(false)
+const pendingDrawioPayload = shallowRef<DrawioSavePayload | null>(null)
 const drawioInitialXml = ref('')
 const drawioName = ref('draw.io diagram')
 const drawioRequestId = ref('')
@@ -997,7 +1018,7 @@ type LifecycleConfirmation = Readonly<{
   title: UiNotice
 }>
 const lifecycleConfirmation = shallowRef<LifecycleConfirmation | null>(null)
-type LifecycleDecision = 'cancel' | 'draft' | 'export' | 'save'
+type LifecycleDecision = 'cancel' | 'draft' | 'export' | 'save' | 'discard'
 type LifecycleDecisionState = Readonly<{
   body: UiNotice
   kind: 'article-switch'
@@ -1178,7 +1199,7 @@ async function runLibraryImport(file: File, eventOrTrigger: Event | HTMLElement 
       }
     }
     const markdown = await readMarkdownFile(file)
-    await flushLifecycleComposition(runtime, `library-import:${crypto.randomUUID()}`)
+    await flushLifecycleComposition(runtime, `library-import:${createRandomId()}`)
     await flushLifecycleSynchronization(runtime)
     await runtime.autosave.flush()
     const title = file.name.replace(/\.(?:md|markdown|txt)$/iu, '').trim() || 'Imported Markdown'
@@ -1224,7 +1245,7 @@ async function runDestructiveReplacement(
         runtime,
         title: localizedUiNotice('lifecycle.destructiveTitle', { operation: kind }, { operation: operationKey }),
       }),
-      flushComposition: () => flushLifecycleComposition(runtime, `destructive:${kind}:${crypto.randomUUID()}`),
+      flushComposition: () => flushLifecycleComposition(runtime, `destructive:${kind}:${createRandomId()}`),
       flushPersistence: () => runtime.autosave.flush(),
       flushSynchronization: () => flushLifecycleSynchronization(runtime),
       session: runtime.root.session,
@@ -1233,7 +1254,7 @@ async function runDestructiveReplacement(
       ...(beforeCommit === undefined ? {} : { beforeCommit }),
       kind,
       readReplacement,
-      transactionId: `destructive:${kind}:${crypto.randomUUID()}`,
+      transactionId: `destructive:${kind}:${createRandomId()}`,
     })
     if (result.status === 'cancelled') {
       commandFeedback.value = localizedUiNotice('lifecycle.cancelled', { operation: kind }, { operation: operationKey })
@@ -1263,8 +1284,25 @@ function chooseMarkdownImport(event: Event): void {
 
 function handleMarkdownImport(event: Event): void {
   const input = event.currentTarget as HTMLInputElement
-  const file = input.files?.[0]
-  if (file === undefined) return
+  importMarkdownFiles(Array.from(input.files ?? []), lifecycleTrigger.value)
+}
+
+function importMarkdownFiles(files: File[], trigger: Event | HTMLElement | null): void {
+  if (lifecycleOperation.value || articleSwitching.value || files.length === 0) return
+  const element = lifecycleTriggerFrom(trigger)
+  lifecycleTrigger.value = element?.querySelector<HTMLButtonElement>('[data-testid="import-markdown"]') ?? element
+  lifecycleError.value = null
+  if (files.length !== 1) {
+    lifecycleError.value = uiNotice('lifecycle.oneMarkdownFile')
+    if (lifecycleFileInput.value) lifecycleFileInput.value.value = ''
+    return
+  }
+  const file = files[0]!
+  if (!/\.(md|markdown)$/i.test(file.name)) {
+    lifecycleError.value = uiNotice('lifecycle.markdownFileType')
+    if (lifecycleFileInput.value) lifecycleFileInput.value.value = ''
+    return
+  }
   if (props.importArticle !== undefined) {
     void runLibraryImport(file, lifecycleTrigger.value)
     return
@@ -1516,6 +1554,19 @@ function localTimeLabel(timestamp: number): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
 
+const articleGroupCollapseOverrides = ref<ReadonlyMap<string, boolean>>(new Map())
+const collapsedArticleGroups = computed(() => new Set(articleGroups.value.filter(group =>
+  articleGroupCollapseOverrides.value.get(group.dateKey)
+    ?? !group.articles.some(article => article.definition.documentId === activeRuntime.value.definition.documentId),
+).map(group => group.dateKey)))
+function toggleArticleGroup(key: string): void {
+  articleGroupCollapseOverrides.value = new Map(articleGroupCollapseOverrides.value).set(key, !collapsedArticleGroups.value.has(key))
+}
+watch(() => activeRuntime.value.definition.documentId, () => {
+  articleGroupCollapseOverrides.value = new Map()
+  if (props.articleGroupLabels !== undefined) articlePanelView.value = 'outline'
+})
+
 const articleGroups = computed(() => {
   void catalogVersion.value
   void articleTimestampVersion.value
@@ -1533,7 +1584,9 @@ const articleGroups = computed(() => {
       ?? (stored?.status === 'valid' ? stored.value.autosave.savedAt : null)
     const parsed = lastUpdated === null ? Number.NaN : Date.parse(lastUpdated)
     const timestamp = Number.isFinite(parsed) ? parsed : null
-    const dateKey = timestamp === null ? 'unupdated' : localDateKey(timestamp)
+    const dateKey = props.articleGroupLabels === undefined
+      ? timestamp === null ? 'unupdated' : localDateKey(timestamp)
+      : props.articleGroupOverrides?.[definition.documentId] ?? runtime?.definition.group ?? definition.group ?? props.articleGroupLabels.at(-1) ?? ''
     const article = Object.freeze({
       definition,
       lastUpdated,
@@ -1546,6 +1599,13 @@ const articleGroups = computed(() => {
   })
   return Object.freeze([...groups.entries()]
     .sort(([left], [right]) => {
+      if (props.articleGroupLabels !== undefined) {
+        const rank = (label: string) => {
+          const index = props.articleGroupLabels?.indexOf(label) ?? -1
+          return index < 0 ? Number.MAX_SAFE_INTEGER : index
+        }
+        return rank(left) - rank(right) || left.localeCompare(right)
+      }
       if (left === 'unupdated') return 1
       if (right === 'unupdated') return -1
       return right.localeCompare(left)
@@ -1557,7 +1617,7 @@ const articleGroups = computed(() => {
         return right.timestamp - left.timestamp
       })),
       dateKey,
-      label: dateKey === 'unupdated' ? t('workspace.notUpdated') : localDateLabel(dateKey, todayKey),
+      label: props.articleGroupLabels !== undefined ? dateKey : dateKey === 'unupdated' ? t('workspace.notUpdated') : localDateLabel(dateKey, todayKey),
     })))
 })
 async function writeExportArtifact(artifact: ExportArtifact): Promise<void> {
@@ -1567,13 +1627,13 @@ async function writeExportArtifact(artifact: ExportArtifact): Promise<void> {
   }
   browserFileExporter.download(artifact)
 }
-const activeArticleTitle = computed(() => activeRuntime.value.definition.title)
-const articleOutline = computed(() => createMarkdownOutline(workspace.value.activeDocument.markdown))
+const activeArticleTitle = computed(() => props.articleTitles?.[activeRuntime.value.definition.documentId] ?? activeRuntime.value.definition.title)
+const articleOutline = computed(() => numberOutline(createMarkdownOutline(workspace.value.activeDocument.markdown)))
 watch(articleOutline, (items) => {
-  if (activeOutlineAnchor.value !== null && !items.some((item) => item.anchor === activeOutlineAnchor.value)) {
-    activeOutlineAnchor.value = null
+  if (!items.some((item) => item.anchor === activeOutlineAnchor.value)) {
+    activeOutlineAnchor.value = items[0]?.anchor ?? null
   }
-})
+}, { immediate: true })
 const workspaceBodyStyle = computed(() => ({
   '--article-panel-width': `${articlePanelOpen.value ? articlePanelWidth.value : 56}px`,
 }))
@@ -1838,7 +1898,7 @@ async function applyRichPicker(): Promise<void> {
         selection,
         commandId,
         richPickerValue.value,
-        `source-command:${commandId}:${crypto.randomUUID()}`,
+        `source-command:${commandId}:${createRandomId()}`,
         commandId === 'text.ruby' ? richPickerBase.value : undefined,
       )
       await applySourcePlan(result.plan, result.selection)
@@ -1887,7 +1947,7 @@ async function applyLinkDialog(): Promise<void> {
       activeRuntime.value.root.session.snapshot(),
       selection,
       linkUrl.value,
-      `source-command:insert.link:${crypto.randomUUID()}`,
+      `source-command:insert.link:${createRandomId()}`,
     )
     await applySourcePlan(result.plan, result.selection)
     activeEditorCommandIds.value = new Set(['insert.link'])
@@ -1972,7 +2032,7 @@ async function applyFormulaDialog(): Promise<void> {
         activeRuntime.value.root.session.snapshot(),
         context.sourceSelection,
         formulaContent.value,
-        `source-command:insert.formula:${crypto.randomUUID()}`,
+        `source-command:insert.formula:${createRandomId()}`,
         formulaMode.value,
       )
       await applySourcePlan(result.plan, result.selection)
@@ -2047,7 +2107,7 @@ function commitPreviewTaskState(
     snapshot,
     index,
     checked,
-    `author-preview-task:${transactionKind}:${crypto.randomUUID()}`,
+    `author-preview-task:${transactionKind}:${createRandomId()}`,
   )
   if (plan === null) return null
   runtime.root.session.commitPatchPlan(plan, 'toolbar-command')
@@ -2143,7 +2203,7 @@ async function applyCodeBlockDialog(code: string, language = codeDraftLanguage.v
         sourceSelection(),
         language,
         code,
-        `source-command:insert.code-block:${crypto.randomUUID()}`,
+        `source-command:insert.code-block:${createRandomId()}`,
       )
       injectDedicatedEditorFailure('transaction')
       await applySourcePlan(result.plan, result.selection)
@@ -2292,7 +2352,7 @@ async function applyMediaDialog(draft: AssetDraft): Promise<void> {
       draft.kind,
       draft.name,
       draft.url,
-      `source-command:insert.${draft.kind}:${crypto.randomUUID()}`,
+      `source-command:insert.${draft.kind}:${createRandomId()}`,
     )
     await applySourcePlan(result.plan, result.selection)
   } else if (mode.value === 'visual') {
@@ -2371,7 +2431,7 @@ async function applyAttachmentDialog(draft: AssetDraft): Promise<void> {
       activeRuntime.value.root.session.snapshot(),
       sourceSelection(),
       attachment,
-      `source-command:insert.${draft.kind}:${crypto.randomUUID()}`,
+      `source-command:insert.${draft.kind}:${createRandomId()}`,
     )
     await applySourcePlan(result.plan, result.selection)
   } else if (mode.value === 'visual') {
@@ -2406,7 +2466,7 @@ async function openDrawioDialog(event?: VisualSemanticBlockSelection): Promise<v
   }
   drawioName.value = selected?.name ?? 'draw.io diagram'
   drawioInitialXml.value = selected?.xml ?? EMPTY_DRAWIO_XML
-  drawioRequestId.value = crypto.randomUUID()
+  drawioRequestId.value = createRandomId()
   drawioDialogOpen.value = true
   activeRuntime.value.root.setModalActivity('drawio-editor')
   await nextTick()
@@ -2414,6 +2474,8 @@ async function openDrawioDialog(event?: VisualSemanticBlockSelection): Promise<v
 
 async function closeDrawioDialog(): Promise<void> {
   drawioDialogOpen.value = false
+  drawioUploadError.value = ''
+  pendingDrawioPayload.value = null
   drawioName.value = 'draw.io diagram'
   drawioRequestId.value = ''
   activeRuntime.value.root.setModalActivity(null)
@@ -2422,7 +2484,16 @@ async function closeDrawioDialog(): Promise<void> {
   else visualSurface.value?.focus()
 }
 
-async function acceptDrawioPayload(payload: DrawioSavePayload): Promise<void> {
+async function acceptDrawioPayload(originalPayload: DrawioSavePayload): Promise<void> {
+  if(drawioUploadBusy.value) return
+  pendingDrawioPayload.value = originalPayload
+  drawioUploadBusy.value = true
+  let payload: Readonly<{png: string; xml: string}>
+  try { payload = await props.persistDrawio?.(originalPayload) ?? originalPayload }
+  catch (failure) {
+    drawioUploadError.value = failure instanceof Error ? failure.message : 'Upload failed'
+    return
+  } finally { drawioUploadBusy.value = false }
   if (mode.value === 'source') {
     const result = createDrawioCommandPlan(
       activeRuntime.value.root.session.snapshot(),
@@ -2430,7 +2501,7 @@ async function acceptDrawioPayload(payload: DrawioSavePayload): Promise<void> {
       drawioName.value,
       payload.png,
       payload.xml,
-      `source-command:insert.drawio:${crypto.randomUUID()}`,
+      `source-command:insert.drawio:${createRandomId()}`,
     )
     await applySourcePlan(result.plan, result.selection)
   } else if (mode.value === 'visual') {
@@ -2515,7 +2586,7 @@ async function applyPanelDialog(): Promise<void> {
         activeRuntime.value.root.session.snapshot(),
         sourceSelection(),
         commandId,
-        `source-command:${commandId}:${crypto.randomUUID()}`,
+        `source-command:${commandId}:${createRandomId()}`,
         panelDraftSource.value,
       )
       injectDedicatedEditorFailure('transaction')
@@ -2576,7 +2647,7 @@ async function applyColumnLayoutDialog(): Promise<void> {
       activeRuntime.value.root.session.snapshot(),
       sourceSelection(),
       commandId,
-      `source-command:${commandId}:${crypto.randomUUID()}`,
+      `source-command:${commandId}:${createRandomId()}`,
       columnLayoutDraftSource.value,
     )
     await applySourcePlan(result.plan, result.selection)
@@ -2629,7 +2700,7 @@ async function applyDisclosureDialog(): Promise<void> {
       sourceSelection(),
       commandId,
       disclosureDraftSource.value,
-      `source-command:${commandId}:${crypto.randomUUID()}`,
+      `source-command:${commandId}:${createRandomId()}`,
     )
     await applySourcePlan(result.plan, result.selection)
   } else if (mode.value === 'visual') {
@@ -2677,7 +2748,7 @@ async function applyTimelineDialog(): Promise<void> {
       activeRuntime.value.root.session.snapshot(),
       sourceSelection(),
       timelineDraftSource.value,
-      `source-command:layout.timeline:${crypto.randomUUID()}`,
+      `source-command:layout.timeline:${createRandomId()}`,
     )
     await applySourcePlan(result.plan, result.selection)
   } else if (mode.value === 'visual') {
@@ -2765,7 +2836,7 @@ const sourceEditorDispatcher = Object.freeze({
         snapshot,
         selection,
         mermaidCommand,
-        `source-command:${commandId}:${crypto.randomUUID()}`,
+        `source-command:${commandId}:${createRandomId()}`,
       )
       await applySourcePlan(result.plan, result.selection)
       return Object.freeze({ changed: true, commandId, detail: 'feedback.inserted', semanticOutcome: `cherry:${commandId}` })
@@ -2775,7 +2846,7 @@ const sourceEditorDispatcher = Object.freeze({
         snapshot,
         selection,
         chartTableCommand,
-        `source-command:${commandId}:${crypto.randomUUID()}`,
+        `source-command:${commandId}:${createRandomId()}`,
       )
       await applySourcePlan(result.plan, result.selection)
       return Object.freeze({ changed: true, commandId, detail: 'feedback.inserted', semanticOutcome: `cherry:${commandId}` })
@@ -2817,7 +2888,7 @@ const sourceEditorDispatcher = Object.freeze({
         snapshot,
         selection,
         alignmentCommand,
-        `source-command:${commandId}:${crypto.randomUUID()}`,
+        `source-command:${commandId}:${createRandomId()}`,
       )
       await applySourcePlan(result.plan, result.selection)
       activeEditorCommandIds.value = new Set([commandId])
@@ -2846,17 +2917,17 @@ const sourceEditorDispatcher = Object.freeze({
       return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
     }
     if (commandId === 'insert.hard-break') {
-      const result = createHardBreakPlan(snapshot, selection.from, `source-command:${commandId}:${crypto.randomUUID()}`)
+      const result = createHardBreakPlan(snapshot, selection.from, `source-command:${commandId}:${createRandomId()}`)
       await applySourcePlan(result.plan, result.selection)
       return Object.freeze({ changed: true, commandId, detail: 'feedback.inserted', semanticOutcome: `cherry:${commandId}` })
     }
     if (commandId === 'insert.horizontal-rule') {
-      const result = createBlockInsertionPlan(snapshot, selection.from, commandId, `source-command:${commandId}:${crypto.randomUUID()}`)
+      const result = createBlockInsertionPlan(snapshot, selection.from, commandId, `source-command:${commandId}:${createRandomId()}`)
       await applySourcePlan(result.plan, result.selection)
       return Object.freeze({ changed: true, commandId, detail: 'feedback.inserted', semanticOutcome: `cherry:${commandId}` })
     }
     if (commandId === 'insert.toc') {
-      const decision = createTocInsertionDecision(snapshot, selection.from, `source-command:${commandId}:${crypto.randomUUID()}`)
+      const decision = createTocInsertionDecision(snapshot, selection.from, `source-command:${commandId}:${createRandomId()}`)
       if (decision.kind === 'existing') {
         sourceSurface.value?.setSelection({ anchor: decision.selection.from, head: decision.selection.to })
         sourceSurface.value?.focus()
@@ -2882,7 +2953,7 @@ const sourceEditorDispatcher = Object.freeze({
         snapshot,
         selection,
         listKind,
-        `source-command:${commandId}:${crypto.randomUUID()}`,
+        `source-command:${commandId}:${createRandomId()}`,
       )
       await applySourcePlan(result.plan, result.selection)
       activeEditorCommandIds.value = new Set([commandId])
@@ -2898,7 +2969,7 @@ const sourceEditorDispatcher = Object.freeze({
         snapshot,
         selection,
         commandId as HeadingCommandId,
-        `source-command:${commandId}:${crypto.randomUUID()}`,
+        `source-command:${commandId}:${createRandomId()}`,
       )
       await applySourcePlan(result.plan, result.selection)
       activeEditorCommandIds.value = result.active ? new Set([commandId]) : new Set()
@@ -2925,7 +2996,7 @@ const sourceEditorDispatcher = Object.freeze({
       const result = createInlineCodePlan(
         snapshot,
         selection,
-        `source-command:${commandId}:${crypto.randomUUID()}`,
+        `source-command:${commandId}:${createRandomId()}`,
       )
       await applySourcePlan(result.plan, result.selection)
       activeEditorCommandIds.value = new Set([commandId])
@@ -2945,7 +3016,7 @@ const sourceEditorDispatcher = Object.freeze({
       snapshot,
       selection,
       spec.commandId,
-      `source-command:${commandId}:${crypto.randomUUID()}`,
+      `source-command:${commandId}:${createRandomId()}`,
     )
     await applySourcePlan(toggle.plan, toggle.selection)
     activeEditorCommandIds.value = toggle.active ? new Set([commandId]) : new Set()
@@ -3502,6 +3573,7 @@ async function selectMode(nextMode: EditorMode, eventOrTrigger?: Event | HTMLEle
       actionCount.value += 1
       if (nextMode === 'preview' && previousMode !== 'preview') lastEditingMode.value = previousMode
       if (nextMode !== 'preview') lastEditingMode.value = nextMode
+      persistWorkspaceState()
     }
     await focusActiveSurface()
   } catch {
@@ -3538,7 +3610,7 @@ async function focusActiveSurface(): Promise<void> {
         const decision = createTocInsertionDecision(
           snapshot,
           pending.selection.from,
-          `visual-toc-selection:${crypto.randomUUID()}`,
+          `visual-toc-selection:${createRandomId()}`,
         )
         if (
           decision.kind === 'existing'
@@ -3641,7 +3713,7 @@ async function applyTableDimensions(columns: number, dataRows: number): Promise<
     const result = createTableInsertionPlan(
       snapshot,
       selection.from,
-      `source-command:insert.table:${crypto.randomUUID()}`,
+      `source-command:insert.table:${createRandomId()}`,
       { columns, dataRows },
     )
     await applySourcePlan(result.plan, result.selection)
@@ -4169,7 +4241,7 @@ async function replaceSearchMatches(replaceAll: boolean): Promise<void> {
           replacement: searchReplacement.value,
           to: match.to,
         }))),
-        transactionId: `search-replace:${crypto.randomUUID()}`,
+        transactionId: `search-replace:${createRandomId()}`,
       }))
     } else if (searchMode.value === 'visual') {
       const result = visualSurface.value?.replaceSearchMatches(matches, searchReplacement.value)
@@ -4347,6 +4419,7 @@ function previewTaskHistoryDirection(event: KeyboardEvent): 'redo' | 'undo' | nu
 }
 
 function handleApplicationShortcut(event: KeyboardEvent): void {
+  if (props.readonlyMode) return
   if (mode.value !== 'preview' && (event.target as Element | null)?.closest('.ProseMirror') !== null) return
   if (isCherrySourceHistoryShortcutEvent(event)) return
   const previewHistory = mode.value === 'preview' ? previewTaskHistoryDirection(event) : null
@@ -4370,9 +4443,21 @@ async function flushAuthoritativeSnapshotForUtility() {
 
 async function flushForLifecycle(): Promise<void> {
   const runtime = activeRuntime.value
-  await flushLifecycleComposition(runtime, `lifecycle:${runtime.definition.documentId}:${crypto.randomUUID()}`)
+  await flushLifecycleComposition(runtime, `lifecycle:${runtime.definition.documentId}:${createRandomId()}`)
   await flushLifecycleSynchronization(runtime)
   await runtime.autosave.flush()
+}
+
+async function publishForLifecycle(): Promise<void> {
+  const runtime = activeRuntime.value
+  await flushLifecycleComposition(runtime, `publish:${runtime.definition.documentId}:${createRandomId()}`)
+  await flushLifecycleSynchronization(runtime)
+  await runtime.autosave.flush()
+  const snapshot = runtime.root.session.snapshot()
+  if (props.persistence?.savePublish) {
+    await props.persistence.savePublish(snapshot)
+    runtime.manualCheckpoint.acceptSavedMarkdown(snapshot.markdown)
+  }
 }
 
 async function saveForLifecycle(): Promise<void> {
@@ -4534,10 +4619,10 @@ async function selectArticle(documentId: string, eventOrTrigger: Event | HTMLEle
   articleSwitching.value = true
   try {
     const runtime = activeRuntime.value
-    await flushLifecycleComposition(runtime, `article-switch:composition:${runtime.definition.documentId}:${crypto.randomUUID()}`)
+    await flushLifecycleComposition(runtime, `article-switch:composition:${runtime.definition.documentId}:${createRandomId()}`)
     if (runtime.state.manualDirty) {
       const decision = await requestLifecycleDecision({
-        body: uiNotice('lifecycle.unsavedBody', {
+        body: uiNotice(props.articleSwitchPolicy === 'save-discard' ? 'lifecycle.unsavedDiscardBody' : 'lifecycle.unsavedBody', {
           revision: runtime.root.session.snapshot().revision,
           title: runtime.definition.title,
         }),
@@ -4551,9 +4636,13 @@ async function selectArticle(documentId: string, eventOrTrigger: Event | HTMLEle
         runtime.root.clearError()
       } else if (decision === 'draft') {
         await runtime.autosave.flush()
-      } else {
+      } else if (decision === 'export') {
         await runtime.autosave.flush()
         await downloadRawMarkdown()
+      } else if (decision === 'discard') {
+        await runtime.manualCheckpoint.discard(async (snapshot) => {
+          await props.persistence?.saveAutosave?.(snapshot)
+        })
       }
     }
     await articleSwitch.request(documentId)
@@ -4616,6 +4705,26 @@ function handleArticlePanelTabKeydown(event: KeyboardEvent): void {
   event.preventDefault()
   selectArticlePanelView(event.key === 'ArrowLeft' || event.key === 'Home' ? 'articles' : 'outline', true)
 }
+
+let outlineFrame = 0
+function updateOutlineFromScroll(): void {
+  outlineFrame = 0
+  const surface = workspaceShell.value?.querySelector<HTMLElement>('.editor-surface')
+  if (!surface) return
+  if (mode.value === 'source') {
+    const from = sourceSurface.value?.visibleSourceFrom()
+    if (from == null) return
+    activeOutlineAnchor.value = articleOutline.value.filter(item => item.sourceFrom <= from).at(-1)?.anchor ?? articleOutline.value[0]?.anchor ?? null
+    return
+  }
+  const visibleHeadings = [...surface.querySelectorAll<HTMLElement>('h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]')]
+    .filter(h => articleOutline.value.some(item => item.anchor === h.id))
+  const index = activeOutlineIndex(visibleHeadings.map(h => h.getBoundingClientRect().top), surface.getBoundingClientRect().top + 32,
+    surface.scrollTop > 0 && surface.scrollTop + surface.clientHeight >= surface.scrollHeight - 2)
+  activeOutlineAnchor.value = visibleHeadings[index]?.id ?? articleOutline.value[0]?.anchor ?? null
+}
+function scheduleOutlineFromScroll(): void { if (!outlineFrame) outlineFrame = requestAnimationFrame(updateOutlineFromScroll) }
+watch([mode, articleOutline], () => { void nextTick(scheduleOutlineFromScroll) })
 
 function outlineHeadingElement(root: HTMLElement, anchor: string): HTMLElement | null {
   return [...root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5')]
@@ -4719,6 +4828,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  cancelAnimationFrame(outlineFrame)
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
   window.removeEventListener('keydown', handleApplicationShortcut, true)
   window.removeEventListener('resize', positionOpenToolbarOverlays)
@@ -4744,6 +4854,7 @@ defineExpose({
   flushForLifecycle,
   openHostArticle,
   saveForLifecycle,
+  publishForLifecycle,
 })
 </script>
 
@@ -4761,8 +4872,17 @@ defineExpose({
     :data-theme="appearanceTheme"
     :style="workspaceShellStyle"
   >
+    <input
+      ref="lifecycleFileInput"
+      accept=".md,.markdown,text/markdown,text/plain"
+      :aria-label="t('workspace.importMarkdown')"
+      class="visually-hidden"
+      data-testid="import-markdown-input"
+      type="file"
+      @change="handleMarkdownImport"
+    />
     <div
-      v-if="startupRecovery === null"
+      v-if="startupRecovery === null && !props.readonlyMode"
       class="workspace-body"
       :style="workspaceBodyStyle"
     >
@@ -4838,34 +4958,66 @@ defineExpose({
               v-for="group in articleGroups"
               :key="group.dateKey"
               class="article-date-group"
-              data-testid="article-date-group"
+              :data-testid="props.articleGroupLabels ? 'article-category-group' : 'article-date-group'"
             >
               <h3
+                v-if="props.articleGroupLabels"
+                class="article-category-heading"
+              >
+                <button
+                  class="article-category-toggle"
+                  data-testid="article-category-toggle"
+                  type="button"
+                  :aria-expanded="!collapsedArticleGroups.has(group.dateKey)"
+                  :aria-controls="`article-group-${encodeURIComponent(group.dateKey)}`"
+                  @click="toggleArticleGroup(group.dateKey)"
+                >
+                  <svg
+                    class="article-category-chevron"
+                    aria-hidden="true"
+                    viewBox="0 0 16 16"
+                  ><path d="m6 3 5 5-5 5" /></svg>
+                  <span
+                    class="article-category-label"
+                    data-testid="article-category-heading"
+                  >{{ group.label }}</span>
+                  <span class="article-category-count">{{ group.articles.length }}</span>
+                </button>
+              </h3>
+              <h3
+                v-else
                 class="article-date-group__heading"
                 data-testid="article-date-heading"
               >
                 {{ group.label }}
               </h3>
-              <button
-                v-for="article in group.articles"
-                :key="article.definition.documentId"
-                :aria-current="workspace.activeDocument.documentId === article.definition.documentId ? 'page' : undefined"
-                class="article-card"
-                :class="{ 'article-card--active': workspace.activeDocument.documentId === article.definition.documentId }"
-                :data-document-id="article.definition.documentId"
-                data-testid="desktop-library-article"
-                :disabled="articleSwitching || modeSwitching || lifecycleOperation"
-                type="button"
-                @click="selectArticle(article.definition.documentId, $event)"
+              <div
+                :id="`article-group-${encodeURIComponent(group.dateKey)}`"
+                class="article-group-items"
+                :class="{ 'article-group-items--category': props.articleGroupLabels }"
+                :hidden="props.articleGroupLabels !== undefined && collapsedArticleGroups.has(group.dateKey)"
               >
-                <span class="article-card__title">{{ article.definition.title }}</span>
-                <time
-                  class="article-card__time"
-                  :datetime="article.lastUpdated ?? undefined"
+                <button
+                  v-for="article in group.articles"
+                  :key="article.definition.documentId"
+                  :aria-current="workspace.activeDocument.documentId === article.definition.documentId ? 'page' : undefined"
+                  class="article-card"
+                  :class="{ 'article-card--active': workspace.activeDocument.documentId === article.definition.documentId }"
+                  :data-document-id="article.definition.documentId"
+                  data-testid="desktop-library-article"
+                  :disabled="articleSwitching || modeSwitching || lifecycleOperation"
+                  type="button"
+                  @click="selectArticle(article.definition.documentId, $event)"
                 >
-                  {{ article.timeLabel }}
-                </time>
-              </button>
+                  <span class="article-card__title">{{ props.articleTitles?.[article.definition.documentId] ?? article.definition.title }}</span>
+                  <time
+                    class="article-card__time"
+                    :datetime="article.lastUpdated ?? undefined"
+                  >
+                    {{ article.timeLabel }}
+                  </time>
+                </button>
+              </div>
             </section>
           </nav>
           <section
@@ -4885,27 +5037,19 @@ defineExpose({
               >
                 {{ t('workspace.newArticle') }}
               </button>
-              <button
-                data-testid="import-markdown"
-                :data-desktop-library-import="props.importArticle ? 'true' : undefined"
-                :disabled="lifecycleOperation"
-                type="button"
-                @click="chooseMarkdownImport"
-              >
-                {{ t('workspace.importMarkdown') }}
-              </button>
-              <input
-                ref="lifecycleFileInput"
-                accept=".md,.markdown,text/markdown,text/plain"
-                :aria-label="t('workspace.importMarkdown')"
-                class="visually-hidden"
-                data-testid="import-markdown-input"
-                type="file"
-                @change="handleMarkdownImport"
+              <MarkdownImportZone
+                v-if="!props.toolbarImport"
+                :label="t('workspace.importMarkdown')"
+                :hint="t('workspace.dropMarkdown')"
+                :choose-label="t('workspace.chooseMarkdown')"
+                :library="Boolean(props.importArticle)"
+                :disabled="lifecycleOperation || articleSwitching"
+                @choose="chooseMarkdownImport"
+                @files="importMarkdownFiles"
               />
             </div>
             <p
-              v-if="lifecycleError"
+              v-if="lifecycleError && !props.toolbarImport"
               class="article-lifecycle__error"
               data-testid="document-lifecycle-error"
               role="alert"
@@ -4923,6 +5067,9 @@ defineExpose({
           role="tabpanel"
           tabindex="0"
         >
+          <div class="article-outline__heading">
+            <strong>{{ t('workspace.documentOutline') }}</strong><span>{{ t('workspace.outlineChapters', { count: articleOutline.filter(item => item.depth === 0).length }) }}</span>
+          </div>
           <p class="article-outline__article">
             {{ activeArticleTitle }}
           </p>
@@ -4931,10 +5078,20 @@ defineExpose({
             class="article-outline__list"
           >
             <li
-              v-for="item in articleOutline"
+              v-for="(item,index) in articleOutline"
               :key="`${item.anchor}:${item.sourceFrom}`"
               :data-outline-level="item.level"
+              :data-outline-depth="item.depth"
+              :style="{ '--outline-depth': item.depth }"
             >
+              <span
+                v-for="guideDepth in item.depth"
+                :key="guideDepth"
+                class="article-outline__guide"
+                :class="{'article-outline__guide--end': (articleOutline[index + 1]?.depth ?? 0) < guideDepth}"
+                :style="{'--guide-depth':guideDepth}"
+                aria-hidden="true"
+              ></span>
               <button
                 :aria-current="activeOutlineAnchor === item.anchor ? 'location' : undefined"
                 :aria-label="t('workspace.outlineHeading', { level: item.level, title: item.text })"
@@ -4945,7 +5102,7 @@ defineExpose({
                 type="button"
                 @click="navigateArticleOutline(item)"
               >
-                <span class="article-outline__text">{{ item.text }}</span>
+                <span class="article-outline__number">{{ item.number }}</span><span class="article-outline__text">{{ item.text }}</span>
               </button>
             </li>
           </ol>
@@ -4976,6 +5133,31 @@ defineExpose({
         class="editor-workspace"
         :aria-label="t('workspace.editor')"
       >
+        <div
+          v-if="$slots['document-actions'] || props.toolbarImport"
+          class="toolbar-region"
+          aria-label="文档操作"
+        >
+          <slot name="document-actions"></slot>
+          <MarkdownImportZone
+            v-if="props.toolbarImport"
+            class="announcement-import-button"
+            :label="t('workspace.importMarkdown')"
+            :hint="t('workspace.dropMarkdown')"
+            :choose-label="t('workspace.chooseMarkdown')"
+            :disabled="lifecycleOperation || articleSwitching"
+            @choose="chooseMarkdownImport"
+            @files="importMarkdownFiles"
+          />
+          <p
+            v-if="props.toolbarImport && lifecycleError"
+            class="article-lifecycle__error"
+            data-testid="document-lifecycle-error"
+            role="alert"
+          >
+            {{ uiNoticeText(lifecycleError) }}
+          </p>
+        </div>
         <div
           ref="toolbarRegion"
           class="toolbar-region"
@@ -5491,6 +5673,7 @@ defineExpose({
           :class="{ 'editor-surface--preview': mode === 'preview' && !modeSwitching }"
           :data-mode="mode"
           data-testid="editor-surface"
+          @scroll.capture.passive="scheduleOutlineFromScroll"
         >
           <span
             v-if="contentCommandsDisabled"
@@ -5561,6 +5744,7 @@ defineExpose({
       </section>
     </div>
 
+    <slot name="document-dialogs"></slot>
     <section
       v-if="props.showReaderPreview === true && startupRecovery === null"
       aria-labelledby="desktop-reader-preview-title"
@@ -5740,7 +5924,7 @@ defineExpose({
       <section
         aria-labelledby="article-switch-decision-title"
         aria-modal="true"
-        class="dialog-panel"
+        class="dialog-panel lifecycle-decision-panel"
         data-testid="article-switch-decision"
         role="dialog"
       >
@@ -5762,6 +5946,7 @@ defineExpose({
             {{ t('lifecycle.cancel') }}
           </button>
           <button
+            v-if="props.articleSwitchPolicy !== 'save-discard'"
             data-testid="article-switch-draft"
             type="button"
             @click="settleLifecycleDecision('draft')"
@@ -5769,11 +5954,20 @@ defineExpose({
             {{ t('lifecycle.keepDraft') }}
           </button>
           <button
+            v-if="props.articleSwitchPolicy !== 'save-discard'"
             data-testid="article-switch-export"
             type="button"
             @click="settleLifecycleDecision('export')"
           >
             {{ t('lifecycle.exportAndContinue') }}
+          </button>
+          <button
+            v-if="props.articleSwitchPolicy === 'save-discard'"
+            data-testid="article-switch-discard"
+            type="button"
+            @click="settleLifecycleDecision('discard')"
+          >
+            {{ t('lifecycle.discardAndContinue') }}
           </button>
           <button
             class="primary-action"
@@ -6361,6 +6555,9 @@ defineExpose({
       :initial-xml="drawioInitialXml"
       :locale="toolbarLocale"
       :request-id="drawioRequestId"
+      :upload-error="drawioUploadError"
+      :upload-busy="drawioUploadBusy"
+      @retry-upload="pendingDrawioPayload && acceptDrawioPayload(pendingDrawioPayload)"
       @apply="acceptDrawioPayload"
       @cancel="closeDrawioDialog()"
     />

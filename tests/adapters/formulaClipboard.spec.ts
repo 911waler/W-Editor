@@ -55,6 +55,7 @@ describe('formula clipboard', () => {
       source.adapter.setSelection({ anchor: 1, head: first.nodeSize - 1 })
       const clipboard = new Map<string, string>()
       source.host.querySelector('.ProseMirror')!.dispatchEvent(clipboardEvent('copy', clipboard))
+      expect(clipboard.get('text/plain')).toBe(paragraph)
       const end = target.adapter.schema().nodeFromJSON(target.adapter.documentJSON()).content.size - 1
       target.adapter.setSelection({ anchor: end, head: end })
       target.host.querySelector('.ProseMirror')!.dispatchEvent(clipboardEvent('paste', clipboard))
@@ -79,6 +80,7 @@ describe('formula clipboard', () => {
         .dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }))
       const clipboard = new Map<string, string>()
       editable.dispatchEvent(clipboardEvent('copy', clipboard))
+      expect(clipboard.get('text/plain')).toBe(source)
       fixture.adapter.setSelection({ anchor: 1, head: 1 })
       editable.dispatchEvent(clipboardEvent('paste', clipboard))
       fixture.commit()
@@ -86,13 +88,59 @@ describe('formula clipboard', () => {
     } finally { fixture.destroy() }
   })
 
+  it('copies only the selected text and inline formula, excluding surrounding content', () => {
+    const fixture = mount('Outside $a$ before $E=mc^2$ after $b$ outside')
+    try {
+      fixture.adapter.setSelection({ anchor: 11, head: 26 })
+      const clipboard = new Map<string, string>()
+      fixture.host.querySelector('.ProseMirror')!.dispatchEvent(clipboardEvent('copy', clipboard))
+      expect(clipboard.get('text/plain')).toBe('before $E=mc^2$ after ')
+    } finally { fixture.destroy() }
+  })
+
+  it('copies multiple blocks with inline and display formulas in document order', () => {
+    const markdown = 'Before $a+b$ after\n\n$$\n\\frac{a}{b}\n$$\n\nThen $c=d$ end'
+    const fixture = mount(markdown)
+    try {
+      const end = fixture.adapter.schema().nodeFromJSON(fixture.adapter.documentJSON()).content.size - 1
+      fixture.adapter.setSelection({ anchor: 1, head: end })
+      const clipboard = new Map<string, string>()
+      fixture.host.querySelector('.ProseMirror')!.dispatchEvent(clipboardEvent('copy', clipboard))
+      expect(clipboard.get('text/plain')).toBe(markdown)
+    } finally { fixture.destroy() }
+  })
+
   const cases = (['inline', 'block'] as const).flatMap((mode) =>
     [false, true].flatMap((legacy) => [
       { mode, legacy, content: String.raw`\frac{a_{1}+b^2}{c} < x & y` },
-      { mode, legacy, content: mode === 'inline'
-        ? '\\langle a \\mid b \\rangle + "x" & y < z'
-        : '\\langle a \\mid b \\rangle % comment\n + "x" & y < z' },
+      { mode, legacy, content: '\\langle a \\mid b \\rangle % comment\n + "x" & y < z' },
     ]))
+
+  it.each(['   ', 'a $$ b', 'a % $$ comment\n + b', '  E=mc^2  '])('copies a formula block verbatim without validating its body: %j', (content) => {
+    const markdown = `Before\n\n$$\n${content}\n$$\n\nAfter`
+    const fixture = mount(markdown)
+    try {
+      const end = fixture.adapter.schema().nodeFromJSON(fixture.adapter.documentJSON()).content.size - 1
+      fixture.adapter.setSelection({ anchor: 1, head: end })
+      const clipboard = new Map<string, string>()
+      fixture.host.querySelector('.ProseMirror')!.dispatchEvent(clipboardEvent('copy', clipboard))
+      expect(clipboard.get('text/plain')).toBe(markdown)
+      expect(clipboard.get('text/html')).toContain('data-formula-content=')
+      expect(fixture.session.snapshot().markdown).toBe(markdown)
+    } finally { fixture.destroy() }
+  })
+
+  it('preserves whitespace in copied inline formula source', () => {
+    const markdown = 'Before $  a+b  $ after'
+    const fixture = mount(markdown)
+    try {
+      const end = fixture.adapter.schema().nodeFromJSON(fixture.adapter.documentJSON()).content.size - 1
+      fixture.adapter.setSelection({ anchor: 1, head: end })
+      const clipboard = new Map<string, string>()
+      fixture.host.querySelector('.ProseMirror')!.dispatchEvent(clipboardEvent('copy', clipboard))
+      expect(clipboard.get('text/plain')).toBe(markdown)
+    } finally { fixture.destroy() }
+  })
 
   it.each(cases)('copies and pastes $mode formulas (legacy HTML: $legacy, LaTeX: $content)', ({ mode, legacy, content }) => {
     const source = mode === 'inline' ? `$${content}$` : `$$\n${content}\n$$`
@@ -104,6 +152,7 @@ describe('formula clipboard', () => {
         .dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }))
       const clipboard = new Map<string, string>()
       editable.dispatchEvent(clipboardEvent('copy', clipboard))
+      expect(clipboard.get('text/plain')).toBe(source)
       expect(clipboard.get('text/html')).toContain('data-w-editor-node="formula"')
       if (legacy) {
         const wrapper = document.createElement('div')

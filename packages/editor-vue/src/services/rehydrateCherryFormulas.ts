@@ -33,6 +33,7 @@ function findCapturedElement(root: DocumentFragment, id: string): HTMLElement | 
 export function sanitizeCherryHtmlWithSafeFormulas(
   rawHtml: string,
   ownerDocument: Document = document,
+  sources: ReadonlyMap<string, string> = new Map(),
 ): string {
   const rawTemplate = ownerDocument.createElement('template')
   rawTemplate.innerHTML = rawHtml
@@ -53,7 +54,8 @@ export function sanitizeCherryHtmlWithSafeFormulas(
     const id = `${prefix}-${placeholders.length + 1}`
     const placeholder = ownerDocument.createElement(mode === 'block' ? 'div' : 'span')
     placeholder.id = id
-    placeholders.push(Object.freeze({ id, mode, source: annotation.textContent ?? '' }))
+    const annotationSource = annotation.textContent ?? ''
+    placeholders.push(Object.freeze({ id, mode, source: sources.get(annotationSource) ?? annotationSource }))
     wrapper.replaceWith(placeholder)
   }
 

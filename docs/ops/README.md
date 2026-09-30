@@ -3,3 +3,4 @@
 | Issue | Record |
 | --- | --- |
 | Formula copy/paste loses LaTeX and blocks visual synchronization | [2026-09-25: Formula clipboard](2026-09-25-formula-clipboard.md) |
+| Formula plain-text copying and NWU shared/Web improvements | [2026-09-30: NWU editor sync](2026-09-30-nwu-editor-sync.md) |

@@ -145,3 +145,28 @@ describe('application draw.io dialog integration', () => {
     wrapper.unmount()
   })
 })
+
+describe('durable draw.io upload failures', () => {
+  it('retains the graph and retries upload without inserting transient data', async () => {
+    const {adapter,request}=fakeAdapter()
+    let attempts=0
+    const wrapper=mount(App,{attachTo:document.body,props:{drawioAdapter:adapter,persistDrawio:async (payload:{png:string;xml:string})=>{
+      attempts+=1
+      if(attempts===1) throw new Error('Upload failed')
+      return {...payload,png:'/uploads/diagram.png'}
+    }}})
+    await activateSource(wrapper)
+    await wrapper.get('#markdown-source').setValue('')
+    await wrapper.get('[data-toolbar-menu="insert"] .toolbar-menu__trigger').trigger('click')
+    await wrapper.get('[data-command-id="insert.drawio"]').trigger('click')
+    await flushPromises()
+    request()?.handlers.onSave({png:'data:image/png;base64,AAAA',xml:'<mxfile></mxfile>'})
+    await flushPromises()
+    expect(wrapper.get('[data-testid="drawio-upload-error"]').text()).toContain('Upload failed')
+    expect(wrapper.get('#markdown-source').element).toHaveProperty('value','')
+    await wrapper.get('[data-testid="drawio-upload-retry"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('#markdown-source').element).toHaveProperty('value','![draw.io diagram](/uploads/diagram.png){data-type=drawio data-xml=%3Cmxfile%3E%3C/mxfile%3E}')
+    wrapper.unmount()
+  })
+})

@@ -675,7 +675,8 @@ describe('desktop workspace shell', () => {
     expect(wrapper.find('.article-lifecycle').exists()).toBe(false)
     expect(wrapper.findAll('.article-outline__text').map((item) => item.text())).toEqual(['Alpha', 'Beta', 'Gamma'])
     expect(wrapper.find('.article-outline__level').exists()).toBe(false)
-    expect(wrapper.findAll('.article-outline__item').map((item) => item.text())).toEqual(['Alpha', 'Beta', 'Gamma'])
+    expect(wrapper.findAll('.article-outline__number').map((item) => item.text())).toEqual(['1', '1.1', '1.1.1'])
+    expect(wrapper.get('.article-outline__heading').text()).toContain('本文目录')
 
     await wrapper.findAll('.article-outline__item')[1]?.trigger('click')
     const source = wrapper.get('#markdown-source').element as HTMLTextAreaElement

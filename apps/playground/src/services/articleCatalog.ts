@@ -4,6 +4,7 @@ import productNotesMarkdown from '../content/articles/product-notes.md?raw'
 import welcomeMarkdown from '../content/articles/welcome.md?raw'
 
 export interface ArticleDefinition {
+  readonly group?: string
   readonly documentId: string
   readonly initialMarkdown: string
   readonly title: string

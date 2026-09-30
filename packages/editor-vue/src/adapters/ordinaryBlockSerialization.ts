@@ -1,6 +1,7 @@
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
 import { INLINE_MARK_SPECS, serializeFencedCode, serializeFormula, type ProjectionMapEntry } from '@w-editor/editor-core'
+import { imageMarkdown } from './imageNode'
 import { formatRichInlineMark } from '@w-editor/editor-core'
 import { InvalidTiptapPatchSerializationError, type TiptapPatchSerializationInput } from './tiptapPatchPlanner'
 
@@ -26,6 +27,10 @@ function serializeInline(node: ProseMirrorNode): string {
       source += delimitedMarks[index]?.open ?? ''
     }
     activeDelimitedMarks = delimitedMarks
+    if (child.type.name === 'inlineImage') {
+      source += imageMarkdown(child.attrs)
+      return
+    }
     if (child.type.name === 'inlineFormula') {
       source += serializeFormula('inline', String(child.attrs['content'] ?? ''))
       return
@@ -126,8 +131,10 @@ function serializeList(node: ProseMirrorNode, indent = ''): string {
       : node.type.name === 'taskList'
         ? `- [${item.attrs['checked'] === true ? 'x' : ' '}] `
         : '- '
-    lines.push(`${indent}${prefix}${body}`)
     const nestedIndent = `${indent}${' '.repeat(prefix.length)}`
+    const [firstLine = '', ...continuation] = body.split('\n')
+    lines.push(`${indent}${prefix}${firstLine}`)
+    lines.push(...continuation.map((line) => `${nestedIndent}${line}`))
     for (let childIndex = 1; childIndex < item.childCount; childIndex += 1) {
       const child = item.child(childIndex)
       if (child.type.name === 'orderedList' || child.type.name === 'bulletList' || child.type.name === 'taskList') {

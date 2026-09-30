@@ -30,6 +30,7 @@ import {
   type UiLocalizationStore,
   type UiMessageKey,
 } from '../services/uiLocalization'
+import { InlineImage } from './imageNode'
 import { highlightCodeTokens } from './codeSyntaxHighlighting'
 import { renderFormulaVisual } from './formulaVisualRenderer'
 
@@ -163,6 +164,30 @@ const TocHeadingAnchors = Extension.create({
   addProseMirrorPlugins: () => [new Plugin({
     key: TOC_HEADING_PLUGIN_KEY,
     props: {
+      handleDOMEvents: {
+        click: (view, event) => {
+          if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return false
+          const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null
+          const href = link?.getAttribute('href')
+          if (link === null || !view.dom.contains(link) || !href?.startsWith('#')) return false
+          const fragment = href.slice(1)
+          if (fragment.length === 0) return false
+          const anchors = new Set([fragment])
+          try {
+            const decoded = decodeURIComponent(fragment)
+            anchors.add(decoded)
+            anchors.add(encodeURIComponent(decoded))
+          } catch { /* A malformed fragment may still match a literal heading id. */ }
+          const target = [...view.dom.querySelectorAll<HTMLElement>('[id], a[name]')]
+            .find((candidate) => anchors.has(candidate.id) || anchors.has(candidate.getAttribute('name') ?? ''))
+          if (target === undefined) return false
+          event.preventDefault()
+          if (typeof target.scrollIntoView === 'function') target.scrollIntoView({ block: 'start' })
+          target.setAttribute('tabindex', '-1')
+          target.focus({ preventScroll: true })
+          return true
+        },
+      },
       decorations: (state) => DecorationSet.create(state.doc, positionedTocHeadings(state.doc).map((heading) => (
         Decoration.node(heading.position, heading.position + heading.size, {
           'data-toc-heading': '',
@@ -577,6 +602,7 @@ export const InlineFormula = Node.create<FormulaNodeOptions>({
     return formulaNodeView(this.options.localization, this.options.onEdit)
   },
   parseHTML: () => [{ tag: 'span[data-w-editor-node="formula"][data-formula-mode="inline"]' }],
+  renderText: ({ node }) => `$${String(node.attrs['content'] ?? '')}$`,
   renderHTML: ({ HTMLAttributes, node }) => [
     'span',
     mergeAttributes(HTMLAttributes, { 'data-formula-mode': 'inline', 'data-w-editor-node': 'formula' }),
@@ -596,6 +622,7 @@ export const FormulaBlock = Node.create<FormulaNodeOptions>({
     return formulaNodeView(this.options.localization, this.options.onEdit)
   },
   parseHTML: () => [{ tag: 'figure[data-w-editor-node="formula"][data-formula-mode="block"]' }],
+  renderText: ({ node }) => `$$\n${String(node.attrs['content'] ?? '')}\n$$`,
   renderHTML: ({ HTMLAttributes, node }) => [
     'figure',
     mergeAttributes(HTMLAttributes, { 'data-formula-mode': 'block', 'data-w-editor-node': 'formula' }),
@@ -717,11 +744,14 @@ export const TocBlock = Node.create<TocNodeOptions>({
       const removeClick = listenNodeViewEvent(dom, 'click', handleClick)
       const removeKeydown = listenNodeViewEvent(dom, 'keydown', handleKeydown)
       const unsubscribeLocalization = bindLocalizedNodeView(localization, renderCopy)
-      editor.on('transaction', refresh)
+      const refreshDocument = ({ transaction }: { transaction: Transaction }): void => {
+        if (transaction.docChanged) refresh()
+      }
+      editor.on('transaction', refreshDocument)
       return {
         dom,
         destroy: () => {
-          editor.off('transaction', refresh)
+          editor.off('transaction', refreshDocument)
           unsubscribeLocalization()
           removeClick()
           removeKeydown()
@@ -2808,6 +2838,7 @@ export function createTiptapVisualExtensions(options?: Readonly<TiptapVisualExte
     RawInline.configure({ localization, onEdit: resolvedOptions.onRawEdit ?? null }),
     RawBlock.configure({ localization, onEdit: resolvedOptions.onRawEdit ?? null }),
     PresentationFallback,
+    InlineImage.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     InlineFormula.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     FormulaBlock.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     TocBlock.configure({ localization }),

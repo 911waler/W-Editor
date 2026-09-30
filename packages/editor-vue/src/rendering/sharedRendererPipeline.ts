@@ -6,6 +6,7 @@ import mermaid from 'mermaid'
 import type { DocumentSnapshot, PreviewRenderResult, ResourceOptions } from '@w-editor/editor-core'
 import { normalizeMarkdownForCherry, taskItemMarkers } from '@w-editor/editor-core'
 
+import { prepareCherryFormulas } from '../services/prepareCherryFormulas'
 import { sanitizeCherryHtmlWithSafeFormulas } from '../services/rehydrateCherryFormulas'
 import { W_EDITOR_CHERRY_ENGINE_OPTIONS } from '../adapters/wEditorCherrySyntax'
 import { hydrateRendererContent, type RendererHydrationOptions } from './rendererHydration'
@@ -74,10 +75,11 @@ export class SharedRendererPipeline {
     host.hidden = true
     host.setAttribute('aria-hidden', 'true')
     ownerDocument.body?.append(host)
+    const formulas = prepareCherryFormulas(snapshot.markdown, ownerDocument)
     const cherry = new Cherry({
       el: host,
       engine: W_EDITOR_CHERRY_ENGINE_OPTIONS,
-      value: normalizeMarkdownForCherry(snapshot.markdown),
+      value: normalizeMarkdownForCherry(formulas.markdown),
       externals: { echarts, katex, mermaid },
       editor: { defaultModel: 'previewOnly' },
       toolbars: {
@@ -91,7 +93,7 @@ export class SharedRendererPipeline {
 
     try {
       const safeHtml = bindRenderedTaskItems(
-        sanitizeCherryHtmlWithSafeFormulas(cherry.getHtml(false), ownerDocument),
+        sanitizeCherryHtmlWithSafeFormulas(cherry.getHtml(false), ownerDocument, formulas.sources),
         snapshot,
         ownerDocument,
       )

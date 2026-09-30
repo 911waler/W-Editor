@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { createRandomId } from '@w-editor/editor-vue/services'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import Cherry from 'cherry-markdown/dist/cherry-markdown.esm.js'
 import 'cherry-markdown/dist/cherry-markdown.min.css'
@@ -47,7 +48,7 @@ function redoPublished(): void {
 
 function renderCurrent(): void {
   const renderHost = document.createElement('div')
-  renderHost.id = `cherry-capability-render-${crypto.randomUUID()}`
+  renderHost.id = `cherry-capability-render-${createRandomId()}`
   renderHost.hidden = true
   document.body.append(renderHost)
   const renderer = new Cherry({

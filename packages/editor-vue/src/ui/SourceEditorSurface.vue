@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 
+import { createRandomId } from '../services/randomId'
+import { EditorView } from '@codemirror/view'
 import { CherrySourceAdapter, type SourceSearchMatch, type SourceSelection } from '../adapters'
 import type { DocumentSession, PatchPlan } from '@w-editor/editor-core'
 import type { SynchronizationStateStore } from '@w-editor/editor-core'
@@ -87,7 +89,7 @@ function quoteSelectedSource(): boolean {
   adapter.replaceSelection({
     codecId: 'blockquote',
     replacement,
-    transactionId: `source-context:blockquote:${crypto.randomUUID()}`,
+    transactionId: `source-context:blockquote:${createRandomId()}`,
   })
   selectionBubbleVisible.value = false
   emit('selectionChange')
@@ -100,7 +102,7 @@ function updateTestValue(event: Event): void {
   props.session.commitSource({
     markdown,
     origin: 'cherry-source',
-    transactionId: `source-test-input:${crypto.randomUUID()}`,
+    transactionId: `source-test-input:${createRandomId()}`,
   })
   props.state.succeed(props.session.snapshot())
 }
@@ -147,6 +149,17 @@ onBeforeUnmount(() => {
 })
 
 defineExpose({
+  visibleSourceFrom: () => {
+    if (testMode) return testTextarea.value?.selectionStart ?? 0
+    const element = host.value?.querySelector<HTMLElement>('.cm-editor')
+    const view = element ? EditorView.findFromDOM(element) : null
+    if (!view) return null
+    const outer = host.value?.closest<HTMLElement>('.editor-surface')
+    const scrollers = outer ? [view.scrollDOM, outer] : [view.scrollDOM]
+    if (scrollers.some(element => element.scrollTop > 0 && element.scrollTop + element.clientHeight >= element.scrollHeight - 2)) return view.state.doc.length
+    const top = Math.max(...scrollers.map(element => element.getBoundingClientRect().top))
+    return view.posAtCoords({x:view.contentDOM.getBoundingClientRect().left + 4, y:top + 8}, false)
+  },
   applyPatchPlan: (plan: PatchPlan) => {
     if (testMode) {
       const acknowledgement = props.session.commitPatchPlan(plan, 'toolbar-command')

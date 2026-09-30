@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 
 import type { Codec, CodecMatch, ProjectionNode, SafePatchUnit, ValidationResult } from './contracts'
+import { parseInlineImageAt } from './images'
 import { parseInlineFormulaAt } from './formulas'
 import { recognizeRichInlineMark, richMarkJSON } from './richInlineMarks'
 import { recognizeSimpleInline, simpleInlineMarkJSON } from './simpleInlineSyntax'
@@ -109,6 +110,9 @@ function appendText(content: JSONContent[], text: string, marks: readonly JSONMa
 }
 
 function parseRange(source: string, inheritedMarks: readonly JSONMark[] = []): JSONContent[] {
+  if (inheritedMarks.some((mark) => mark.type === 'code')) {
+    return [{ type: 'text', text: source, marks: [...inheritedMarks] }]
+  }
   const content: JSONContent[] = []
   let plain = ''
   let offset = 0
@@ -117,6 +121,16 @@ function parseRange(source: string, inheritedMarks: readonly JSONMark[] = []): J
     plain = ''
   }
   while (offset < source.length) {
+    const image = parseInlineImageAt(source, offset)
+    if (image !== null) {
+      flushPlain()
+      content.push({ type: 'inlineImage', attrs: {
+        name: image.name, url: image.url, source: image.source,
+        width: image.width, height: image.height,
+      }, ...(inheritedMarks.length === 0 ? {} : { marks: [...inheritedMarks] }) })
+      offset = image.sourceSpan.to
+      continue
+    }
     const formula = parseInlineFormulaAt(source, offset)
     if (formula !== null) {
       flushPlain()
