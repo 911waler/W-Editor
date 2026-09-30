@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Component, type CSSProperties } from 'vue'
 import ReferencePanel from './ReferencePanel.vue'
-import { referenceRegistry, scanReferences, referenceMarkdown, type DocumentReference } from '@w-editor/editor-core'
-import { publishReferenceSnapshot } from '@w-editor/editor-vue/services'
+import { referenceRegistry, scanReferences, referenceMarkdown, updateReferencePlan, removeReferencePlan, type ReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
+import { createLocalReferenceServices, type ReferenceEditorServices, type ReferenceNote, publishReferenceSnapshot } from '@w-editor/editor-vue/services'
 import MarkdownImportZone from './MarkdownImportZone.vue'
 import { loadCapabilityProbe } from './testing/capabilityLoader'
 
@@ -215,6 +215,7 @@ const props = defineProps<{
   }>
   readonly previewRenderer?: PreviewRenderer
   readonly renderedExportAdapter?: RenderedExportAdapter
+  readonly referenceServices?: ReferenceEditorServices
   readonly storage?: Storage
   readonly uploadAdapter?: UploadAdapter
   readonly visualProjector?: TiptapVisualProjector
@@ -712,6 +713,9 @@ const visualSurface = ref<{
   readonly applyColumnLayout: (source: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyHeading: (commandId: HeadingCommandId) => { readonly active: boolean; readonly changed: boolean }
   readonly applyList: (commandId: ListCommandId) => { readonly active: boolean; readonly changed: boolean }
+  readonly updateReference: (id: string, reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>) => { readonly changed: boolean }
+  readonly removeReference: (id: string) => { readonly changed: boolean }
+  readonly setReferenceStyle: (style: ReferenceStyle) => { readonly changed: boolean }
   readonly applyReference: (reference: DocumentReference) => { readonly active: boolean; readonly changed: boolean }
   readonly applyLink: (href: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyMermaid: (source: string, fallbackType?: MermaidDiagramType | null) => { readonly active: boolean; readonly changed: boolean }
@@ -1934,10 +1938,70 @@ const referenceEntries = shallowRef<readonly DocumentReference[]>([])
 const referenceSelected = ref<string | null>(null)
 const referenceError = ref('')
 const referenceBusy = ref(false)
+const referenceCounts = shallowRef<Readonly<Record<string, number>>>({})
+const referenceNotes = shallowRef<Readonly<Record<string, ReferenceNote>>>({})
+const referenceNotesError = ref('')
+const referenceNotesBusy = ref(false)
+const referenceNotesLoading = ref(false)
+const referenceSavedVersion = ref(0)
+const referenceServices = props.referenceServices ?? createLocalReferenceServices(props.storage ?? window.localStorage)
+let notesGeneration = 0
+let referenceRefreshTimer: ReturnType<typeof setTimeout> | undefined
+function assignReferences(entries: readonly DocumentReference[]): void {
+  const counts: Record<string, number> = Object.create(null)
+  for (const entry of entries) counts[entry.id] = (counts[entry.id] ?? 0) + 1
+  referenceCounts.value = counts
+  referenceEntries.value = [...new Map(entries.map(item => [item.id, item])).values()].sort((a, b) => a.number - b.number)
+}
+async function loadReferenceNotes(): Promise<void> {
+  const generation = ++notesGeneration
+  const documentId = activeRuntime.value.root.session.snapshot().documentId
+  referenceNotesLoading.value = true
+  referenceNotesBusy.value = false
+  referenceNotesError.value = ''
+  try {
+    const notes = await referenceServices.loadNotes(documentId)
+    if (generation === notesGeneration) referenceNotes.value = notes
+  } catch (error) {
+    if (generation === notesGeneration) referenceNotesError.value = error instanceof Error ? error.message : String(error)
+  } finally { if (generation === notesGeneration) referenceNotesLoading.value = false }
+}
+async function saveReferenceNote(id: string, text: string): Promise<void> {
+  if (referenceNotesBusy.value || referenceNotesLoading.value || referenceNotesError.value) return
+  const generation = notesGeneration
+  const documentId = activeRuntime.value.root.session.snapshot().documentId
+  referenceNotesBusy.value = true
+  try {
+    const note = await referenceServices.saveNote(documentId, id, { text, revision: referenceNotes.value[id]?.revision ?? 0 })
+    if (generation === notesGeneration) referenceNotes.value = { ...referenceNotes.value, [id]: note }
+  } catch (error) {
+    if (generation === notesGeneration) referenceNotesError.value = error instanceof Error ? error.message : String(error)
+  } finally { if (generation === notesGeneration) referenceNotesBusy.value = false }
+}
+const lookupReferenceDoi = referenceServices.lookupDoi
+  ? (doi: string, signal: AbortSignal) => referenceServices.lookupDoi!(activeRuntime.value.root.session.snapshot().documentId, doi, signal)
+  : undefined
+watch(() => workspace.value.activeDocument.markdown, () => {
+  if (!referencePanelOpen.value || mode.value !== 'source') return
+  clearTimeout(referenceRefreshTimer)
+  referenceRefreshTimer = setTimeout(refreshReferences, 180)
+})
+watch(referencePanelOpen, open => { if (!open) clearTimeout(referenceRefreshTimer) })
+watch(() => workspace.value.activeDocument.documentId, () => {
+  referencePanelOpen.value = false
+  notesGeneration++
+  referenceNotes.value = {}
+  referenceNotesBusy.value = false
+  referenceNotesLoading.value = false
+})
+onBeforeUnmount(() => { clearTimeout(referenceRefreshTimer); notesGeneration++ })
+function onReferenceChange(event: Event): void {
+  if (referencePanelOpen.value) assignReferences((event as CustomEvent<{ references: readonly DocumentReference[] }>).detail.references)
+}
 let referenceContext: DedicatedEditorOpenContext | null = null
 function refreshReferences(): void {
   const snapshot = activeRuntime.value.root.session.snapshot()
-  referenceEntries.value = [...new Map(scanReferences(snapshot.markdown).map(item => [item.id, item])).values()].sort((a, b) => a.number - b.number)
+  assignReferences(scanReferences(snapshot.markdown))
 }
 async function openReferences(id: string | null = null): Promise<void> {
   try {
@@ -1947,6 +2011,7 @@ async function openReferences(id: string | null = null): Promise<void> {
     referenceError.value = ''
     refreshReferences()
     referencePanelOpen.value = true
+    void loadReferenceNotes()
     await nextTick()
     if (!id) workspaceShell.value?.querySelector<HTMLTextAreaElement>('#reference-input')?.focus()
   } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
@@ -1958,7 +2023,7 @@ function jumpToReference(id: string): void {
   const entry = [...(workspaceShell.value?.querySelectorAll<HTMLElement>('.w-reference-list p') ?? [])].find(item => item.id === `reference-${id}`)
   entry?.scrollIntoView({ block: 'center' })
 }
-async function insertReference(text: string): Promise<void> {
+async function insertReference(input: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): Promise<void> {
   if (!referenceContext || referenceBusy.value) return
   referenceBusy.value = true
   referenceError.value = ''
@@ -1968,7 +2033,7 @@ async function insertReference(text: string): Promise<void> {
     const snapshot = activeRuntime.value.root.session.snapshot()
     const registry = referenceRegistry(activeRuntime.value.root.session)
     registry.observe(scanReferences(snapshot.markdown))
-    const reference = registry.adopt({ id: createRandomId(), number: 1, text })
+    const reference = registry.adopt({ ...input, id: 'id' in input ? String(input.id) : createRandomId(), number: 1 })
     if (mode.value === 'source' && referenceContext.sourceSelection) {
       const { from, to } = referenceContext.sourceSelection
       const replacement = referenceMarkdown(reference)
@@ -1982,6 +2047,52 @@ async function insertReference(text: string): Promise<void> {
     referencePanelOpen.value = false
   } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
   finally { referenceBusy.value = false }
+}
+
+async function mutateReference(action: (snapshot: ReturnType<typeof activeRuntime.value.root.session.snapshot>) => Promise<void>, acknowledge = false): Promise<void> {
+  if (referenceBusy.value || props.readonlyMode) return
+  referenceBusy.value = true
+  referenceError.value = ''
+  const runtime = activeRuntime.value
+  try {
+    await flushLifecycleSynchronization(runtime)
+    if (runtime !== activeRuntime.value) throw new Error('文档已切换，请重新打开参考文献。')
+    await action(runtime.root.session.snapshot())
+    await flushLifecycleSynchronization(runtime)
+    refreshReferences()
+    referenceContext = captureDedicatedEditorContext(null)
+    if (acknowledge) referenceSavedVersion.value++
+  } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
+  finally { referenceBusy.value = false }
+}
+function referenceContent(reference: DocumentReference): string {
+  return JSON.stringify([reference.text, reference.metadata, reference.style])
+}
+async function updateReference(original: DocumentReference, input: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): Promise<void> {
+  await mutateReference(async snapshot => {
+    const current = scanReferences(snapshot.markdown).find(item => item.id === original.id)
+    if (!current || referenceContent(current) !== referenceContent(original)) throw new Error('这条文献已变化，请重新选择“修改”后保存。')
+    if (mode.value === 'source') await applySourcePlan(updateReferencePlan(snapshot, original.id, input, `reference:${createRandomId()}`), sourceSelection())
+    else if (!visualSurface.value?.updateReference(original.id, input).changed) throw new Error('没有找到可修改的引用。')
+    referenceRegistry(activeRuntime.value.root.session).forget(original.id)
+  }, true)
+}
+async function removeReference(id: string): Promise<void> {
+  await mutateReference(async snapshot => {
+    if (mode.value === 'source') await applySourcePlan(removeReferencePlan(snapshot, id, `reference:${createRandomId()}`), { from: 0, to: 0 })
+    else if (!visualSurface.value?.removeReference(id).changed) throw new Error('没有找到可删除的引用。')
+    referenceRegistry(activeRuntime.value.root.session).forget(id)
+  })
+}
+async function setReferenceStyle(style: ReferenceStyle): Promise<void> {
+  await mutateReference(async snapshot => {
+    if (mode.value === 'source') {
+      const entries = [...new Map(scanReferences(snapshot.markdown).map(item => [item.id, item])).values()]
+      const patches = entries.flatMap(entry => updateReferencePlan(snapshot, entry.id, { text: entry.text, ...(entry.metadata ? { metadata: entry.metadata } : {}), style }, 'style').patches)
+      await applySourcePlan({ baseRevision: snapshot.revision, transactionId: `reference-style:${createRandomId()}`, patches: patches.sort((a, b) => a.from - b.from) }, sourceSelection())
+      for (const entry of entries) referenceRegistry(activeRuntime.value.root.session).forget(entry.id)
+    } else visualSurface.value?.setReferenceStyle(style)
+  })
 }
 
 async function openLinkDialog(): Promise<void> {
@@ -4943,6 +5054,7 @@ defineExpose({
     :data-theme="appearanceTheme"
     :style="workspaceShellStyle"
     @w-reference-open="onReferenceOpen"
+    @w-reference-change="onReferenceChange"
   >
     <ReferencePanel
       v-if="referencePanelOpen"
@@ -4950,6 +5062,18 @@ defineExpose({
       :selected="referenceSelected"
       :error="referenceError"
       :busy="referenceBusy"
+      :counts="referenceCounts"
+      :notes="referenceNotes"
+      :notes-error="referenceNotesError"
+      :notes-busy="referenceNotesBusy"
+      :notes-loading="referenceNotesLoading"
+      :saved-version="referenceSavedVersion"
+      :lookup-doi="lookupReferenceDoi"
+      @update="updateReference"
+      @remove="removeReference"
+      @style="setReferenceStyle"
+      @save-note="saveReferenceNote"
+      @reload-notes="loadReferenceNotes"
       @close="referencePanelOpen = false"
       @insert="insertReference"
       @jump="jumpToReference"

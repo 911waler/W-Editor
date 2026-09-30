@@ -1,8 +1,13 @@
+import type { DocumentSnapshot, PatchPlan } from '../publicContracts'
+import { parseReferenceMetadata, parseReferenceStyle, type ReferenceMetadata, type ReferenceStyle } from './referenceMetadata'
+
 /** Self-contained links keep references portable when copying part of a document. */
 export interface DocumentReference {
   readonly id: string
   readonly number: number
   readonly text: string
+  readonly metadata?: ReferenceMetadata
+  readonly style?: ReferenceStyle
 }
 export interface ReferenceOccurrence extends DocumentReference {
   readonly from: number
@@ -13,19 +18,29 @@ export function referenceMarkdown(reference: DocumentReference): string {
   if (!/^[a-zA-Z0-9_-]+$/u.test(reference.id) || !Number.isSafeInteger(reference.number) || reference.number < 1 || !reference.text.trim()) {
     throw new TypeError('Invalid reference')
   }
-  const encoded = encodeURIComponent(reference.text).replace(/[!'()*]/gu, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
-  return `[${reference.number}](#wref-${reference.id}~${encoded})`
+  const structured = reference.metadata !== undefined || reference.style !== undefined
+  const data = structured ? JSON.stringify({
+    text: reference.text,
+    ...(reference.metadata !== undefined ? { metadata: parseReferenceMetadata(reference.metadata) } : {}),
+    ...(reference.style !== undefined ? { style: parseReferenceStyle(reference.style) } : {}),
+  }) : reference.text
+  const encoded = encodeURIComponent(data).replace(/[!'()*]/gu, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)
+  return `[${reference.number}](#wref${structured ? '2' : ''}-${reference.id}~${encoded})`
 }
 
 export function parseReferenceAt(source: string, offset: number): ReferenceOccurrence | null {
   if (source[offset] !== '[') return null
-  const match = /^\[([1-9]\d*)\]\(#wref-([a-zA-Z0-9_-]+)~([^\s()]*)\)/u.exec(source.slice(offset))
+  const match = /^\[([1-9]\d*)\]\(#wref(2?)-([a-zA-Z0-9_-]+)~([^\s()]*)\)/u.exec(source.slice(offset))
   if (!match) return null
   try {
-    const text = decodeURIComponent(match[3]!)
+    const decoded = decodeURIComponent(match[4]!)
+    const data = match[2] === '2' ? JSON.parse(decoded) : { text: decoded }
     const number = Number(match[1])
-    if (!text.trim() || !Number.isSafeInteger(number)) return null
-    return { id: match[2]!, number, text, from: offset, to: offset + match[0].length }
+    if (typeof data?.text !== 'string' || !data.text.trim() || !Number.isSafeInteger(number)) return null
+    return { id: match[3]!, number, text: data.text,
+      ...(data.metadata !== undefined ? { metadata: parseReferenceMetadata(data.metadata) } : {}),
+      ...(data.style !== undefined ? { style: parseReferenceStyle(data.style) } : {}),
+      from: offset, to: offset + match[0].length }
   } catch { return null }
 }
 
@@ -126,13 +141,14 @@ export class ReferenceRegistry {
       this.#highWater = Math.max(this.#highWater, reference.number)
     }
   }
+  forget(id: string): void { this.#known.delete(id) }
   adopt(reference: DocumentReference): DocumentReference {
     const existing = [...this.#known.values()].find(item => referenceIdentity(item.text) === referenceIdentity(reference.text))
     if (existing) return existing
     const number = ++this.#highWater
     let id = reference.id
     while (this.#known.has(id)) id += `-${number}`
-    const result = { id, number, text: reference.text.trim() }
+    const result = { ...reference, id, number, text: reference.text.trim() }
     referenceMarkdown(result)
     this.#known.set(id, result)
     return result
@@ -147,4 +163,25 @@ export function referenceRegistry(session: { snapshot(): { markdown: string } })
     registries.set(session, registry)
   }
   return registry
+}
+
+/** Snapshot-bound plans are applied atomically by DocumentSession, which rejects stale revisions. */
+export function updateReferencePlan(snapshot: DocumentSnapshot, id: string, change: Pick<DocumentReference, 'text' | 'metadata' | 'style'>, transactionId: string): PatchPlan {
+  const occurrences = scanReferences(snapshot.markdown).filter(reference => reference.id === id)
+  if (!occurrences.length) throw new RangeError('Reference is no longer present')
+  const updated = { id, number: occurrences[0]!.number, ...change }
+  referenceMarkdown(updated)
+  return { baseRevision: snapshot.revision, transactionId, patches: occurrences.map(reference => ({
+    codecId: 'reference', from: reference.from, to: reference.to,
+    expected: snapshot.markdown.slice(reference.from, reference.to),
+    replacement: referenceMarkdown({ ...updated, number: reference.number }),
+  })) }
+}
+export function removeReferencePlan(snapshot: DocumentSnapshot, id: string, transactionId: string): PatchPlan {
+  const occurrences = scanReferences(snapshot.markdown).filter(reference => reference.id === id)
+  if (!occurrences.length) throw new RangeError('Reference is no longer present')
+  return { baseRevision: snapshot.revision, transactionId, patches: occurrences.map(reference => ({
+    codecId: 'reference', from: reference.from, to: reference.to,
+    expected: snapshot.markdown.slice(reference.from, reference.to), replacement: '',
+  })) }
 }

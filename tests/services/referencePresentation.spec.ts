@@ -35,4 +35,20 @@ describe('reference reader presentation', () => {
       expect(parsed.querySelector('img, [onerror]')).toBeNull()
     } finally { pipeline.destroy() }
   })
+  it('formats structured bibliography entries in both reader pipelines while preserving portable source', () => {
+    const source = referenceMarkdown({ id: 'structured', number: 9, text: 'Manual source', metadata: { title: 'Example title', authors: [{ family: 'Smith', given: 'Jane' }], year: '2020', type: 'book' }, style: 'apa' })
+    const snapshot = { documentId: 'structured', revision: 1, markdown: source }
+    const host = document.createElement('div')
+    document.body.append(host)
+    const presentation = createTiptapPresentation(host, { snapshot, profile: 'reader' })
+    const pipeline = createSharedRendererPipeline()
+    try {
+      expect(host.querySelector('.w-reference-list')?.textContent).toContain('Smith, J. (2020). Example title.')
+      const parsed = document.createElement('div')
+      parsed.innerHTML = pipeline.render(snapshot).html
+      expect(parsed.querySelector('.w-reference-list')?.textContent).toContain('Smith, J. (2020). Example title.')
+      expect(parsed.querySelector('[data-reference-source]')?.getAttribute('data-reference-source')).toBe(source)
+    } finally { presentation.destroy(); pipeline.destroy(); host.remove() }
+  })
+
 })

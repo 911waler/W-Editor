@@ -61,6 +61,7 @@
     "@vitejs/plugin-vue": "6.0.8",
     "@vue/test-utils": "2.4.11",
     "axe-core": "4.13.0",
+    "citeproc": "2.4.63",
     "eslint": "10.9.0",
     "eslint-plugin-vue": "10.10.0",
     "globals": "17.11.0",

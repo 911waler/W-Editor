@@ -27,3 +27,4 @@ export * from './attachments'
 export * from './drawio'
 
 export * from './references'
+export * from './referenceMetadata'

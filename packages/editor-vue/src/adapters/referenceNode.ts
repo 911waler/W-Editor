@@ -1,25 +1,46 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
 import { Plugin } from '@tiptap/pm/state'
-import { referenceMarkdown, referenceUrl, ReferenceRegistry, parseReferenceAt, type DocumentReference } from '@w-editor/editor-core'
+import { referenceMarkdown, referenceUrl, ReferenceRegistry, parseReferenceAt, parseReferenceMetadata, parseReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
+
+import { formatReference } from '../services/citationFormatting'
+
+/** Tiptap nullable attribute defaults are not part of the public source payload. */
+export function referenceFromAttributes(attrs: Record<string, unknown>): DocumentReference {
+  return { id: String(attrs['id']), number: Number(attrs['number']), text: String(attrs['text']),
+    ...(attrs['metadata'] != null ? { metadata: parseReferenceMetadata(attrs['metadata']) } : {}),
+    ...(attrs['style'] != null ? { style: parseReferenceStyle(attrs['style']) } : {}),
+  }
+}
+function referenceFromElement(element: HTMLElement): DocumentReference {
+  const source = element.getAttribute('data-reference-source')
+  if (source !== null) {
+    const parsed = parseReferenceAt(source, 0)
+    if (!parsed || parsed.to !== source.length) throw new TypeError('Invalid reference source')
+    return parsed
+  }
+  const reference = { id: element.getAttribute('data-reference-id') ?? '', number: Number(element.getAttribute('data-reference-number')), text: element.getAttribute('data-reference-text') ?? '' }
+  referenceMarkdown(reference)
+  return reference
+}
 
 export const ReferenceNode = Node.create({
   name: 'citation', group: 'inline', inline: true, atom: true, selectable: true,
-  addAttributes: () => ({
-    id: { default: '', parseHTML: element => element.getAttribute('data-reference-id'), renderHTML: () => ({}) },
-    number: { default: 1, parseHTML: element => Number(element.getAttribute('data-reference-number')), renderHTML: () => ({}) },
-    text: { default: '', parseHTML: element => element.getAttribute('data-reference-text'), renderHTML: () => ({}) },
-  }),
+  addAttributes: () => Object.fromEntries(['id', 'number', 'text', 'metadata', 'style'].map(key => [key, {
+    default: key === 'number' ? 1 : key === 'metadata' || key === 'style' ? null : '',
+    parseHTML: (element: HTMLElement) => {
+      try { return referenceFromElement(element)[key as keyof DocumentReference] ?? null } catch { return null }
+    },
+    renderHTML: () => ({}),
+  }])),
   parseHTML: () => [{ tag: 'a[data-reference-id]', priority: 100, getAttrs: element => {
-    try {
-      referenceMarkdown({ id: element.getAttribute('data-reference-id') ?? '', number: Number(element.getAttribute('data-reference-number')), text: element.getAttribute('data-reference-text') ?? '' })
-      return null
-    } catch { return false }
+    try { return referenceFromElement(element) } catch { return false }
   } }],
-  renderText: ({ node }) => referenceMarkdown(node.attrs as DocumentReference),
+  renderText: ({ node }) => referenceMarkdown(referenceFromAttributes(node.attrs)),
   renderHTML: ({ node, HTMLAttributes }) => ['a', mergeAttributes(HTMLAttributes, {
     'data-reference-id': node.attrs['id'], 'data-reference-number': node.attrs['number'],
-    'data-reference-text': node.attrs['text'], href: `#reference-${String(node.attrs['id'])}`,
+    'data-reference-text': node.attrs['text'], 'data-reference-source': referenceMarkdown(referenceFromAttributes(node.attrs)),
+    href: `#reference-${String(node.attrs['id'])}`,
     class: 'w-reference', title: node.attrs['text'],
   }), `[${String(node.attrs['number'])}]`],
 })
@@ -42,9 +63,9 @@ export function buildReferenceList(references: readonly DocumentReference[], doc
     back.textContent = `[${reference.number}]`
     back.setAttribute('aria-label', `返回引用 ${reference.number} / Back to citation`)
     row.append(back, doc.createTextNode(' '))
-    const url = referenceUrl(reference.text)
+    const url = referenceUrl(reference.metadata?.doi ?? reference.metadata?.url ?? reference.text)
     const text = doc.createElement(url ? 'a' : 'span')
-    text.textContent = reference.text
+    text.textContent = formatReference(reference)
     if (url) { text.setAttribute('href', url); text.setAttribute('rel', 'noopener noreferrer'); text.setAttribute('target', '_blank') }
     row.append(text)
     section.append(row)
@@ -82,7 +103,7 @@ type PositionedReference = DocumentReference & { pos: number }
 function collect(doc: PMNode): PositionedReference[] {
   const references: PositionedReference[] = []
   doc.descendants((node, pos) => {
-    if (node.type.name === 'citation') references.push({ id: String(node.attrs['id']), number: Number(node.attrs['number']), text: String(node.attrs['text']), pos })
+    if (node.type.name === 'citation') references.push({ ...referenceFromAttributes(node.attrs), pos })
   })
   return references
 }
@@ -102,8 +123,7 @@ export const ReferenceBibliography = Extension.create<{ registry: ReferenceRegis
             const nodes: PMNode[] = []
             fragment.forEach(node => {
               if (node.type.name === 'citation') {
-                const text = String(node.attrs['text'])
-                const reference = registry.adopt({ id: String(node.attrs['id']), number: Number(node.attrs['number']), text })
+                const reference = registry.adopt(referenceFromAttributes(node.attrs))
                 nodes.push(node.type.create(reference, null, node.marks))
               } else nodes.push(node.copy(rewrite(node.content)))
             })
@@ -133,12 +153,13 @@ export const ReferenceBibliography = Extension.create<{ registry: ReferenceRegis
         const unbind = bindReferenceNavigation(root, () => editor.isEditable)
         const update = () => {
           const references = plugin.getState(view.state) ?? []
-          const next = JSON.stringify(references.map(({ id, number, text }) => ({ id, number, text })))
+          const next = JSON.stringify(references.map(reference => referenceFromAttributes({ ...reference })))
           if (signature === next) return
           signature = next
           footer?.remove()
           footer = buildReferenceList(references, root.ownerDocument)
           root.append(footer)
+          root.dispatchEvent(new CustomEvent('w-reference-change', { bubbles: true, detail: { references: references.map(reference => referenceFromAttributes({ ...reference })) } }))
           const seen = new Set<string>()
           for (const anchor of root.querySelectorAll<HTMLElement>('[data-reference-id]')) {
             const id = anchor.dataset['referenceId']!
@@ -160,7 +181,7 @@ export function renderReferencesHtml(html: string, doc: Document): string {
   root.innerHTML = html
   const references: DocumentReference[] = []
   const seen = new Set<string>()
-  for (const anchor of root.querySelectorAll<HTMLAnchorElement>('a[href^="#wref-"]')) {
+  for (const anchor of root.querySelectorAll<HTMLAnchorElement>('a[href^="#wref-"], a[href^="#wref2-"]')) {
     const reference = parseReferenceAt(`[${anchor.textContent ?? ''}](${anchor.getAttribute('href') ?? ''})`, 0)
     if (!reference) continue
     references.push(reference)
@@ -169,6 +190,7 @@ export function renderReferencesHtml(html: string, doc: Document): string {
     anchor.dataset['referenceId'] = reference.id
     anchor.dataset['referenceNumber'] = String(reference.number)
     anchor.dataset['referenceText'] = reference.text
+    anchor.dataset['referenceSource'] = referenceMarkdown(reference)
     anchor.href = `#reference-${reference.id}`
     if (!seen.has(reference.id)) anchor.id = `citation-${reference.id}`
     seen.add(reference.id)

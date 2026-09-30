@@ -126,7 +126,7 @@ function parseRange(source: string, inheritedMarks: readonly JSONMark[] = []): J
     const reference = inheritedMarks.some(mark => mark.type === 'link') ? null : parseReferenceAt(source, offset)
     if (reference) {
       flushPlain()
-      content.push({ type: 'citation', attrs: { id: reference.id, number: reference.number, text: reference.text } })
+      content.push({ type: 'citation', attrs: { id: reference.id, number: reference.number, text: reference.text, ...(reference.metadata ? { metadata: reference.metadata } : {}), ...(reference.style ? { style: reference.style } : {}) } })
       offset = reference.to
       continue
     }

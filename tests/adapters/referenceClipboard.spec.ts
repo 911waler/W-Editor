@@ -1,4 +1,4 @@
-import { referenceMarkdown } from '../../packages/editor-core/src'
+import { referenceMarkdown, scanReferences } from '../../packages/editor-core/src'
 import { describe, expect, it } from 'vitest'
 
 import { TiptapTransactionPatchPlanner, TiptapVisualAdapter, serializeOrdinaryTiptapPatch } from '../../src/adapters'
@@ -87,4 +87,64 @@ describe('reference clipboard and projection', () => {
       expect(target.session.snapshot().markdown).toContain(pastedReference)
     } finally { source.destroy(); target.destroy() }
   })
+  it('retains structured metadata through HTML-only clipboard and serializes null defaults safely', () => {
+    const reference = { id: 'structured', number: 8, text: 'Source', metadata: { title: 'Paper', year: '2024' }, style: 'apa' as const }
+    const source = mount(referenceMarkdown(reference))
+    const target = mount('Target')
+    try {
+      source.adapter.setSelection({ anchor: 1, head: 2 })
+      const clipboard = new Map<string, string>()
+      source.host.querySelector('.ProseMirror')!.dispatchEvent(clipboardEvent('copy', clipboard))
+      expect(clipboard.get('text/html')).toContain('data-reference-source')
+      clipboard.delete('text/plain')
+      target.adapter.setSelection({ anchor: 7, head: 7 })
+      target.host.querySelector('.ProseMirror')!.dispatchEvent(clipboardEvent('paste', clipboard))
+      target.commit()
+      expect(scanReferences(target.session.snapshot().markdown)[0]).toMatchObject({ ...reference, number: 1 })
+    } finally { source.destroy(); target.destroy() }
+  })
+  it('clears optional metadata and style in visual edits', () => {
+    const source = mount(referenceMarkdown({ id: 'a', number: 2, text: 'Original', metadata: { title: 'Old title' }, style: 'apa' }))
+    try {
+      source.adapter.updateReference('a', { text: 'Raw text' })
+      source.commit()
+      const reference = scanReferences(source.session.snapshot().markdown)[0]!
+      expect(reference.metadata).toBeUndefined()
+      expect(reference.style).toBeUndefined()
+      expect(reference.number).toBe(2)
+    } finally { source.destroy() }
+  })
+  it('updates and removes all visual occurrences atomically and notifies only reference changes', () => {
+    const reference = { id: 'a', number: 4, text: 'Original', metadata: { title: 'Paper' }, style: 'apa' as const }
+    const link = referenceMarkdown(reference)
+    const source = mount(`${link} and ${link}`)
+    const changes: unknown[] = []
+    source.host.addEventListener('w-reference-change', event => changes.push((event as CustomEvent).detail.references))
+    try {
+      source.adapter.updateReference('a', { text: 'Edited', metadata: reference.metadata, style: reference.style })
+      source.commit()
+      expect(scanReferences(source.session.snapshot().markdown).map(r => r.text)).toEqual(['Edited', 'Edited'])
+      expect(changes).toHaveLength(1)
+      source.adapter.setReferenceStyle('mla')
+      source.commit()
+      expect(scanReferences(source.session.snapshot().markdown).every(r => r.style === 'mla' && r.metadata?.title === 'Paper')).toBe(true)
+      source.adapter.setSelection({ anchor: 1, head: 1 })
+      const before = changes.length
+      source.adapter.insertText('Typed ')
+      source.commit()
+      expect(changes).toHaveLength(before)
+      source.adapter.removeReference('a')
+      source.commit()
+      expect(scanReferences(source.session.snapshot().markdown)).toEqual([])
+      expect(changes.at(-1)).toEqual([])
+      expect(source.adapter.undo()).toBe(true)
+      source.commit()
+      expect(scanReferences(source.session.snapshot().markdown)).toHaveLength(2)
+      expect(scanReferences(source.session.snapshot().markdown).every(r => r.text === 'Edited' && r.style === 'mla')).toBe(true)
+      expect(source.adapter.redo()).toBe(true)
+      source.commit()
+      expect(scanReferences(source.session.snapshot().markdown)).toEqual([])
+    } finally { source.destroy() }
+  })
+
 })

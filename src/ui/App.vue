@@ -79,6 +79,7 @@ const adapterProps = computed(() => adapter ? {
   } : {}),
   loadArticle: (id: string) => adapter.load(id),
   uploadAdapter: adapter.uploadAdapter,
+  referenceServices: adapter.referenceServices,
   persistDrawio: (payload: {png:string;xml:string}) => adapter.persistDrawio(payload),
   persistence: {
     saveAutosave: (input: {documentId:string;markdown:string;revision:number}) => adapter.save(input,'autosave-draft'),

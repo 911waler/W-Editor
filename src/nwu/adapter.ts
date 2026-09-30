@@ -1,3 +1,5 @@
+import type { ReferenceMetadata } from '../../packages/editor-core/src'
+import type { ReferenceEditorServices, ReferenceNote } from '../../packages/editor-vue/src/services/referenceEditorServices'
 import { createRandomId } from '../../packages/editor-vue/src/services/randomId'
 import type { PublicationInput, PublicationSettings } from './publication'
 import { ScopedStorage } from './scopedStorage'
@@ -59,10 +61,10 @@ export class NwuAdapter {
     this.recoveryPrefix = `${scope}:recovery:`
   }
   id(id: string): string { return this.aliases.get(id) ?? id }
-  private async json<T>(path: string, body?: unknown, method = 'GET'): Promise<T> {
+  private async json<T>(path: string, body?: unknown, method = 'GET', signal?: AbortSignal): Promise<T> {
     const url = new URL(`${this.config.apiBase}${path}`, window.location.href)
     if(url.origin !== window.location.origin) throw new Error('Editor API must be same-origin.')
-    const response = await this.request(url.href, {method, credentials:'same-origin', headers:{'X-CSRFToken':this.config.csrfToken,...(body === undefined ? {} : {'Content-Type':'application/json'})},...(body === undefined ? {} : {body:JSON.stringify(body)})})
+    const response = await this.request(url.href, {method, credentials:'same-origin', ...(signal ? {signal} : {}), headers:{'X-CSRFToken':this.config.csrfToken,...(body === undefined ? {} : {'Content-Type':'application/json'})},...(body === undefined ? {} : {body:JSON.stringify(body)})})
     const result = await response.json()
     if(!response.ok) throw Object.assign(new Error(result.error?.message ?? '保存失败，本地内容已保留。'), {code:result.error?.code ?? 'SAVE_FAILED'})
     return result as T
@@ -72,6 +74,17 @@ export class NwuAdapter {
     this.documents.set(envelope.document.documentId,envelope)
     this.storage.seedDocument(envelope.document.documentId,envelope.document.markdown)
     return {documentId:envelope.document.documentId,initialMarkdown:envelope.document.markdown,title:envelope.metadata.title,group:this.config.categories?.[envelope.metadata.category] ?? this.config.categories?.['other'] ?? '其他'}
+  }
+  readonly referenceServices: ReferenceEditorServices = {
+    loadNotes: async documentId => (await this.json<{notes: Record<string, ReferenceNote>}>(`/documents/${encodeURIComponent(this.id(documentId))}/reference-notes`)).notes,
+    saveNote: async (documentId, referenceId, input) => this.json<ReferenceNote>(
+      `/documents/${encodeURIComponent(this.id(documentId))}/reference-notes/${encodeURIComponent(referenceId)}`,
+      {text: input.text, baseRevision: input.revision}, 'PUT',
+    ),
+    lookupDoi: async (documentId, doi, signal) => (await this.json<{metadata: ReferenceMetadata}>(
+      `/documents/${encodeURIComponent(this.id(documentId))}/reference-metadata?doi=${encodeURIComponent(doi)}`,
+      undefined, 'GET', signal,
+    )).metadata,
   }
   async users(): Promise<{id:number;username:string}[]> {
     return (await this.json<{users:{id:number;username:string}[]}>('/users')).users

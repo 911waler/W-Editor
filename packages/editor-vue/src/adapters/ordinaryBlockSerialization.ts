@@ -1,6 +1,7 @@
+import { referenceFromAttributes } from './referenceNode'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
-import { INLINE_MARK_SPECS, referenceMarkdown, type DocumentReference, serializeFencedCode, serializeFormula, type ProjectionMapEntry } from '@w-editor/editor-core'
+import { INLINE_MARK_SPECS, referenceMarkdown, serializeFencedCode, serializeFormula, type ProjectionMapEntry } from '@w-editor/editor-core'
 import { imageMarkdown } from './imageNode'
 import { formatRichInlineMark } from '@w-editor/editor-core'
 import { InvalidTiptapPatchSerializationError, type TiptapPatchSerializationInput } from './tiptapPatchPlanner'
@@ -28,7 +29,7 @@ function serializeInline(node: ProseMirrorNode): string {
     }
     activeDelimitedMarks = delimitedMarks
     if (child.type.name === 'citation') {
-      source += referenceMarkdown(child.attrs as DocumentReference)
+      source += referenceMarkdown(referenceFromAttributes(child.attrs))
       return
     }
     if (child.type.name === 'inlineImage') {

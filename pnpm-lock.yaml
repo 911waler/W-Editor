@@ -117,6 +117,9 @@ importers:
       axe-core:
         specifier: 4.13.0
         version: 4.13.0
+      citeproc:
+        specifier: 2.4.63
+        version: 2.4.63
       eslint:
         specifier: 10.9.0
         version: 10.9.0
@@ -272,6 +275,9 @@ importers:
       cherry-markdown:
         specifier: 0.11.9
         version: 0.11.9
+      citeproc:
+        specifier: 2.4.63
+        version: 2.4.63
       codemirror:
         specifier: 6.0.2
         version: 6.0.2
@@ -1352,6 +1358,9 @@ packages:
   cherry-markdown@0.11.9:
     resolution: {integrity: sha512-8z1N1IBFKfpeGSu2Ht2s75I6rpmQQ6eSytHHy9ED+mbmIq0lj2YNSVeUkIDTHD9kY2rLlas4adYuPkIOndXB+w==}
     engines: {node: '>=22'}
+
+  citeproc@2.4.63:
+    resolution: {integrity: sha512-68F95Bp4UbgZU/DBUGQn0qV3HDZLCdI9+Bb2ByrTaNJDL5VEm9LqaiNaxljsvoaExSLEXe1/r6n2Z06SCzW3/Q==}
 
   codemirror@6.0.2:
     resolution: {integrity: sha512-VhydHotNW5w1UGK0Qj96BwSk/Zqbp9WbnyK2W/eVMv4QyF41INRGpjUhFJY7/uDNuudSc33a/PKr4iDqRduvHw==}
@@ -3838,6 +3847,8 @@ snapshots:
       - canvas
       - supports-color
       - utf-8-validate
+
+  citeproc@2.4.63: {}
 
   codemirror@6.0.2:
     dependencies:
