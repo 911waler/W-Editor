@@ -58,20 +58,38 @@ function codeBlockIndex(projection: TiptapVisualProjection, source: string): num
   return blocks.findIndex((node) => node.attrs?.['originalSource'] === source)
 }
 
-function containsRawInline(node: Readonly<{ readonly content?: readonly unknown[]; readonly type?: string }>): boolean {
+function containsRawInline(node: Readonly<{ readonly content?: readonly unknown[] | undefined; readonly type?: string | undefined }>): boolean {
   if (node.type === 'rawInline') return true
   return (node.content ?? []).some((child) => (
-    typeof child === 'object' && child !== null && containsRawInline(child as Readonly<{ readonly content?: readonly unknown[]; readonly type?: string }>))
+    typeof child === 'object' && child !== null && containsRawInline(child as Readonly<{ readonly content?: readonly unknown[] | undefined; readonly type?: string | undefined }>))
   )
 }
 
+type PresentationNode = Readonly<{ readonly attrs?: Record<string, unknown> | undefined; readonly content?: readonly PresentationNode[] | undefined; readonly type?: string | undefined }>
+
+function hasSupportedInlineImage(node: PresentationNode): boolean {
+  if (node.type === 'inlineImage') return true
+  return (node.content ?? []).some(hasSupportedInlineImage)
+}
+
+function hasExtendedInlineImage(node: PresentationNode): boolean {
+  if (node.type === 'inlineImage') {
+    const source = String(node.attrs?.['source'] ?? '')
+    const extension = /\}\s*$/u.test(source) ? source.slice(source.lastIndexOf('{')) : ''
+    return (extension.length > 0 && !/^\{(?:\s*(?:width|height)=[1-9]\d*)+\s*\}$/u.test(extension))
+      || /^!\[[^\]]*#/u.test(source)
+  }
+  return (node.content ?? []).some(hasExtendedInlineImage)
+}
+
 function requiresCherryFallback(
-  node: Readonly<{ readonly content?: readonly unknown[]; readonly type?: string }>,
+  node: PresentationNode,
   source: string,
 ): boolean {
   if (node.type === 'rawBlock') return true
   if (node.type === 'codeBlock') return false
-  if (/!\[[^\]\r\n]*\]\([^\r\n)]+\)(?:\{[^}\r\n]*\})?/u.test(source)) return true
+  if (/!\[[^\]\r\n]*\]\([^\r\n)]+\)(?:\{[^}\r\n]*\})?/u.test(source)
+    && (!hasSupportedInlineImage(node) || hasExtendedInlineImage(node))) return true
   return (node.type === 'paragraph' || containsRawInline(node))
     && /<(?:a|audio|div|img|span|video)\b|<!--/iu.test(source)
 }

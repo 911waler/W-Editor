@@ -21,22 +21,29 @@ describe('Cherry media codecs', () => {
       url,
     })
     const projection = projectOrdinaryMarkdown({ documentId: `media-${kind}`, markdown: source, revision: 4 })
-    expect(projection.content.content?.[0]).toMatchObject({
-      attrs: {
-        codecId: `media-${kind}`,
+    if (kind === 'image') {
+      expect(projection.content.content?.[0]).toMatchObject({
+        content: [{ attrs: { height: null, name, source, url, width: null }, type: 'inlineImage' }],
+        type: 'paragraph',
+      })
+    } else {
+      expect(projection.content.content?.[0]).toMatchObject({
+        attrs: {
+          codecId: `media-${kind}`,
+          editorId: 'media-editor',
+          kind: 'media',
+          mediaKind: kind,
+          name,
+          source,
+          url,
+        },
+        type: 'semanticBlock',
+      })
+      expect(projection.map.entries[0]?.safePatchUnit.strategy).toEqual({
         editorId: 'media-editor',
-        kind: 'media',
-        mediaKind: kind,
-        name,
-        source,
-        url,
-      },
-      type: 'semanticBlock',
-    })
-    expect(projection.map.entries[0]?.safePatchUnit.strategy).toEqual({
-      editorId: 'media-editor',
-      kind: 'semantic-editor',
-    })
+        kind: 'semantic-editor',
+      })
+    }
   })
 
   it('renders all three forms through pinned Cherry semantics and sanitization', () => {
@@ -56,5 +63,13 @@ describe('Cherry media codecs', () => {
     expect(() => mediaSource('audio', 'Bad] name', 'https://assets.example.test/audio.wav')).toThrow()
     expect(parseMediaAt('!video[Video](blob:https://example.test/id)', 0)).toBeNull()
     expect(parseMediaAt('prefix ![Image](https://assets.example.test/image.png)', 0)).toBeNull()
+  })
+
+  it('accepts a legacy root-relative image only when it is the entire block token', () => {
+    const source = '![Legacy](/static/blog-images/1/png-4)'
+    expect(mediaSource('image', 'Legacy', '/static/blog-images/1/png-4')).toBe(source)
+    expect(parseMediaAt(source, 0)).toMatchObject({ kind: 'image', url: '/static/blog-images/1/png-4' })
+    expect(parseMediaAt(`${source} ![Second](/b.png)`, 0)).toBeNull()
+    expect(parseMediaAt(`${source}\r\nnext`, 0)?.source).toBe(source)
   })
 })

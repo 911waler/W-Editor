@@ -16,6 +16,68 @@ const CASES: readonly Readonly<{ commandId: ListCommandId; paragraph: string; pr
 ]
 
 describe('direct visual lists', () => {
+  it.each(['Before\n\n', 'Before\n\n\n\nAfter', '3. Alpha', 'Alpha\nBeta'])('converts the last paragraph of %j to an ordered list', (markdown) => {
+    const host = document.createElement('div'); document.body.append(host)
+    const session = new DocumentSession({ documentId: 'list-context', markdown })
+    const failures: unknown[] = []
+    const adapter = new TiptapVisualAdapter({ host, session, project: projectOrdinaryMarkdown,
+      onTransactionFailure: ({ failure }) => failures.push(failure),
+      patchPlanner: new TiptapTransactionPatchPlanner({ createTransactionId: () => 'context', serialize: serializeOrdinaryTiptapPatch }),
+    })
+    try {
+      const block = host.querySelector('.ProseMirror')!.lastElementChild as HTMLElement
+      adapter.selectDomBlock(block)
+      adapter.applyList('list.ordered')
+      adapter.insertText('Added')
+      expect(failures).toEqual([])
+    } finally { adapter.destroy(); host.remove() }
+  })
+
+  it.each(CASES)('preserves line breaks when converting and reloading $commandId', ({ commandId, prefix }) => {
+    const host = document.createElement('div'); document.body.append(host)
+    const session = new DocumentSession({ documentId: 'multiline-list', markdown: 'Alpha\nBeta' })
+    const plans: PatchPlan[] = []
+    const failures: unknown[] = []
+    const adapter = new TiptapVisualAdapter({ host, session, project: projectOrdinaryMarkdown,
+      onTransaction: ({ patchPlan }) => { if (patchPlan) plans.push(patchPlan) },
+      onTransactionFailure: ({ failure }) => failures.push(failure),
+      patchPlanner: new TiptapTransactionPatchPlanner({ createTransactionId: () => 'multiline', serialize: serializeOrdinaryTiptapPatch }),
+    })
+    try {
+      adapter.setSelection({ anchor: 1, head: 1 })
+      adapter.applyList(commandId)
+      expect(failures).toEqual([])
+      expect(plans).toHaveLength(1)
+      session.commitPatchPlan(plans[0]!)
+      expect(session.snapshot().markdown).toBe(`${prefix}Alpha  \n${' '.repeat(prefix.length)}Beta`)
+      const projected = projectOrdinaryMarkdown(session.snapshot())
+      expect(projected.content.content).toHaveLength(1)
+      expect(projected.content.content?.[0]?.content?.[0]?.content?.[0]?.content).toEqual([
+        { type: 'text', text: 'Alpha' }, { type: 'hardBreak' }, { type: 'text', text: 'Beta' },
+      ])
+    } finally { adapter.destroy(); host.remove() }
+  })
+
+  it.each(CASES)('starts $commandId in an empty document and accepts text', ({ commandId, prefix }) => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const session = new DocumentSession({ documentId: 'empty-list', markdown: '' })
+    const plans: PatchPlan[] = []
+    const failures: unknown[] = []
+    const adapter = new TiptapVisualAdapter({ host, session, project: projectOrdinaryMarkdown,
+      onTransaction: ({ patchPlan }) => { if (patchPlan) plans.push(patchPlan) },
+      onTransactionFailure: ({ failure }) => failures.push(failure),
+      patchPlanner: new TiptapTransactionPatchPlanner({ createTransactionId: () => `empty:${plans.length}`, serialize: serializeOrdinaryTiptapPatch }),
+    })
+    try {
+      adapter.setSelection({ anchor: 1, head: 1 })
+      adapter.applyList(commandId)
+      adapter.insertText('Alpha')
+      expect(failures).toEqual([])
+      expect(plans.at(-1)?.patches[0]?.replacement).toBe(`${prefix}Alpha`)
+    } finally { adapter.destroy(); host.remove() }
+  })
+
   it.each(CASES)('unwraps a middle $commandId paragraph without serializing its siblings into the patch', ({ commandId }) => {
     const host = document.createElement('div')
     document.body.append(host)

@@ -68,7 +68,7 @@ describe('media semantic-node editing', () => {
     })).toEqual({ active: true, changed: true })
     expect(plans).toHaveLength(1)
     expect(plans[0]?.patches).toEqual([{
-      codecId: `media-${kind}`,
+      codecId: kind === 'image' ? 'paragraph' : `media-${kind}`,
       expected: original,
       from: 0,
       replacement,

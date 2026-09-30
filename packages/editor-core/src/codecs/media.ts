@@ -1,4 +1,5 @@
 import type { Codec, CodecMatch, ProjectionNode, ValidationResult } from './contracts'
+import { normalizeImageUrl, parseInlineImageAt, serializeImage } from './images'
 
 export const MEDIA_KINDS = Object.freeze(['image', 'audio', 'video'] as const)
 
@@ -20,10 +21,8 @@ const PREFIX: Readonly<Record<MediaKind, string>> = Object.freeze({
   video: '!video',
 })
 
-const INLINE_IMAGE_URL = /^data:image\/(?:avif|gif|jpeg|png|webp);base64,[a-z\d+/]+={0,2}$/iu
-
 function normalizedMediaUrl(kind: MediaKind, value: string): string | null {
-  if (kind === 'image' && INLINE_IMAGE_URL.test(value)) return value
+  if (kind === 'image') return normalizeImageUrl(value)
   try {
     const url = new URL(value)
     if ((url.protocol !== 'http:' && url.protocol !== 'https:')
@@ -41,6 +40,7 @@ export function mediaSource(kind: MediaKind, nameInput: string, urlInput: string
   if (/[\]\r\n]/u.test(name)) throw new RangeError('Media name cannot contain a closing bracket or line break.')
   const url = normalizedMediaUrl(kind, urlInput.trim())
   if (url === null) throw new RangeError('Media URL must be a safe inline image or an absolute HTTP or HTTPS URL without credentials.')
+  if (kind === 'image') return serializeImage({ height: null, name, url, width: null })
   const safeUrl = url.replace(/\(/gu, '%28').replace(/\)/gu, '%29')
   return `${PREFIX[kind]}[${name}](${safeUrl})`
 }
@@ -50,9 +50,21 @@ export function parseMediaAt(markdown: string, offset: number): MediaModel | nul
   const newline = markdown.indexOf('\n', offset)
   const lineEnd = newline === -1 ? markdown.length : newline > offset && markdown[newline - 1] === '\r' ? newline - 1 : newline
   const line = markdown.slice(offset, lineEnd)
+  if (line.startsWith('![')) {
+    const image = parseInlineImageAt(markdown, offset)
+    if (image === null || image.sourceSpan.to !== lineEnd) return null
+    return Object.freeze({
+      commandId: 'insert.image',
+      kind: 'image',
+      name: image.name,
+      source: image.source,
+      sourceSpan: image.sourceSpan,
+      url: image.url,
+    })
+  }
   const match = /^!(?:(audio|video))?\[([^\]\r\n]+)\]\(([\s\S]+)\)$/u.exec(line)
   if (match === null) return null
-  const kind = (match[1] ?? 'image') as MediaKind
+  const kind = match[1] as MediaKind
   const name = match[2]?.trim() ?? ''
   const url = normalizedMediaUrl(kind, match[3] ?? '')
   if (name.length === 0 || url === null) return null

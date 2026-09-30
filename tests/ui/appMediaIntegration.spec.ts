@@ -47,6 +47,7 @@ describe('application media integration', () => {
     expect(node.attributes('data-preview-state')).toBe('error')
     expect(node.get('[data-media-fallback="image"]').text()).toContain('https://assets.example.test/hero.png')
 
+    await node.get('img[src]').trigger('click')
     await node.get('[data-semantic-edit="media-editor"]').trigger('click')
     await flushPromises()
     dialog = first.get('[data-editor-command="insert.image"]')

@@ -55,3 +55,84 @@ describe('ManualCheckpointService', () => {
     service.destroy()
   })
 })
+
+it('discards to the saved baseline, replaces recovery, and never manually saves', async () => {
+  const session = new DocumentSession({documentId:'article',markdown:'restored draft'})
+  const writeLatest=vi.fn()
+  const service=new ManualCheckpointService({session,initialBaselineMarkdown:'server saved',initialCheckpoint:null,flushPersistence:vi.fn(),flushSynchronization:vi.fn(),writeLatest})
+  expect(service.dirty()).toBe(true)
+  session.commitSource({markdown:'more edits',origin:'cherry-source'})
+  const persist=vi.fn()
+  await service.discard(persist)
+  expect(persist).toHaveBeenCalledWith(expect.objectContaining({markdown:'server saved'}))
+  expect(session.snapshot().markdown).toBe('server saved')
+  expect(service.dirty()).toBe(false)
+  expect(writeLatest).not.toHaveBeenCalled()
+  service.destroy()
+})
+
+it('keeps edits and dirty state when discarding cannot persist the replacement', async () => {
+  const session = new DocumentSession({documentId:'article',markdown:'saved'})
+  const service=new ManualCheckpointService({session,initialCheckpoint:null,flushPersistence:vi.fn(),flushSynchronization:vi.fn(),writeLatest:vi.fn()})
+  session.commitSource({markdown:'edits',origin:'cherry-source'})
+  await expect(service.discard(async()=>{throw new Error('offline')})).rejects.toThrow('offline')
+  expect(session.snapshot().markdown).toBe('edits')
+  expect(service.dirty()).toBe(true)
+  service.destroy()
+})
+
+it('advances the discard baseline after a successful external publication', async () => {
+  const session=new DocumentSession({documentId:'article',markdown:'old'})
+  const service=new ManualCheckpointService({session,initialCheckpoint:null,flushPersistence:vi.fn(),flushSynchronization:vi.fn(),writeLatest:vi.fn()})
+  session.commitSource({markdown:'published',origin:'cherry-source'})
+  service.acceptSavedMarkdown('published')
+  expect(service.dirty()).toBe(false)
+  session.commitSource({markdown:'unsaved',origin:'cherry-source'})
+  await service.discard(vi.fn())
+  expect(session.snapshot().markdown).toBe('published')
+  service.destroy()
+})
+
+it('keeps newer edits and cancels switching when discard persistence finishes late', async () => {
+  const session = new DocumentSession({ documentId: 'article', markdown: 'saved' })
+  const flushPersistence = vi.fn()
+  const service = new ManualCheckpointService({
+    session, initialCheckpoint: null, flushPersistence, flushSynchronization: vi.fn(), writeLatest: vi.fn(),
+  })
+  session.commitSource({ markdown: 'edits to discard', origin: 'cherry-source' })
+  let finishPersistence!: () => void
+  let notifyStarted!: () => void
+  const started = new Promise<void>(resolve => { notifyStarted = resolve })
+  const pending = service.discard(() => {
+    notifyStarted()
+    return new Promise<void>(resolve => { finishPersistence = resolve })
+  })
+  await started
+  session.commitSource({ markdown: 'new edits during persistence', origin: 'cherry-source' })
+  finishPersistence()
+  await expect(pending).rejects.toThrow('changed while discarding')
+  expect(session.snapshot().markdown).toBe('new edits during persistence')
+  expect(service.dirty()).toBe(true)
+  expect(flushPersistence).toHaveBeenCalledTimes(2)
+  service.destroy()
+})
+
+it('flushes buffered visual edits before accepting a delayed discard response', async () => {
+  const session = new DocumentSession({ documentId: 'article', markdown: 'saved' })
+  let pendingVisualInput = false
+  const flushSynchronization = vi.fn(() => {
+    if (pendingVisualInput) {
+      pendingVisualInput = false
+      session.commitSource({ markdown: 'buffered visual edits', origin: 'cherry-source' })
+    }
+  })
+  const service = new ManualCheckpointService({
+    session, initialCheckpoint: null, flushPersistence: vi.fn(), flushSynchronization, writeLatest: vi.fn(),
+  })
+  session.commitSource({ markdown: 'edits to discard', origin: 'cherry-source' })
+  const pending = service.discard(async () => { pendingVisualInput = true })
+  await expect(pending).rejects.toThrow('changed while discarding')
+  expect(session.snapshot().markdown).toBe('buffered visual edits')
+  expect(service.dirty()).toBe(true)
+  service.destroy()
+})

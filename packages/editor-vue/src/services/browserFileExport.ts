@@ -47,7 +47,7 @@ export interface HtmlDerivedExportArtifacts {
 }
 
 export const EXPORT_STYLES = `
-html { --w-editor-content-font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --w-editor-heading-font-family: Georgia, serif; color: #17211d; background: #fff; font-family: var(--w-editor-content-font-family); font-synthesis: style; line-height: 1.75; }
+html { --w-editor-content-font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --w-editor-heading-font-family: Georgia, serif; color: #17211d; background: #fff; font-family: var(--w-editor-content-font-family); font-synthesis: weight style; line-height: 1.75; }
 body { margin: 0; }
 .rendered-document-theme { position: static; display: block; width: 100%; min-height: 0; height: auto; background: transparent; box-shadow: none; }
 .rendered-document-content { width: 100%; color: #41544c; font-family: var(--w-editor-content-font-family); font-size: 16px; line-height: var(--w-editor-line-height, 1.75); }

@@ -18,7 +18,7 @@ import { disclosureCodecs, parseDisclosureAt, type DisclosureItem, type Disclosu
 import { parseTimelineAt, timelineCodec, type TimelineItem } from './timeline'
 import { parseOrdinaryTableAt, type OrdinaryTableMatch } from './ordinaryTables'
 import { parseFencedCodeAt, rawFencedCodeCandidateAt, type FencedCodeMatch } from './fencedCode'
-import { parseBlockFormulaAt } from './formulas'
+import { parseBlockFormulaAt, parseInlineFormulaAt } from './formulas'
 import { createTocHeadingItems, parseHeadingAnchor } from './toc'
 import { mermaidCodecs, parseMermaidAt, type MermaidDiagramType, type MermaidModel } from './mermaid'
 import { chartTableCodecs, parseChartTableAt, type ChartTableModel, type ChartTableType } from './chartTables'
@@ -40,6 +40,7 @@ interface OrdinaryListItem {
 }
 
 interface ParsedListLine {
+  readonly contentIndent: number
   readonly body: string
   readonly checked?: boolean
   readonly codecId: OrdinaryListCodecId
@@ -74,11 +75,11 @@ function parseListLine(line: string): ParsedListLine | null {
   const indent = leading.replace(/\t/gu, '    ').length
   const body = line.slice(leading.length)
   const task = /^-[ \t]+\[([ xX])\][ \t]+(.*)$/u.exec(body)
-  if (task !== null) return Object.freeze({ body: task[2] ?? '', checked: (task[1] ?? '').toLowerCase() === 'x', codecId: 'task-list', indent })
+  if (task !== null) return Object.freeze({ body: task[2] ?? '', checked: (task[1] ?? '').toLowerCase() === 'x', codecId: 'task-list', indent, contentIndent: indent + task[0].length - (task[2]?.length ?? 0) })
   const ordered = /^[0-9]+\.[ \t]+(.*)$/u.exec(body)
-  if (ordered !== null) return Object.freeze({ body: ordered[1] ?? '', codecId: 'ordered-list', indent })
+  if (ordered !== null) return Object.freeze({ body: ordered[1] ?? '', codecId: 'ordered-list', indent, contentIndent: indent + ordered[0].length - (ordered[1]?.length ?? 0) })
   const bullet = /^-[ \t]+(.*)$/u.exec(body)
-  if (bullet !== null) return Object.freeze({ body: bullet[1] ?? '', codecId: 'bullet-list', indent })
+  if (bullet !== null) return Object.freeze({ body: bullet[1] ?? '', codecId: 'bullet-list', indent, contentIndent: indent + bullet[0].length - (bullet[1]?.length ?? 0) })
   return null
 }
 
@@ -388,7 +389,7 @@ function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
       continue
     }
     const media = parseMediaAt(markdown, offset)
-    if (media !== null) {
+    if (media !== null && media.kind !== 'image') {
       blocks.push(Object.freeze({
         body: media.source,
         codecId: `media-${media.kind}`,
@@ -509,8 +510,20 @@ function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
       let candidateOffset = offset
       while (candidateOffset < markdown.length) {
         const candidateEnd = lineEnd(markdown, candidateOffset)
-        const candidate = parseListLine(markdown.slice(candidateOffset, candidateEnd))
-        if (candidate === null) break
+        const candidateText = markdown.slice(candidateOffset, candidateEnd)
+        const candidate = parseListLine(candidateText)
+        if (candidate === null) {
+          const previous = lines.at(-1)
+          const expanded = candidateText.replace(/^[ \t]+/u, (leading) => leading.replace(/\t/gu, '    '))
+          const indentation = /^[ \t]*/u.exec(expanded)?.[0].length ?? 0
+          if (previous === undefined || indentation < previous.contentIndent) break
+          lines[lines.length - 1] = Object.freeze({
+            ...previous, body: `${previous.body}\n${expanded.slice(previous.contentIndent)}`,
+          })
+          lineEnds[lineEnds.length - 1] = candidateEnd
+          candidateOffset = nextLineOffset(markdown, candidateEnd)
+          continue
+        }
         lines.push(candidate)
         lineEnds.push(candidateEnd)
         lineOffsets.push(candidateOffset)
@@ -565,7 +578,7 @@ function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
         || parseFencedCodeAt(markdown, cursor) !== null
         || rawFencedCodeCandidateAt(markdown, cursor) !== null
         || parseDrawioAt(markdown, cursor) !== null
-        || parseMediaAt(markdown, cursor) !== null
+        || isBlockMediaAt(markdown, cursor)
         || parseAttachmentAt(markdown, cursor) !== null
         || parseOrdinaryTableAt(markdown, cursor) !== null
         || rawTableCandidateAt(markdown, cursor) !== null
@@ -584,9 +597,28 @@ function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
   return preserveExplicitEmptyParagraphs(markdown, blocks)
 }
 
+function isBlockMediaAt(markdown: string, offset: number): boolean {
+  const media = parseMediaAt(markdown, offset)
+  return media !== null && media.kind !== 'image'
+}
+
 function inlineContent(text: string): JSONContent[] | undefined {
   if (text.length === 0) return undefined
-  const lines = text.split(/\r?\n/u)
+  // Split only outside formulas so a multiline TeX expression remains one atom.
+  const lines: string[] = []
+  let from = 0
+  for (let offset = 0; offset < text.length; offset += 1) {
+    const formula = parseInlineFormulaAt(text, offset)
+    if (formula !== null) {
+      offset = formula.to - 1
+      continue
+    }
+    if (text[offset] === '\n') {
+      lines.push(text.slice(from, text[offset - 1] === '\r' ? offset - 1 : offset))
+      from = offset + 1
+    }
+  }
+  lines.push(text.slice(from))
   const content: JSONContent[] = []
   for (const [index, line] of lines.entries()) {
     if (index > 0) content.push(Object.freeze({ type: 'hardBreak' }))

@@ -7,6 +7,8 @@ import {
   type TiptapVisualProjector,
   serializeOrdinaryTiptapPatch,
 } from '../adapters'
+import { createRandomId } from '../services/randomId'
+import { copyText } from '../services/copyText'
 import { projectOrdinaryMarkdown } from '@w-editor/editor-core'
 import type { InlineMarkCommandId } from '@w-editor/editor-core'
 import type { RichInlineMarkCommandId } from '@w-editor/editor-core'
@@ -67,6 +69,7 @@ const unsubscribeLocalization = props.localization.subscribe((locale) => {
   void nextTick(updateEditableBoundaryLabels)
 })
 const blockHandleVisible = ref(false)
+const blockCopyFailed = ref(false)
 const blockHandleStyle = ref<CSSProperties>({})
 const blockMenuStage = ref<'closed' | 'color' | 'insert' | 'root' | 'turn-into'>('closed')
 const activeBlockKind = ref<'code' | 'image' | 'text'>('text')
@@ -184,7 +187,7 @@ function positionBlockHandle(block: HTMLElement): void {
 }
 
 function setActiveVisualBlock(block: HTMLElement | null): void {
-  if (block === null) return
+  if (block === null || blockMenuStage.value !== 'closed') return
   activeVisualBlock = block
   activeBlockKind.value = visualBlockKind(block)
   positionBlockHandle(block)
@@ -211,6 +214,7 @@ function handleVisualFocus(event: FocusEvent): void {
 }
 
 function closeBlockMenu(focusHandle = false): void {
+  blockCopyFailed.value = false
   blockMenuStage.value = 'closed'
   if (focusHandle) void nextTick(() => surface.value?.querySelector<HTMLButtonElement>('.visual-block-handle')?.focus())
 }
@@ -316,8 +320,8 @@ async function copyBlock(): Promise<void> {
   if (activeVisualBlock === null) return
   const source = adapter?.domBlockSource(activeVisualBlock)
   if (source === null || source === undefined) return
-  await navigator.clipboard.writeText(source)
-  closeBlockMenu(true)
+  blockCopyFailed.value = !await copyText(source, surface.value?.ownerDocument ?? document)
+  if (!blockCopyFailed.value) closeBlockMenu(true)
 }
 
 async function copyBlockAnchor(): Promise<void> {
@@ -326,8 +330,8 @@ async function copyBlockAnchor(): Promise<void> {
   const anchor = source.trim().toLocaleLowerCase()
     .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
     .replace(/\s+/gu, '-')
-  await navigator.clipboard.writeText(`#${anchor}`)
-  closeBlockMenu(true)
+  blockCopyFailed.value = !await copyText(`#${anchor}`, surface.value?.ownerDocument ?? document)
+  if (!blockCopyFailed.value) closeBlockMenu(true)
 }
 
 function downloadImage(): void {
@@ -435,7 +439,7 @@ onMounted(() => {
     onTransactionFailure: ({ failure }) => {
       synchronization.rejectTransaction({
         failure,
-        operationId: `visual-rejected:${props.session.snapshot().documentId}:${crypto.randomUUID()}`,
+        operationId: `visual-rejected:${props.session.snapshot().documentId}:${createRandomId()}`,
         recover: rebuildFromAuthority,
       })
     },
@@ -748,6 +752,12 @@ defineExpose({
         role="menu"
         @keydown="handleBlockMenuKeydown"
       >
+        <p
+          v-if="blockCopyFailed"
+          role="alert"
+        >
+          {{ t('blockMenu.copyFailed') }}
+        </p>
         <p class="visual-block-menu__title">
           {{ activeBlockKind === 'code' ? t('blockMenu.codeBlock') : activeBlockKind === 'image' ? t('blockMenu.image') : t('blockMenu.text') }}
         </p>
@@ -841,6 +851,12 @@ defineExpose({
         role="menu"
         @keydown="handleBlockMenuKeydown"
       >
+        <p
+          v-if="blockCopyFailed"
+          role="alert"
+        >
+          {{ t('blockMenu.copyFailed') }}
+        </p>
         <p class="visual-block-menu__title">
           {{ t('blockMenu.turnInto') }}
         </p>
@@ -898,6 +914,12 @@ defineExpose({
         @keydown="handleBlockMenuKeydown"
       >
         <section data-block-color-section="recent">
+          <p
+            v-if="blockCopyFailed"
+            role="alert"
+          >
+            {{ t('blockMenu.copyFailed') }}
+          </p>
           <p class="visual-block-menu__title">
             {{ t('blockMenu.recentColors') }}
           </p>
@@ -920,6 +942,12 @@ defineExpose({
           </button>
         </section>
         <section data-block-color-section="text">
+          <p
+            v-if="blockCopyFailed"
+            role="alert"
+          >
+            {{ t('blockMenu.copyFailed') }}
+          </p>
           <p class="visual-block-menu__title">
             {{ t('blockMenu.textColor') }}
           </p>
@@ -942,6 +970,12 @@ defineExpose({
           </button>
         </section>
         <section data-block-color-section="background">
+          <p
+            v-if="blockCopyFailed"
+            role="alert"
+          >
+            {{ t('blockMenu.copyFailed') }}
+          </p>
           <p class="visual-block-menu__title">
             {{ t('blockMenu.backgroundColor') }}
           </p>

@@ -2,6 +2,7 @@
 export const SERVICES_BOUNDARY = 'editor-vue/services' as const
 
 export * from './activeModeHistory'
+export * from './randomId'
 export * from './appearanceTheme'
 export * from './applicationCompositionRoot'
 export * from './autosaveCoordinator'
@@ -23,3 +24,5 @@ export * from './uiLocalization'
 export * from './visualSynchronization'
 export * from './workspaceModeAdapters'
 export * from '@w-editor/editor-core'
+
+export * from './outlinePresentation'

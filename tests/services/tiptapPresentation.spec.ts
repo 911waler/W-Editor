@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createTiptapPresentation } from '../../packages/editor-vue/src/rendering/tiptapPresentation'
 
@@ -21,6 +21,75 @@ function mountFixture(path: string) {
 }
 
 describe('canonical Tiptap presentation coverage', () => {
+  it.each(['id', 'name'])('navigates body TOC to a manual HTML anchor with %s', (attribute) => {
+    const container = document.createElement('div'); document.body.append(container)
+    const unrelated = document.createElement('a'); unrelated.id = 'g06'; document.body.prepend(unrelated)
+    const outsideScroll = vi.fn(); unrelated.scrollIntoView = outsideScroll
+    const markdown = `[目录项目](#g06)\n\n<a ${attribute}="g06"></a>\n\n## 手工锚点章节`
+    const instance = createTiptapPresentation(container, { profile: 'reader', snapshot: {
+      documentId: 'explicit-body-anchor', revision: 0, markdown,
+    } })
+    try {
+      const target = container.querySelector<HTMLElement>(`a[${attribute}="g06"]`)
+      expect(target).not.toBeNull()
+      const scroll = vi.fn(); target!.scrollIntoView = scroll
+      const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+      container.querySelector<HTMLAnchorElement>('a[href="#g06"]')!.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(true)
+      expect(scroll).toHaveBeenCalledWith({ block: 'start' })
+      expect(outsideScroll).not.toHaveBeenCalled()
+      expect(instance.snapshot().markdown).toBe(markdown)
+    } finally { instance.destroy() }
+  })
+
+  it.each(['section', '%E7%AB%A0%E8%8A%82', '章节'])('keeps body TOC fragment %s in the current article', (anchor) => {
+    const container = document.createElement('div'); document.body.append(container)
+    const title = anchor === 'section' ? 'Section' : '章节'
+    const markdown = `[目录](#${anchor})\n\n## ${title}`
+    const instance = createTiptapPresentation(container, { profile: 'reader', snapshot: {
+      documentId: 'body-toc', revision: 0, markdown,
+    } })
+    try {
+      const heading = container.querySelector<HTMLElement>('h2')!
+      const scroll = vi.fn(); heading.scrollIntoView = scroll
+      const link = container.querySelector<HTMLAnchorElement>('a')!
+      const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+      link.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(true)
+      expect(scroll).toHaveBeenCalledWith({ block: 'start' })
+      expect(instance.snapshot().markdown).toBe(markdown)
+    } finally { instance.destroy() }
+  })
+
+  it.each(['https://example.invalid/#section', '/other-article#section', '#missing', '#%broken', '#'])('leaves nonmatching link %s unchanged', (href) => {
+    const container = document.createElement('div'); document.body.append(container)
+    const instance = createTiptapPresentation(container, { profile: 'reader', snapshot: {
+      documentId: 'other-links', revision: 0, markdown: `[链接](${href})\n\n## Section`,
+    } })
+    try {
+      const heading = container.querySelector<HTMLElement>('h2')!
+      const scroll = vi.fn(); heading.scrollIntoView = scroll
+      const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+      container.querySelector<HTMLAnchorElement>('a')!.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(false)
+      expect(scroll).not.toHaveBeenCalled()
+    } finally { instance.destroy() }
+  })
+
+  it('uses shared inline images with saved dimensions in read-only aligned paragraphs', () => {
+    const container = document.createElement('div'); document.body.append(container)
+    const instance = createTiptapPresentation(container, { profile: 'reader', snapshot: {
+      documentId: 'sized-images', revision: 0,
+      markdown: '::: center\n![A](/a.png){width=320 height=180} ![B](/b.png)\n:::',
+    } })
+    try {
+      expect(container.querySelectorAll('[data-inline-image] img[src]')).toHaveLength(2)
+      expect(container.querySelector('[data-inline-image] img')?.getAttribute('width')).toBe('320')
+      expect(container.querySelector('[data-alignment="center"]')).not.toBeNull()
+      expect(container.querySelector('[data-image-resize-handle], [data-image-toolbar]')).toBeNull()
+    } finally { instance.destroy() }
+  })
+
   it('maps the representative Cherry capability fixture into one read-only Tiptap tree', () => {
     const { container, instance, markdown } = mountFixture('tests/fixtures/cherry/representative.md')
     const root = container.querySelector<HTMLElement>('.ProseMirror')

@@ -5,6 +5,8 @@ import type { DrawioAdapterPort, DrawioSavePayload, DrawioSession } from '../ada
 import { translateUi, type UiLocale, type UiMessageKey } from '../services/uiLocalization'
 
 const props = defineProps<{
+  readonly uploadError?: string
+  readonly uploadBusy?: boolean
   readonly adapter: DrawioAdapterPort
   readonly initialXml: string
   readonly locale: UiLocale
@@ -16,6 +18,7 @@ const DRAWIO_HANDSHAKE_TIMEOUT_MS = 10_000
 const emit = defineEmits<{
   apply: [payload: DrawioSavePayload]
   cancel: []
+  retryUpload: []
 }>()
 
 const frame = ref<HTMLIFrameElement | null>(null)
@@ -38,7 +41,7 @@ function t(key: UiMessageKey): string {
 }
 
 function cancel(): void {
-  if (completed) return
+  if (completed) { if (props.uploadError) emit('cancel'); return }
   completed = true
   if (handshakeTimer !== null) clearTimeout(handshakeTimer)
   if (session?.cancel() !== true) emit('cancel')
@@ -122,6 +125,22 @@ onBeforeUnmount(() => {
         <h2>{{ t('drawio.title') }}</h2>
       </div>
       <div class="drawio-dialog__actions">
+        <p
+          v-if="props.uploadError"
+          data-testid="drawio-upload-error"
+          role="alert"
+        >
+          {{ props.uploadError }}
+        </p>
+        <button
+          v-if="props.uploadError"
+          data-testid="drawio-upload-retry"
+          type="button"
+          :disabled="props.uploadBusy"
+          @click="emit('retryUpload')"
+        >
+          {{ t('common.retry') }}
+        </button>
         <button
           :aria-label="t('drawio.cancelLabel')"
           type="button"
