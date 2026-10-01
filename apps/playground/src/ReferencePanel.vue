@@ -8,6 +8,7 @@ import ReferenceStylePicker from './ReferenceStylePicker.vue'
 import { useReferenceFormatting } from './useReferenceFormatting'
 const props = defineProps<{
   currentStyle?: ReferenceStyle | null
+  libraryError?: string
   entries: readonly DocumentReference[]; selected: string | null; error: string; busy: boolean
   counts: Readonly<Record<string, number>>; notes: Readonly<Record<string, ReferenceNote>>
   notesError: string; notesBusy: boolean; notesLoading: boolean; savedVersion: number
@@ -17,9 +18,12 @@ const emit = defineEmits<{
   requestInsert: []; close: []; insert: [reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]
   update: [original: DocumentReference, reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]
   remove: [id: string]; jump: [id: string]; style: [style: ReferenceStyle]
-  saveNote: [id: string, text: string]; reloadNotes: []
+  saveNote: [id: string, text: string]; reloadNotes: []; retryLibrary: []
 }>()
 const { format: formatReference, error: formattingError } = useReferenceFormatting(() => props.entries)
+const citedEntries = computed(() => props.entries.filter(entry => entry.number > 0))
+const collectedEntries = computed(() => props.entries.filter(entry => entry.number === 0))
+const orderedEntries = computed(() => [...citedEntries.value, ...collectedEntries.value])
 const stylePickerOpen = ref(false)
 const currentStyle = computed(() => props.currentStyle ?? (props.entries.length && props.entries.every(entry => (entry.style ?? 'plain') === (props.entries[0]?.style ?? 'plain')) ? props.entries[0]?.style ?? 'plain' : null))
 watch(() => props.busy, (busy, wasBusy) => { if (wasBusy && !busy && !props.error) stylePickerOpen.value = false })
@@ -108,7 +112,7 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
     >
       <div class="reference-edit-dialog">
         <header>
-          <strong>修改文献 [{{ editing.number }}]</strong><button
+          <strong>修改文献<span v-if="editing.number > 0"> [{{ editing.number }}]</span></strong><button
             type="button"
             aria-label="关闭修改文献"
             @click="editing = null"
@@ -150,22 +154,40 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
         重新载入备注（丢弃未保存备注）
       </button>
     </p>
+    <p
+      v-if="libraryError"
+      role="alert"
+      data-testid="reference-library-error"
+    >
+      {{ libraryError }} <button
+        type="button"
+        :disabled="busy"
+        @click="emit('retryLibrary')"
+      >
+        重试保存文献
+      </button>
+    </p>
     <ol>
       <li
-        v-for="entry in entries"
+        v-for="entry in orderedEntries"
         :key="entry.id"
-        :class="{ selected: entry.id === selected || entry.id === editing?.id }"
+        :class="{ selected: entry.id === selected || entry.id === editing?.id, 'reference-panel__collection-start': citedEntries.length > 0 && entry.id === collectedEntries[0]?.id }"
         :data-reference-entry="entry.id"
       >
         <div class="reference-panel__entry-title">
           <button
+            v-if="entry.number > 0"
             type="button"
             class="reference-panel__number"
             :aria-label="`跳转到正文引用 ${entry.number}`"
             @click="emit('jump', entry.id)"
           >
             [{{ entry.number }}]
-          </button><span class="reference-panel__citation">{{ formatReference(entry) }}</span>
+          </button><span
+            v-else
+            class="reference-panel__bullet"
+            aria-label="已收集"
+          >•</span><span class="reference-panel__citation">{{ formatReference(entry) }}</span>
         </div>
         <div class="reference-panel__actions">
           <button
@@ -173,7 +195,7 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
             :disabled="busy"
             @click="emit('insert', entry)"
           >
-            再次引用
+            {{ entry.number > 0 ? '再次引用' : '引用' }}
           </button>
           <button
             type="button"
@@ -215,7 +237,7 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
           class="reference-delete-confirm"
           role="alert"
         >
-          <p>将移除此文献在正文中的全部 {{ counts[entry.id] ?? 0 }} 处标号；其他文献不重编号。</p>
+          <p>将从文献清单中删除此条目<span v-if="counts[entry.id]">，并移除正文中的全部 {{ counts[entry.id] }} 处标号</span>；其他文献不重编号。</p>
           <button
             type="button"
             data-testid="reference-delete-confirm"
@@ -339,6 +361,8 @@ li { padding: 16px 0; border-bottom: 1px solid var(--reference-border); overflow
 li.selected { background: var(--app-surface-muted, #eef3f0); outline: 1px solid var(--reference-border); border-radius: 4px; }
 .reference-panel__entry-title { display: flex; align-items: flex-start; gap: 10px; }
 .reference-panel__number { flex: 0 0 auto; min-width: 34px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.reference-panel__bullet { flex: 0 0 34px; text-align: center; font-size: 20px; line-height: 30px; color: var(--reference-muted); }
+li.reference-panel__collection-start { margin-top: 16px; border-top: 2px solid var(--reference-border); }
 .reference-panel__citation { flex: 1; min-width: 0; line-height: 1.6; overflow-wrap: anywhere; }
 .reference-panel__actions { display: flex; align-items: center; gap: 2px 6px; flex-wrap: wrap; margin: 9px 0 0; padding-left: 44px; }
 .reference-panel__actions > button, .reference-panel__source { border: 0; padding: 5px 4px; background: transparent; font-size: 13px; line-height: 20px; }

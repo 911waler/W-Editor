@@ -17,12 +17,15 @@ async function open(wrapper: ReturnType<typeof setup>) {
 }
 describe('reference management', () => {
   const reference = referenceMarkdown({ id: 'book', number: 7, text: 'Original book' })
-  it('updates an open sidebar after deleting the last body occurrence', async () => {
+  it('moves the last deleted body citation into the persistent collection', async () => {
     const wrapper = setup(`Body ${reference}`)
     try {
       await open(wrapper)
       await wrapper.get('#markdown-source').setValue('Body ')
-      await vi.waitFor(() => expect(wrapper.findAll('[data-reference-entry]')).toHaveLength(0))
+      await vi.waitFor(() => expect(wrapper.find('[data-reference-entry="book"] .reference-panel__bullet').exists()).toBe(true))
+      expect(wrapper.get('[data-reference-entry="book"]').text()).toContain('Original book')
+      expect(wrapper.find('[data-reference-entry="book"] .reference-panel__number').exists()).toBe(false)
+      expect(wrapper.get('[data-reference-entry="book"] .reference-panel__bullet').text()).toBe('•')
     } finally { wrapper.unmount() }
   })
   it('edits all occurrences without changing their number or a code example', async () => {
@@ -71,6 +74,52 @@ describe('reference management', () => {
       await wrapper.get('[data-testid="reference-form"]').trigger('submit')
       await flushPromises()
       expect(scanReferences((wrapper.get('#markdown-source').element as HTMLTextAreaElement).value)[0]).toMatchObject({ text: 'Changed book', style: 'mla', number: 7 })
+    } finally { wrapper.unmount() }
+  })
+
+  it('captures last citation removal with the sidebar closed and retains it after remount', async () => {
+    const wrapper = setup(`Body ${reference}`)
+    await flushPromises()
+    await wrapper.get('#markdown-source').setValue('Body ')
+    await flushPromises()
+    await vi.waitFor(() => expect(localStorage.getItem('w-editor:reference-library-pending:v1:refs%3Amanage')).toBeNull())
+    wrapper.unmount()
+    const reopened = mount(PlaygroundApp, { attachTo: document.body, props: {
+      articleCatalog: [{ documentId: 'refs:manage', title: 'References', initialMarkdown: 'Body ' }],
+      articleModes: { 'refs:manage': 'source' },
+    } })
+    try {
+      await open(reopened)
+      expect(reopened.get('[data-reference-entry="book"] .reference-panel__bullet').text()).toBe('•')
+      expect(reopened.get('[data-reference-entry="book"]').text()).toContain('Original book')
+    } finally { reopened.unmount() }
+  })
+  it('collects without a body citation, edits, cites, moves back, and explicitly deletes', async () => {
+    const wrapper = setup('Body ')
+    try {
+      await open(wrapper)
+      await wrapper.get('[data-testid="reference-add"]').trigger('click')
+      await flushPromises()
+      await wrapper.get('#reference-input').setValue('https://example.org/collected')
+      await wrapper.get('[data-testid="reference-collect"]').trigger('click')
+      await flushPromises()
+      expect(scanReferences((wrapper.get('#markdown-source').element as HTMLTextAreaElement).value)).toHaveLength(0)
+      expect(wrapper.findAll('.reference-panel__bullet')).toHaveLength(1)
+      await wrapper.get('[data-reference-edit]').trigger('click')
+      await wrapper.get('#reference-input').setValue('Edited collected reference')
+      await wrapper.get('[data-testid="reference-form"]').trigger('submit')
+      await flushPromises()
+      expect(wrapper.get('[data-reference-entry]').text()).toContain('Edited collected reference')
+      await wrapper.findAll('[data-reference-entry] button').find(button => button.text() === '引用')!.trigger('click')
+      await flushPromises()
+      expect(scanReferences((wrapper.get('#markdown-source').element as HTMLTextAreaElement).value)).toHaveLength(1)
+      await wrapper.get('#markdown-source').setValue('Body ')
+      await open(wrapper)
+      expect(wrapper.findAll('.reference-panel__bullet')).toHaveLength(1)
+      await wrapper.get('[data-reference-delete]').trigger('click')
+      await wrapper.get('[data-testid="reference-delete-confirm"]').trigger('click')
+      await flushPromises()
+      expect(wrapper.findAll('[data-reference-entry]')).toHaveLength(0)
     } finally { wrapper.unmount() }
   })
 

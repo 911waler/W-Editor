@@ -1,5 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { emptyReferenceLibrary, parseReferenceLibrary } from '../../packages/editor-vue/src/services/referenceEditorServices'
 
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
@@ -9,6 +10,7 @@ afterEach(() => { document.body.replaceChildren(); localStorage.clear(); vi.unst
 
 async function editor(options: {failSave?:boolean; scheduled?:boolean; failSettings?:boolean; failPublish?:boolean; markdown?:string} = {}) {
   let revision = '1'
+  let library = emptyReferenceLibrary()
   const requests: Array<{path:string; method:string; body:Record<string,unknown>}> = []
   const publication = {serverRevision:revision,state:'draft',title:'标题',level:'normal',sendEmail:false,
     scheduledFor:options.scheduled ? '2027-01-20T10:37' : '',reminderEndsAt:'',recipientCount:2,missingCount:1,mailLabel:'邮件已停用'}
@@ -21,6 +23,13 @@ async function editor(options: {failSave?:boolean; scheduled?:boolean; failSetti
     const path=new URL(String(input)).pathname, method=init?.method ?? 'GET'
     const body=typeof init?.body==='string' ? JSON.parse(init.body) as Record<string,unknown> : {}
     requests.push({path,method,body})
+    if(path.endsWith('/reference-library')) {
+      if(method==='PUT') {
+        expect(body['baseRevision']).toBe(library.revision)
+        library=parseReferenceLibrary({revision:library.revision+1,entries:body['entries'],deletedIds:body['deletedIds'],highWater:body['highWater']})
+      }
+      return new Response(JSON.stringify(library))
+    }
     if(path.includes('/state/')) return new Response('{}')
     if(path.endsWith('/save')) {
       if(options.failSave) return new Response(JSON.stringify({error:{message:'保存失败'}}),{status:409})

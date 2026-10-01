@@ -1,5 +1,5 @@
 import type { ReferenceMetadata } from '../../packages/editor-core/src'
-import type { ReferenceEditorServices, ReferenceNote } from '../../packages/editor-vue/src/services/referenceEditorServices'
+import type { ReferenceEditorServices, ReferenceNote, ReferenceLibrary } from '../../packages/editor-vue/src/services/referenceEditorServices'
 import { createRandomId } from '../../packages/editor-vue/src/services/randomId'
 import type { PublicationInput, PublicationSettings } from './publication'
 import { ScopedStorage } from './scopedStorage'
@@ -76,6 +76,9 @@ export class NwuAdapter {
     return {documentId:envelope.document.documentId,initialMarkdown:envelope.document.markdown,title:envelope.metadata.title,group:this.config.categories?.[envelope.metadata.category] ?? this.config.categories?.['other'] ?? '其他'}
   }
   readonly referenceServices: ReferenceEditorServices = {
+    loadLibrary: documentId => this.json<ReferenceLibrary>(`/documents/${encodeURIComponent(this.id(documentId))}/reference-library`),
+    saveLibrary: (documentId, input) => this.json<ReferenceLibrary>(`/documents/${encodeURIComponent(this.id(documentId))}/reference-library`,
+      { baseRevision: input.revision, entries: input.entries, deletedIds: input.deletedIds, highWater: input.highWater }, 'PUT'),
     loadNotes: async documentId => (await this.json<{notes: Record<string, ReferenceNote>}>(`/documents/${encodeURIComponent(this.id(documentId))}/reference-notes`)).notes,
     saveNote: async (documentId, referenceId, input) => this.json<ReferenceNote>(
       `/documents/${encodeURIComponent(this.id(documentId))}/reference-notes/${encodeURIComponent(referenceId)}`,

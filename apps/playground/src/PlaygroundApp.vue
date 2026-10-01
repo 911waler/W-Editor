@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch,
 import ReferencePanel from './ReferencePanel.vue'
 import ReferenceInsertDialog from './ReferenceInsertDialog.vue'
 import { getDocumentReferenceStyle, documentReferenceStylePlan, referenceRegistry, scanReferences, referenceMarkdown, updateReferencePlan, removeReferencePlan, type ReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
-import { ensureReferenceStyles, createLocalReferenceServices, type ReferenceEditorServices, type ReferenceNote, publishReferenceSnapshot } from '@w-editor/editor-vue/services'
+import { ensureReferenceStyles, createReferenceLibraryController, createLocalReferenceServices, type ReferenceEditorServices, type ReferenceNote, publishReferenceSnapshot } from '@w-editor/editor-vue/services'
 import MarkdownImportZone from './MarkdownImportZone.vue'
 import { loadCapabilityProbe } from './testing/capabilityLoader'
 
@@ -442,6 +442,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
           code: 'AUTOSAVE_FAILED',
         })
       }
+      await referenceLibrary.flush(definition.documentId)
       await props.persistence?.saveAutosave?.({
         documentId: definition.documentId,
         markdown: nextSnapshot.markdown,
@@ -479,7 +480,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
   })
   flushRecoveryPersistence = () => autosave.flush()
   const manualCheckpoint = new ManualCheckpointService({
-    flushPersistence: () => autosave.flush(),
+    flushPersistence: async () => { await referenceLibrary.flush(definition.documentId); await autosave.flush() },
     flushSynchronization: async () => {
       await flushComposition(`manual-save:${definition.documentId}:${createRandomId()}`)
       await flushVisualSynchronization()
@@ -552,6 +553,11 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
       publishRuntime(runtime)
     }),
     root.session.subscribe((change) => {
+      // Ordinary visual/source edits use their existing incremental reference events.
+      if (change.acknowledgement.origin !== 'tiptap-visual' && change.acknowledgement.origin !== 'cherry-source') {
+        observeDocumentReferences(change.previous.documentId, scanReferences(change.previous.markdown))
+        observeDocumentReferences(change.current.documentId, scanReferences(change.current.markdown))
+      }
       autosave.request(change.current)
       if (change.acknowledgement.transactionId?.startsWith('author-preview-task:') === true) return
       runtime.previewTaskHistory.redo.length = 0
@@ -615,7 +621,7 @@ const articleSwitch = new ArticleSwitchCoordinator({
         const state = runtime.root.synchronization.snapshot()
         if (state.status === 'failed' && state.operation?.kind === 'convert-mode') throw state.failure
       },
-      flushPersistence: () => runtime.autosave.flush(),
+      flushPersistence: async () => { await referenceLibrary.flush(runtime.definition.documentId); await runtime.autosave.flush() },
       flushSynchronization: async () => {
         await runtime.flushVisualSynchronization()
         const state = runtime.root.synchronization.snapshot()
@@ -1949,13 +1955,49 @@ const referenceNotesBusy = ref(false)
 const referenceNotesLoading = ref(false)
 const referenceSavedVersion = ref(0)
 const referenceServices = props.referenceServices ?? createLocalReferenceServices(props.storage ?? window.localStorage)
+const referenceLibraryError = ref('')
+const referenceOccurrences = new Map<string, readonly DocumentReference[]>()
+const referenceLibraryErrors = new Map<string, string>()
+const referenceLibrary = createReferenceLibraryController(referenceServices, props.storage ?? window.localStorage,
+  (documentId, library) => {
+    const runtime = runtimes.get(documentId)
+    if (runtime) referenceRegistry(runtime.root.session).reserveNumbersThrough(library.highWater)
+    if (documentId === activeRuntime.value.definition.documentId) {
+      assignReferences(referenceOccurrences.get(documentId) ?? [])
+    }
+  }, (documentId, message) => {
+    referenceLibraryErrors.set(documentId, message)
+    if (documentId === activeRuntime.value.definition.documentId) referenceLibraryError.value = message
+  })
+function observeDocumentReferences(documentId: string, entries: readonly DocumentReference[]): void {
+  if (props.readonlyMode) return
+  referenceOccurrences.set(documentId, entries)
+  try { referenceLibrary.observe(documentId, entries) }
+  catch (error) { referenceLibraryErrors.set(documentId, error instanceof Error ? error.message : String(error)) }
+  if (documentId === activeRuntime.value.definition.documentId) {
+    referenceLibraryError.value = referenceLibraryErrors.get(documentId) ?? ''
+    assignReferences(entries)
+  }
+}
+function activateReferenceLibrary(): void {
+  if (props.readonlyMode) return
+  const snapshot = activeRuntime.value.root.session.snapshot()
+  observeDocumentReferences(snapshot.documentId, scanReferences(snapshot.markdown))
+  void referenceLibrary.load(snapshot.documentId).catch(() => undefined)
+}
+async function retryReferenceLibrary(): Promise<void> {
+  try { await referenceLibrary.retry(activeRuntime.value.definition.documentId) } catch { /* The controller keeps the recovery snapshot and error. */ }
+}
+activateReferenceLibrary()
 let notesGeneration = 0
-let referenceRefreshTimer: ReturnType<typeof setTimeout> | undefined
 function assignReferences(entries: readonly DocumentReference[]): void {
   const counts: Record<string, number> = Object.create(null)
   for (const entry of entries) counts[entry.id] = (counts[entry.id] ?? 0) + 1
   referenceCounts.value = counts
-  referenceEntries.value = [...new Map(entries.map(item => [item.id, item])).values()].sort((a, b) => a.number - b.number)
+  documentReferenceStyle.value = getDocumentReferenceStyle(activeRuntime.value.root.session.snapshot().markdown) ?? (entries.length && entries.every(entry => (entry.style ?? 'plain') === (entries[0]?.style ?? 'plain')) ? entries[0]?.style ?? 'plain' : null)
+  const cited = [...new Map(entries.map(item => [item.id, item])).values()].sort((a, b) => a.number - b.number)
+  const collected = referenceLibrary.get(activeRuntime.value.definition.documentId).entries.filter(entry => !counts[entry.id]).map(entry => ({ ...entry, number: 0 }))
+  referenceEntries.value = [...cited, ...collected]
 }
 async function loadReferenceNotes(): Promise<void> {
   const generation = ++notesGeneration
@@ -1985,12 +2027,6 @@ async function saveReferenceNote(id: string, text: string): Promise<void> {
 const lookupReferenceDoi = referenceServices.lookupDoi
   ? (doi: string, signal: AbortSignal) => referenceServices.lookupDoi!(activeRuntime.value.root.session.snapshot().documentId, doi, signal)
   : undefined
-watch(() => workspace.value.activeDocument.markdown, () => {
-  if (!referencePanelOpen.value || mode.value !== 'source') return
-  clearTimeout(referenceRefreshTimer)
-  referenceRefreshTimer = setTimeout(refreshReferences, 180)
-})
-watch(referencePanelOpen, open => { if (!open) clearTimeout(referenceRefreshTimer) })
 watch(() => workspace.value.activeDocument.documentId, () => {
   referencePanelOpen.value = false
   referenceInsertOpen.value = false
@@ -1998,17 +2034,24 @@ watch(() => workspace.value.activeDocument.documentId, () => {
   referenceNotes.value = {}
   referenceNotesBusy.value = false
   referenceNotesLoading.value = false
+  activateReferenceLibrary()
 })
-onBeforeUnmount(() => { clearTimeout(referenceRefreshTimer); notesGeneration++ })
+onBeforeUnmount(() => { notesGeneration++; referenceLibrary.dispose() })
 function onReferenceChange(event: Event): void {
-  if (referencePanelOpen.value) assignReferences((event as CustomEvent<{ references: readonly DocumentReference[] }>).detail.references)
+  const entries = (event as CustomEvent<{ references: readonly DocumentReference[] }>).detail.references
+  observeDocumentReferences(activeRuntime.value.definition.documentId, entries)
+}
+function onSourceReferenceChange(event: Event): void {
+  const detail = (event as CustomEvent<{ documentId: string; previous: readonly DocumentReference[]; references: readonly DocumentReference[] }>).detail
+  observeDocumentReferences(detail.documentId, detail.previous)
+  observeDocumentReferences(detail.documentId, detail.references)
 }
 let referenceContext: DedicatedEditorOpenContext | null = null
 function refreshReferences(): void {
   const snapshot = activeRuntime.value.root.session.snapshot()
   const references = scanReferences(snapshot.markdown)
   documentReferenceStyle.value = getDocumentReferenceStyle(snapshot.markdown) ?? (references.length && references.every(entry => (entry.style ?? 'plain') === (references[0]?.style ?? 'plain')) ? references[0]?.style ?? 'plain' : null)
-  assignReferences(references)
+  observeDocumentReferences(snapshot.documentId, references)
 }
 async function openReferences(id: string | null = null): Promise<void> {
   try {
@@ -2018,6 +2061,7 @@ async function openReferences(id: string | null = null): Promise<void> {
     referenceError.value = ''
     refreshReferences()
     referencePanelOpen.value = true
+    void referenceLibrary.load(activeRuntime.value.definition.documentId).catch(() => undefined)
     void loadReferenceNotes()
     await nextTick()
     workspaceShell.value?.querySelector<HTMLButtonElement>('[data-testid="reference-panel"] button')?.focus()
@@ -2048,6 +2092,7 @@ function jumpToReference(id: string): void {
   entry?.scrollIntoView({ block: 'center' })
 }
 async function insertReference(input: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): Promise<void> {
+  if (!referenceInsertOpen.value && !referenceBusy.value) referenceContext = captureDedicatedEditorContext(null)
   if (!referenceContext || referenceBusy.value) return
   const context = referenceContext
   const runtime = activeRuntime.value
@@ -2059,11 +2104,14 @@ async function insertReference(input: Pick<DocumentReference, 'text' | 'metadata
     if (activeRuntime.value !== runtime) throw new Error('文档已切换，请重新插入引用。')
     const snapshot = runtime.root.session.snapshot()
     const registry = referenceRegistry(runtime.root.session)
-    registry.observe(scanReferences(snapshot.markdown))
-    await ensureReferenceStyles([input.style ?? documentReferenceStyle.value ?? 'plain'])
+    const bodyReferences = scanReferences(snapshot.markdown)
+    const collected = await referenceLibrary.collect(snapshot.documentId, { ...input, style: input.style ?? documentReferenceStyle.value ?? 'plain', id: 'id' in input ? String(input.id) : createRandomId() })
+    registry.reset(bodyReferences)
+    registry.reserveNumbersThrough(referenceLibrary.get(snapshot.documentId).highWater)
+    await ensureReferenceStyles([collected.style ?? 'plain'])
     assertDedicatedEditorContext(context)
     if (activeRuntime.value !== runtime) throw new Error('文档已切换，请重新插入引用。')
-    const reference = registry.adopt({ ...input, style: input.style ?? documentReferenceStyle.value ?? 'plain', id: 'id' in input ? String(input.id) : createRandomId(), number: 1 })
+    const reference = bodyReferences.find(entry => entry.id === collected.id) ?? registry.adopt({ ...collected, number: 1 })
     if (mode.value === 'source' && context.sourceSelection) {
       const { from, to } = context.sourceSelection
       const replacement = referenceMarkdown(reference)
@@ -2081,7 +2129,24 @@ async function insertReference(input: Pick<DocumentReference, 'text' | 'metadata
   finally { referenceBusy.value = false }
 }
 
-async function mutateReference(action: (snapshot: ReturnType<typeof activeRuntime.value.root.session.snapshot>) => Promise<void>, acknowledge = false): Promise<void> {
+async function collectReference(input: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): Promise<void> {
+  if (referenceBusy.value || props.readonlyMode) return
+  const runtime = activeRuntime.value
+  referenceBusy.value = true
+  referenceError.value = ''
+  try {
+    await referenceLibrary.collect(runtime.definition.documentId, { ...input, id: createRandomId(), style: input.style ?? documentReferenceStyle.value ?? 'plain' })
+    if (runtime !== activeRuntime.value) return
+    referenceInsertOpen.value = false
+    runtime.root.setModalActivity(null)
+    refreshReferences()
+    referencePanelOpen.value = true
+    void loadReferenceNotes()
+  } catch (error) { if (runtime === activeRuntime.value) referenceError.value = error instanceof Error ? error.message : String(error) }
+  finally { referenceBusy.value = false }
+}
+
+async function mutateReference(action: (snapshot: ReturnType<typeof activeRuntime.value.root.session.snapshot>, runtime: ArticleRuntime) => Promise<void>, acknowledge = false): Promise<void> {
   if (referenceBusy.value || props.readonlyMode) return
   referenceBusy.value = true
   referenceError.value = ''
@@ -2089,35 +2154,43 @@ async function mutateReference(action: (snapshot: ReturnType<typeof activeRuntim
   try {
     await flushLifecycleSynchronization(runtime)
     if (runtime !== activeRuntime.value) throw new Error('文档已切换，请重新打开参考文献。')
-    await action(runtime.root.session.snapshot())
+    await action(runtime.root.session.snapshot(), runtime)
     await flushLifecycleSynchronization(runtime)
+    if (runtime !== activeRuntime.value) return
     refreshReferences()
     referenceContext = captureDedicatedEditorContext(null)
     if (acknowledge) referenceSavedVersion.value++
-  } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
+  } catch (error) { if (runtime === activeRuntime.value) referenceError.value = error instanceof Error ? error.message : String(error) }
   finally { referenceBusy.value = false }
 }
 function referenceContent(reference: DocumentReference): string {
   return JSON.stringify([reference.text, reference.metadata, reference.style])
 }
 async function updateReference(original: DocumentReference, input: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): Promise<void> {
-  await mutateReference(async snapshot => {
-    const current = scanReferences(snapshot.markdown).find(item => item.id === original.id)
-    if (!current || referenceContent(current) !== referenceContent(original)) throw new Error('这条文献已变化，请重新选择“修改”后保存。')
-    if (mode.value === 'source') await applySourcePlan(updateReferencePlan(snapshot, original.id, input, `reference:${createRandomId()}`), sourceSelection())
-    else if (!visualSurface.value?.updateReference(original.id, input).changed) throw new Error('没有找到可修改的引用。')
-    referenceRegistry(activeRuntime.value.root.session).forget(original.id)
+  await mutateReference(async (snapshot, runtime) => {
+    const cited = scanReferences(snapshot.markdown).find(item => item.id === original.id)
+    const current = cited ?? referenceLibrary.get(snapshot.documentId).entries.find(item => item.id === original.id)
+    if (!current || referenceContent({ ...current, number: original.number }) !== referenceContent(original)) throw new Error('这条文献已变化，请重新选择“修改”后保存。')
+    if (cited) {
+      if (mode.value === 'source') await applySourcePlan(updateReferencePlan(snapshot, original.id, input, `reference:${createRandomId()}`), sourceSelection())
+      else if (!visualSurface.value?.updateReference(original.id, input).changed) throw new Error('没有找到可修改的引用。')
+    }
+    await referenceLibrary.update(snapshot.documentId, { id: original.id, ...input })
+    referenceRegistry(runtime.root.session).forget(original.id)
   }, true)
 }
 async function removeReference(id: string): Promise<void> {
-  await mutateReference(async snapshot => {
-    if (mode.value === 'source') await applySourcePlan(removeReferencePlan(snapshot, id, `reference:${createRandomId()}`), { from: 0, to: 0 })
-    else if (!visualSurface.value?.removeReference(id).changed) throw new Error('没有找到可删除的引用。')
-    referenceRegistry(activeRuntime.value.root.session).forget(id)
+  await mutateReference(async (snapshot, runtime) => {
+    if (scanReferences(snapshot.markdown).some(entry => entry.id === id)) {
+      if (mode.value === 'source') await applySourcePlan(removeReferencePlan(snapshot, id, `reference:${createRandomId()}`), { from: 0, to: 0 })
+      else if (!visualSurface.value?.removeReference(id).changed) throw new Error('没有找到可删除的引用。')
+    }
+    await referenceLibrary.remove(snapshot.documentId, id)
+    referenceRegistry(runtime.root.session).forget(id)
   })
 }
 async function setReferenceStyle(style: ReferenceStyle): Promise<void> {
-  await mutateReference(async snapshot => {
+  await mutateReference(async (snapshot, runtime) => {
     await ensureReferenceStyles([style])
     const current = activeRuntime.value.root.session.snapshot()
     if (current.documentId !== snapshot.documentId || current.revision !== snapshot.revision) throw new Error('文档已变化，请重新应用引用样式。')
@@ -2135,7 +2208,8 @@ async function setReferenceStyle(style: ReferenceStyle): Promise<void> {
       await applySourcePlan(plan, { from: mapPosition(selection.from), to: mapPosition(selection.to) })
     } else if (!visualSurface.value) throw new Error('编辑器尚未就绪。')
     else visualSurface.value.setReferenceStyle(style)
-    for (const entry of scanReferences(snapshot.markdown)) referenceRegistry(activeRuntime.value.root.session).forget(entry.id)
+    await referenceLibrary.setStyle(snapshot.documentId, style)
+    for (const entry of scanReferences(snapshot.markdown)) referenceRegistry(runtime.root.session).forget(entry.id)
   })
 }
 
@@ -4673,6 +4747,7 @@ async function flushForLifecycle(): Promise<void> {
   const runtime = activeRuntime.value
   await flushLifecycleComposition(runtime, `lifecycle:${runtime.definition.documentId}:${createRandomId()}`)
   await flushLifecycleSynchronization(runtime)
+  await referenceLibrary.flush(runtime.definition.documentId)
   await runtime.autosave.flush()
 }
 
@@ -4682,10 +4757,12 @@ async function publishForLifecycle(persist = props.persistence?.savePublish): Pr
   const flush = async () => {
     await flushLifecycleComposition(runtime, `publish:${runtime.definition.documentId}:${createRandomId()}`)
     await flushLifecycleSynchronization(runtime)
+    await referenceLibrary.flush(runtime.definition.documentId)
     await runtime.autosave.flush()
   }
   try {
     const published = await publishReferenceSnapshot(runtime.root.session, async snapshot => { await persist(snapshot) }, flush)
+    referenceRegistry(runtime.root.session).reserveNumbersThrough(referenceLibrary.get(runtime.definition.documentId).highWater)
     runtime.manualCheckpoint.acceptSavedMarkdown(published.markdown)
   } catch (failure) {
     // A host may have saved a normalized candidate before a second publish request failed.
@@ -5112,10 +5189,12 @@ defineExpose({
     :style="workspaceShellStyle"
     @w-reference-open="onReferenceOpen"
     @w-reference-change="onReferenceChange"
+    @w-reference-source-change="onSourceReferenceChange"
   >
     <ReferencePanel
       v-if="referencePanelOpen"
       :entries="referenceEntries"
+      :library-error="referenceLibraryError"
       :current-style="documentReferenceStyle"
       :selected="referenceSelected"
       :error="referenceError"
@@ -5127,6 +5206,7 @@ defineExpose({
       :notes-loading="referenceNotesLoading"
       :saved-version="referenceSavedVersion"
       :lookup-doi="lookupReferenceDoi"
+      @retry-library="retryReferenceLibrary"
       @update="updateReference"
       @remove="removeReference"
       @style="setReferenceStyle"
@@ -5145,6 +5225,7 @@ defineExpose({
       :lookup-doi="lookupReferenceDoi"
       @close="closeReferenceInsert"
       @insert="insertReference"
+      @collect="collectReference"
     />
     <input
       ref="lifecycleFileInput"

@@ -61,3 +61,26 @@ describe('local private reference notes', () => {
     }
   })
 })
+
+describe('local private reference libraries', () => {
+  beforeEach(() => localStorage.clear())
+  it('checks revisions across instances and keeps high-water and tombstones', async () => {
+    const a = createLocalReferenceServices(localStorage), b = createLocalReferenceServices(localStorage)
+    const initial = { revision: 0, entries: [{ id: 'r', text: 'Paper' }], deletedIds: [], highWater: 8 }
+    await a.saveLibrary!('doc', initial)
+    await expect(b.saveLibrary!('doc', initial)).rejects.toThrow('修改')
+    await b.saveLibrary!('doc', { revision: 1, entries: [], deletedIds: ['r'], highWater: 0 })
+    expect(await a.loadLibrary!('doc')).toEqual({ revision: 2, entries: [], deletedIds: ['r'], highWater: 8 })
+    expect(await a.loadLibrary!('other')).toEqual({ revision: 0, entries: [], deletedIds: [], highWater: 0 })
+  })
+  it('rejects malformed snapshots without overwriting durable data', async () => {
+    const service = createLocalReferenceServices(localStorage)
+    const base = { revision: 0, entries: [{ id: 'r', text: 'Paper' }], deletedIds: [], highWater: 0 }
+    await expect(service.saveLibrary!('doc', { ...base, deletedIds: ['r'] })).rejects.toThrow()
+    await expect(service.saveLibrary!('doc', { ...base, entries: [{ id: '__proto__', text: 'Invalid' }] })).rejects.toThrow()
+    await expect(service.saveLibrary!('doc', { ...base, highWater: -1 })).rejects.toThrow()
+    localStorage.setItem('w-editor:editor-reference-library:v1:doc', '{damaged')
+    await expect(service.saveLibrary!('doc', base)).rejects.toThrow()
+    expect(localStorage.getItem('w-editor:editor-reference-library:v1:doc')).toBe('{damaged')
+  })
+})

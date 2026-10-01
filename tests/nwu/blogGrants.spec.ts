@@ -10,6 +10,7 @@ async function setup(admin:boolean, manager:boolean) {
   const saves: Record<string,unknown>[]=[]
   vi.stubGlobal('fetch', async(input:RequestInfo|URL,init?:RequestInit)=>{
     const path=new URL(String(input)).pathname
+    if(path.endsWith('/reference-library')) { expect(init?.method ?? 'GET').toBe('GET'); return Response.json({revision:0,entries:[],deletedIds:[],highWater:0}) }
     if(path.endsWith('/users')) return Response.json({users:[{id:2,username:'张三'},{id:3,username:'李四'}]})
     if(path.includes('/state/')) return Response.json({})
     if(path.endsWith('/documents')) return Response.json({items:[],nextCursor:null})

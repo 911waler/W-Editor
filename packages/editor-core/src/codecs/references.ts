@@ -141,6 +141,10 @@ export class ReferenceRegistry {
       this.#highWater = Math.max(this.#highWater, reference.number)
     }
   }
+  reserveNumbersThrough(number: number): void {
+    if (!Number.isSafeInteger(number) || number < 0) throw new TypeError('Invalid reference high-water number')
+    this.#highWater = Math.max(this.#highWater, number)
+  }
   forget(id: string): void { this.#known.delete(id) }
   adopt(reference: DocumentReference): DocumentReference {
     const existing = [...this.#known.values()].find(item => referenceIdentity(item.text) === referenceIdentity(reference.text))

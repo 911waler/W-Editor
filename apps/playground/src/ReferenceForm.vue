@@ -6,10 +6,10 @@ import { REFERENCE_STYLE_LABELS } from '@w-editor/editor-vue/services'
 import { useReferenceFormatting } from './useReferenceFormatting'
 const props = defineProps<{
   defaultStyle?: ReferenceStyle | null | undefined
-  reference?: DocumentReference | undefined; busy: boolean; submitLabel: string; allowApplyStyle?: boolean
+  reference?: DocumentReference | undefined; busy: boolean; submitLabel: string; allowApplyStyle?: boolean; allowCollect?: boolean
   lookupDoi?: ((doi: string, signal: AbortSignal) => Promise<ReferenceMetadata>) | undefined
 }>()
-const emit = defineEmits<{ save: [reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]; style: [style: ReferenceStyle] }>()
+const emit = defineEmits<{ save: [reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]; style: [style: ReferenceStyle]; collect: [reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>] }>()
 const text = ref('')
 const style = ref<ReferenceStyle>('plain')
 const metadata = ref<{ -readonly [K in keyof ReferenceMetadata]: ReferenceMetadata[K] }>({})
@@ -194,6 +194,15 @@ const fields = [
           :disabled="busy || !text.trim()"
         >
           {{ submitLabel }}
+        </button>
+        <button
+          v-if="allowCollect"
+          type="button"
+          data-testid="reference-collect"
+          :disabled="busy || !text.trim()"
+          @click="emit('collect', draft)"
+        >
+          仅收集
         </button>
         <button
           v-if="allowApplyStyle"

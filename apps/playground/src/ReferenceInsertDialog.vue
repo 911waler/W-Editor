@@ -7,7 +7,7 @@ defineProps<{
   busy: boolean; error: string
   lookupDoi?: ((doi: string, signal: AbortSignal) => Promise<ReferenceMetadata>) | undefined
 }>()
-const emit = defineEmits<{ insert: [reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]; close: [] }>()
+const emit = defineEmits<{ insert: [reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]; collect: [reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>]; close: [] }>()
 </script>
 <template>
   <div
@@ -36,7 +36,9 @@ const emit = defineEmits<{ insert: [reference: Pick<DocumentReference, 'text' | 
         :default-style="defaultStyle"
         :lookup-doi="lookupDoi"
         submit-label="在光标处引用"
+        allow-collect
         @save="emit('insert', $event)"
+        @collect="emit('collect', $event)"
       />
       <p
         v-if="error"
