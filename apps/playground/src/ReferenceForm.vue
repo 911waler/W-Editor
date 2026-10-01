@@ -2,8 +2,10 @@
 import { referenceDialogFocus as vReferenceDialogFocus } from './referenceDialogFocus'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { type DocumentReference, type ReferenceMetadata, type ReferenceStyle } from '@w-editor/editor-core'
-import { formatReference } from '@w-editor/editor-vue/services'
+import { REFERENCE_STYLE_LABELS } from '@w-editor/editor-vue/services'
+import { useReferenceFormatting } from './useReferenceFormatting'
 const props = defineProps<{
+  defaultStyle?: ReferenceStyle | null | undefined
   reference?: DocumentReference | undefined; busy: boolean; submitLabel: string; allowApplyStyle?: boolean
   lookupDoi?: ((doi: string, signal: AbortSignal) => Promise<ReferenceMetadata>) | undefined
 }>()
@@ -34,7 +36,7 @@ watch(() => props.reference, (reference, previous) => {
   text.value = reference?.text ?? ''
   metadata.value = { ...reference?.metadata }
   authors.value = authorText(metadata.value)
-  style.value = reference?.style ?? 'plain'
+  style.value = reference?.style ?? props.defaultStyle ?? 'plain'
   metadataOpen.value = false
   lookupError.value = ''
   lookupSuccess.value = false
@@ -49,6 +51,7 @@ const draft = computed(() => {
   const hasMetadata = Object.values(clean).some(value => typeof value === 'string' ? Boolean(value.trim()) : Array.isArray(value) && value.length > 0)
   return { text: text.value.trim(), ...(hasMetadata ? { metadata: clean } : {}), style: style.value }
 })
+const { format: formatReference, error: formattingError } = useReferenceFormatting(() => [{ id: 'preview', number: 1, ...draft.value }])
 const preview = computed(() => {
   if (!draft.value.text) return ''
   try { return formatReference({ id: 'preview', number: 1, ...draft.value }) } catch { return '信息不完整，请补充或选择原始文本。' }
@@ -157,8 +160,18 @@ const fields = [
           <label>文末条目格式<select
             v-model="style"
             data-testid="reference-style"
-          ><option value="plain">原始文本</option><option value="gbt7714">GB/T 7714—2025（顺序编码）</option><option value="apa">APA（条目）</option><option value="mla">MLA（条目）</option></select></label>
+          ><option
+            v-for="(label, id) in REFERENCE_STYLE_LABELS"
+            :key="id"
+            :value="id"
+          >{{ label }}</option></select></label>
           <small>正文始终使用数字编号。格式化需要结构化字段。</small>
+          <p
+            v-if="formattingError"
+            role="alert"
+          >
+            {{ formattingError }}
+          </p>
           <p
             v-if="preview"
             class="reference-preview"

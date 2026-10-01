@@ -1,4 +1,4 @@
-import { bindReferenceNavigation, renderReferencesHtml } from '../adapters/referenceNode'
+import { bindReferenceNavigation, hydrateReferenceStyles, renderReferencesHtml } from '../adapters/referenceNode'
 import Cherry from 'cherry-markdown/dist/cherry-markdown.esm.js'
 import * as echarts from 'echarts'
 import katex from 'katex'
@@ -130,7 +130,8 @@ export class SharedRendererPipeline {
   hydrate(root: HTMLElement, options: RendererHydrationOptions): () => void {
     const stopHydration = hydrateRendererContent(root, options)
     const stopReferences = bindReferenceNavigation(root, () => false)
-    return () => { stopReferences(); stopHydration() }
+    const stopStyles = hydrateReferenceStyles(root)
+    return () => { stopStyles(); stopReferences(); stopHydration() }
   }
 
   destroy(): void {

@@ -2,8 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Component, type CSSProperties } from 'vue'
 import ReferencePanel from './ReferencePanel.vue'
 import ReferenceInsertDialog from './ReferenceInsertDialog.vue'
-import { referenceRegistry, scanReferences, referenceMarkdown, updateReferencePlan, removeReferencePlan, type ReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
-import { createLocalReferenceServices, type ReferenceEditorServices, type ReferenceNote, publishReferenceSnapshot } from '@w-editor/editor-vue/services'
+import { getDocumentReferenceStyle, documentReferenceStylePlan, referenceRegistry, scanReferences, referenceMarkdown, updateReferencePlan, removeReferencePlan, type ReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
+import { ensureReferenceStyles, createLocalReferenceServices, type ReferenceEditorServices, type ReferenceNote, publishReferenceSnapshot } from '@w-editor/editor-vue/services'
 import MarkdownImportZone from './MarkdownImportZone.vue'
 import { loadCapabilityProbe } from './testing/capabilityLoader'
 
@@ -1940,6 +1940,7 @@ const referenceInsertOpen = ref(false)
 const referenceEntries = shallowRef<readonly DocumentReference[]>([])
 const referenceSelected = ref<string | null>(null)
 const referenceError = ref('')
+const documentReferenceStyle = shallowRef<ReferenceStyle | null>(null)
 const referenceBusy = ref(false)
 const referenceCounts = shallowRef<Readonly<Record<string, number>>>({})
 const referenceNotes = shallowRef<Readonly<Record<string, ReferenceNote>>>({})
@@ -2005,7 +2006,9 @@ function onReferenceChange(event: Event): void {
 let referenceContext: DedicatedEditorOpenContext | null = null
 function refreshReferences(): void {
   const snapshot = activeRuntime.value.root.session.snapshot()
-  assignReferences(scanReferences(snapshot.markdown))
+  const references = scanReferences(snapshot.markdown)
+  documentReferenceStyle.value = getDocumentReferenceStyle(snapshot.markdown) ?? (references.length && references.every(entry => (entry.style ?? 'plain') === (references[0]?.style ?? 'plain')) ? references[0]?.style ?? 'plain' : null)
+  assignReferences(references)
 }
 async function openReferences(id: string | null = null): Promise<void> {
   try {
@@ -2026,6 +2029,7 @@ async function openReferenceInsert(): Promise<void> {
     await flushLifecycleSynchronization(activeRuntime.value)
     referenceContext = captureDedicatedEditorContext(null)
     referenceError.value = ''
+    refreshReferences()
     referenceInsertOpen.value = true
     activeRuntime.value.root.setModalActivity('reference-insert')
   } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
@@ -2045,22 +2049,28 @@ function jumpToReference(id: string): void {
 }
 async function insertReference(input: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): Promise<void> {
   if (!referenceContext || referenceBusy.value) return
+  const context = referenceContext
+  const runtime = activeRuntime.value
   referenceBusy.value = true
   referenceError.value = ''
   try {
-    await flushLifecycleSynchronization(activeRuntime.value)
-    assertDedicatedEditorContext(referenceContext)
-    const snapshot = activeRuntime.value.root.session.snapshot()
-    const registry = referenceRegistry(activeRuntime.value.root.session)
+    await flushLifecycleSynchronization(runtime)
+    assertDedicatedEditorContext(context)
+    if (activeRuntime.value !== runtime) throw new Error('文档已切换，请重新插入引用。')
+    const snapshot = runtime.root.session.snapshot()
+    const registry = referenceRegistry(runtime.root.session)
     registry.observe(scanReferences(snapshot.markdown))
-    const reference = registry.adopt({ ...input, id: 'id' in input ? String(input.id) : createRandomId(), number: 1 })
-    if (mode.value === 'source' && referenceContext.sourceSelection) {
-      const { from, to } = referenceContext.sourceSelection
+    await ensureReferenceStyles([input.style ?? documentReferenceStyle.value ?? 'plain'])
+    assertDedicatedEditorContext(context)
+    if (activeRuntime.value !== runtime) throw new Error('文档已切换，请重新插入引用。')
+    const reference = registry.adopt({ ...input, style: input.style ?? documentReferenceStyle.value ?? 'plain', id: 'id' in input ? String(input.id) : createRandomId(), number: 1 })
+    if (mode.value === 'source' && context.sourceSelection) {
+      const { from, to } = context.sourceSelection
       const replacement = referenceMarkdown(reference)
       await applySourcePlan({ baseRevision: snapshot.revision, transactionId: `reference:${createRandomId()}`, patches: [{ codecId: 'reference', from, to, expected: snapshot.markdown.slice(from, to), replacement }] }, { from: from + replacement.length, to: from + replacement.length })
     } else {
       if (!visualSurface.value?.applyReference(reference).changed) throw new Error('当前光标位置无法插入引用。')
-      await flushLifecycleSynchronization(activeRuntime.value)
+      await flushLifecycleSynchronization(runtime)
       visualSurface.value?.focus()
     }
     refreshReferences()
@@ -2108,12 +2118,24 @@ async function removeReference(id: string): Promise<void> {
 }
 async function setReferenceStyle(style: ReferenceStyle): Promise<void> {
   await mutateReference(async snapshot => {
+    await ensureReferenceStyles([style])
+    const current = activeRuntime.value.root.session.snapshot()
+    if (current.documentId !== snapshot.documentId || current.revision !== snapshot.revision) throw new Error('文档已变化，请重新应用引用样式。')
     if (mode.value === 'source') {
-      const entries = [...new Map(scanReferences(snapshot.markdown).map(item => [item.id, item])).values()]
-      const patches = entries.flatMap(entry => updateReferencePlan(snapshot, entry.id, { text: entry.text, ...(entry.metadata ? { metadata: entry.metadata } : {}), style }, 'style').patches)
-      await applySourcePlan({ baseRevision: snapshot.revision, transactionId: `reference-style:${createRandomId()}`, patches: patches.sort((a, b) => a.from - b.from) }, sourceSelection())
-      for (const entry of entries) referenceRegistry(activeRuntime.value.root.session).forget(entry.id)
-    } else visualSurface.value?.setReferenceStyle(style)
+      const plan = documentReferenceStylePlan(snapshot, style, `reference-style:${createRandomId()}`)
+      const selection = sourceSelection()
+      const mapPosition = (position: number): number => {
+        let delta = 0
+        for (const patch of plan.patches) {
+          if (position >= patch.to) delta += patch.replacement.length - (patch.to - patch.from)
+          else if (position > patch.from) return patch.from + delta + patch.replacement.length
+        }
+        return position + delta
+      }
+      await applySourcePlan(plan, { from: mapPosition(selection.from), to: mapPosition(selection.to) })
+    } else if (!visualSurface.value) throw new Error('编辑器尚未就绪。')
+    else visualSurface.value.setReferenceStyle(style)
+    for (const entry of scanReferences(snapshot.markdown)) referenceRegistry(activeRuntime.value.root.session).forget(entry.id)
   })
 }
 
@@ -3467,6 +3489,7 @@ const applicationDispatcher = Object.freeze({
     if (commandId === 'export.html') {
       try {
         const snapshot = await flushAuthoritativeSnapshotForUtility()
+        await ensureReferenceStyles(scanReferences(snapshot.markdown).map(entry => entry.style ?? 'plain'))
         const rendered = createTiptapRenderedExportDocument(snapshot, {
           lineHeight: lineSpacingValue.value,
           locale: toolbarLocale.value,
@@ -3499,6 +3522,7 @@ const applicationDispatcher = Object.freeze({
     if (commandId === 'export.pdf') {
       try {
         const snapshot = await flushAuthoritativeSnapshotForUtility()
+        await ensureReferenceStyles(scanReferences(snapshot.markdown).map(entry => entry.style ?? 'plain'))
         const rendered = createTiptapRenderedExportDocument(snapshot, {
           lineHeight: lineSpacingValue.value,
           locale: toolbarLocale.value,
@@ -3529,6 +3553,7 @@ const applicationDispatcher = Object.freeze({
     if (commandId === 'export.screenshot') {
       try {
         const snapshot = await flushAuthoritativeSnapshotForUtility()
+        await ensureReferenceStyles(scanReferences(snapshot.markdown).map(entry => entry.style ?? 'plain'))
         const rendered = createTiptapRenderedExportDocument(snapshot, {
           lineHeight: lineSpacingValue.value,
           locale: toolbarLocale.value,
@@ -5091,6 +5116,7 @@ defineExpose({
     <ReferencePanel
       v-if="referencePanelOpen"
       :entries="referenceEntries"
+      :current-style="documentReferenceStyle"
       :selected="referenceSelected"
       :error="referenceError"
       :busy="referenceBusy"
@@ -5113,6 +5139,7 @@ defineExpose({
     />
     <ReferenceInsertDialog
       v-if="referenceInsertOpen"
+      :default-style="documentReferenceStyle"
       :busy="referenceBusy"
       :error="referenceError"
       :lookup-doi="lookupReferenceDoi"

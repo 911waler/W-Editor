@@ -412,6 +412,15 @@ export const RawInline = Node.create<RawNodeOptions>({
   ],
 })
 
+const ReferenceDocumentStyle = Node.create({
+  name: 'referenceDocumentStyle',
+  group: 'block',
+  atom: true,
+  selectable: false,
+  addAttributes: () => ({ ...projectionAttributes(), style: { default: 'plain' } }),
+  renderHTML: () => ['div', { 'data-w-editor-node': 'reference-document-style', hidden: '', 'aria-hidden': 'true' }],
+})
+
 export const RawBlock = Node.create<RawNodeOptions>({
   name: 'rawBlock',
   group: 'block',
@@ -2842,6 +2851,7 @@ export function createTiptapVisualExtensions(options?: Readonly<TiptapVisualExte
     RawBlock.configure({ localization, onEdit: resolvedOptions.onRawEdit ?? null }),
     PresentationFallback,
     InlineImage.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
+    ReferenceDocumentStyle,
     ReferenceNode,
     ReferenceBibliography.configure({ registry: resolvedOptions.referenceRegistry ?? null }),
     InlineFormula.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),

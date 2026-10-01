@@ -1,3 +1,4 @@
+import { parseDocumentReferenceStyle } from './referenceDocumentStyle'
 import type { JSONContent } from '@tiptap/core'
 
 import type { DocumentSnapshot } from '../core/documentSession'
@@ -53,7 +54,7 @@ interface OrdinaryBlock {
   readonly body: string
   readonly chart?: ChartTableModel
   readonly code?: FencedCodeMatch
-  readonly codecId: `alignment-${AlignmentValue}` | `attachment-${AttachmentKind}` | 'blockquote' | 'bullet-list' | `chart-${ChartTableType}` | 'drawio' | 'fenced-code' | 'formula' | 'heading' | 'horizontal-rule' | `layout-${ColumnLayoutKind | DisclosureKind}` | 'layout-timeline' | `media-${MediaKind}` | `mermaid-${MermaidDiagramType | 'unknown'}` | 'ordered-list' | 'ordinary-table' | 'paragraph' | `panel-${PanelVariant}` | 'raw-block' | 'table-of-contents' | 'task-list'
+  readonly codecId: `alignment-${AlignmentValue}` | `attachment-${AttachmentKind}` | 'blockquote' | 'bullet-list' | `chart-${ChartTableType}` | 'drawio' | 'fenced-code' | 'formula' | 'heading' | 'horizontal-rule' | `layout-${ColumnLayoutKind | DisclosureKind}` | 'layout-timeline' | `media-${MediaKind}` | `mermaid-${MermaidDiagramType | 'unknown'}` | 'ordered-list' | 'ordinary-table' | 'paragraph' | `panel-${PanelVariant}` | 'raw-block' | 'reference-document-style' | 'table-of-contents' | 'task-list'
   readonly disclosure?: Readonly<{ readonly items: readonly DisclosureItem[]; readonly kind: DisclosureKind }>
   readonly drawio?: DrawioModel
   readonly from: number
@@ -238,6 +239,11 @@ function rawTableCandidateAt(markdown: string, offset: number): Readonly<{ sourc
 function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
   const blocks: OrdinaryBlock[] = []
   let offset = 0
+  const marker = parseDocumentReferenceStyle(markdown)
+  if (marker) {
+    blocks.push({ body: marker.style, codecId: 'reference-document-style', from: 0, to: marker.to, source: marker.source, level: null })
+    offset = nextLineOffset(markdown, marker.to)
+  }
   while (offset < markdown.length) {
     const end = lineEnd(markdown, offset)
     const line = markdown.slice(offset, end)
@@ -594,7 +600,10 @@ function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
     blocks.push(Object.freeze({ body: source, codecId: 'paragraph', from, level: null, source, to }))
     offset = cursor
   }
-  return preserveExplicitEmptyParagraphs(markdown, blocks)
+  const preserved = preserveExplicitEmptyParagraphs(markdown, blocks)
+  return preserved.length === 1 && preserved[0]?.codecId === 'reference-document-style'
+    ? Object.freeze([...preserved, emptyParagraph(markdown.length)])
+    : preserved
 }
 
 function isBlockMediaAt(markdown: string, offset: number): boolean {
@@ -698,6 +707,7 @@ function projectionNode(block: OrdinaryBlock, revision: number): JSONContent {
     ...(block.level === null ? {} : { level: block.level }),
     ...(block.tocAnchor === undefined ? {} : { tocAnchor: block.tocAnchor }),
   })
+  if (block.codecId === 'reference-document-style') return Object.freeze({ attrs: Object.freeze({ ...attrs, style: block.body }), type: 'referenceDocumentStyle' })
   if (block.codecId === 'horizontal-rule') return Object.freeze({ attrs, type: 'horizontalRule' })
   if (block.codecId === 'raw-block') {
     return Object.freeze({ attrs: Object.freeze({ ...attrs, source: block.source }), type: 'rawBlock' })

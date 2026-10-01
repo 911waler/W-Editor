@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { referenceDialogFocus as vReferenceDialogFocus } from './referenceDialogFocus'
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { referenceUrl, type DocumentReference, type ReferenceMetadata, type ReferenceStyle } from '@w-editor/editor-core'
-import { formatReference, type ReferenceNote } from '@w-editor/editor-vue/services'
+import { REFERENCE_STYLE_LABELS, type ReferenceNote } from '@w-editor/editor-vue/services'
 import ReferenceForm from './ReferenceForm.vue'
+import ReferenceStylePicker from './ReferenceStylePicker.vue'
+import { useReferenceFormatting } from './useReferenceFormatting'
 const props = defineProps<{
+  currentStyle?: ReferenceStyle | null
   entries: readonly DocumentReference[]; selected: string | null; error: string; busy: boolean
   counts: Readonly<Record<string, number>>; notes: Readonly<Record<string, ReferenceNote>>
   notesError: string; notesBusy: boolean; notesLoading: boolean; savedVersion: number
@@ -16,6 +19,10 @@ const emit = defineEmits<{
   remove: [id: string]; jump: [id: string]; style: [style: ReferenceStyle]
   saveNote: [id: string, text: string]; reloadNotes: []
 }>()
+const { format: formatReference, error: formattingError } = useReferenceFormatting(() => props.entries)
+const stylePickerOpen = ref(false)
+const currentStyle = computed(() => props.currentStyle ?? (props.entries.length && props.entries.every(entry => (entry.style ?? 'plain') === (props.entries[0]?.style ?? 'plain')) ? props.entries[0]?.style ?? 'plain' : null))
+watch(() => props.busy, (busy, wasBusy) => { if (wasBusy && !busy && !props.error) stylePickerOpen.value = false })
 const editing = ref<DocumentReference | null>(null)
 const deleteId = ref<string | null>(null)
 const noteEditing = ref<Record<string, boolean>>({})
@@ -66,6 +73,30 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
     >
       新增文献
     </button>
+    <button
+      class="reference-panel__style"
+      type="button"
+      data-testid="reference-style-open"
+      :disabled="busy"
+      @click="stylePickerOpen = true"
+    >
+      引用样式 · {{ currentStyle ? REFERENCE_STYLE_LABELS[currentStyle] : '混合格式' }} ▾
+    </button>
+    <ReferenceStylePicker
+      v-if="stylePickerOpen"
+      :entries="entries"
+      :current-style="currentStyle"
+      :busy="busy"
+      :error="error"
+      @close="stylePickerOpen = false"
+      @apply="emit('style', $event)"
+    />
+    <p
+      v-if="formattingError"
+      role="alert"
+    >
+      {{ formattingError }}
+    </p>
     <div
       v-if="editing"
       v-reference-dialog-focus
@@ -278,6 +309,7 @@ header { display: flex; justify-content: space-between; gap: 12px; align-items: 
 .reference-panel__heading strong { font-size: 16px; }
 .reference-panel__count { color: var(--reference-muted); font-size: 12px; white-space: nowrap; }
 [data-testid="reference-add"] { margin-top: 16px; }
+.reference-panel__style { display: block; margin-top: 12px; width: 100%; text-align: left; font-size: 13px; }
 label { display: block; margin-top: 10px; font-size: 13px; }
 p { font-size: 13px; }
 textarea { display: block; width: 100%; box-sizing: border-box; margin: 6px 0; padding: 8px; border: 1px solid var(--reference-border); border-radius: 4px; background: var(--app-surface, #fff); color: inherit; font: inherit; resize: vertical; }

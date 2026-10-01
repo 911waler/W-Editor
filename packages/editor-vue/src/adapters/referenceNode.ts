@@ -3,7 +3,7 @@ import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model'
 import { Plugin } from '@tiptap/pm/state'
 import { referenceMarkdown, ReferenceRegistry, parseReferenceAt, parseReferenceMetadata, parseReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
 
-import { formatReference } from '../services/citationFormatting'
+import { formatReference, ensureReferenceStyles } from '../services/citationFormatting'
 
 /** Tiptap nullable attribute defaults are not part of the public source payload. */
 export function referenceFromAttributes(attrs: Record<string, unknown>): DocumentReference {
@@ -65,6 +65,11 @@ export function buildReferenceList(references: readonly DocumentReference[], doc
     row.append(back, doc.createTextNode(' '))
     const text = doc.createElement('span')
     text.textContent = formatReference(reference)
+    if (reference.style?.startsWith('journal:')) {
+      void ensureReferenceStyles([reference.style]).then(() => { text.textContent = formatReference(reference) }).catch(() => {
+        text.title = '期刊格式加载失败，显示原始文本 / Journal style unavailable'
+      })
+    }
     row.append(text)
     section.append(row)
   }
@@ -195,4 +200,23 @@ export function renderReferencesHtml(html: string, doc: Document): string {
   }
   if (references.length) root.append(buildReferenceList(references, doc))
   return root.innerHTML
+}
+
+/** Hydrate a serialized Cherry bibliography after bundled styles finish loading. */
+export function hydrateReferenceStyles(root: HTMLElement): () => void {
+  let disposed = false
+  const references: DocumentReference[] = []
+  for (const anchor of root.querySelectorAll<HTMLElement>('[data-reference-source]')) {
+    try { references.push(referenceFromElement(anchor)) } catch { /* Ignore foreign invalid anchors. */ }
+  }
+  if (references.length) {
+    void ensureReferenceStyles(references.map(reference => reference.style ?? 'plain')).then(() => {
+      if (disposed) return
+      const list = buildReferenceList(references, root.ownerDocument)
+      const previous = root.querySelector('.w-reference-list')
+      if (previous) previous.replaceWith(list)
+      else root.append(list)
+    }).catch(() => { /* Original text remains visible; explicit export will reject. */ })
+  }
+  return () => { disposed = true }
 }

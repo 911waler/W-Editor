@@ -73,3 +73,48 @@ describe('Tiptap presentation export', () => {
     expect(rendered.bodyHtml).not.toContain('<script')
   })
 })
+
+
+import { referenceMarkdown } from '../../packages/editor-core/src'
+import { createTiptapRenderedExportDocument, materializeRenderedExportDocument } from '../../packages/editor-vue/src/services/browserFileExport'
+import { createTiptapPresentation } from '../../packages/editor-vue/src/rendering/tiptapPresentation'
+
+it('exports one document bibliography when a reference is inside a Cherry fallback block', async () => {
+  const reference = referenceMarkdown({ id: 'fallback', number: 3, text: 'Unique bibliography text', style: 'apa', metadata: { title: 'Fallback paper', year: '2024' } })
+  const snapshot = { documentId: 'fallback-export', revision: 0, markdown: `<span>HTML fallback</span> ${reference}` }
+  const presentation = { lineHeight: 1.75, theme: 'default' as const }
+  const host = document.createElement('div')
+  const reader = createTiptapPresentation(host, { ...presentation, snapshot, profile: 'reader' })
+  try {
+    await reader.settle()
+    const root = reader.root.querySelector<HTMLElement>('.ProseMirror')!
+    expect(root.querySelector('[data-w-editor-presentation-fallback]')).not.toBeNull() // Actual Cherry fallback path.
+    expect(reader.root.querySelectorAll('.w-reference-list')).toHaveLength(1)
+    const direct = renderSafeTiptapExportDocument(snapshot, root, presentation)
+    const mounted = await materializeRenderedExportDocument(createTiptapRenderedExportDocument(snapshot, presentation), document)
+    for (const exported of [direct, mounted]) {
+      const result = document.createElement('div')
+      result.innerHTML = exported.bodyHtml
+      expect(result.querySelectorAll('.w-reference-list')).toHaveLength(1)
+      expect(result.querySelectorAll('#reference-fallback')).toHaveLength(1)
+      expect(result.querySelector('.w-reference-list')?.textContent).toContain('Fallback paper')
+    }
+  } finally { reader.destroy() }
+})
+
+
+it('hydrates a cold journal style in a fallback reader without remounting or duplicate lists', async () => {
+  const link = referenceMarkdown({ id: 'cold-fallback', number: 8, text: 'Cold original', style: 'journal:physics-letters-a@1', metadata: { title: 'Cold fallback title', year: '2025' } })
+  const host = document.createElement('div')
+  const reader = createTiptapPresentation(host, { profile: 'reader', snapshot: { documentId: 'cold-reader', revision: 0, markdown: `<span>Fallback</span> ${link}\n\nOrdinary ${link}` } })
+  try {
+    const root = reader.root.querySelector('.ProseMirror')
+    await reader.settle()
+    expect(reader.root.querySelector('.ProseMirror')).toBe(root)
+    expect(reader.root.querySelectorAll('.w-reference-list')).toHaveLength(1)
+    expect(reader.root.querySelectorAll('#reference-cold-fallback')).toHaveLength(1)
+    expect(reader.root.querySelectorAll('#citation-cold-fallback')).toHaveLength(1)
+    expect(reader.root.querySelector('.w-reference-list')?.textContent).toContain('Cold fallback title')
+    expect(reader.root.querySelector('.w-reference-list')?.textContent).not.toContain('Cold original')
+  } finally { reader.destroy() }
+})

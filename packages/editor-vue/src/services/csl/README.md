@@ -33,3 +33,29 @@ bibliography entries; application order and numeric in-text markers remain intac
 
 Incomplete metadata (no title) falls back to the user's original text. Plain mode
 always uses that text. Original source fields are never replaced by formatted text.
+
+## Bundled journal catalog (version 1)
+
+The `journals/` files are unmodified from the official CSL styles repository,
+validated branch `v1.0.2`, commit `20af0514b2c754b2dc766a31617b31f5b3eee8de`.
+See `journals/provenance.json` for exact paths and independent-parent resolution.
+Nature and Science are independent. Physical Review B and Physical Review Letters
+resolve to `american-physics-society`; Physics Letters A to `elsevier-with-titles`;
+Journal of Materiomics to `elsevier-vancouver`. Catalog titles and ISSNs are copied
+from these pinned files. Search aliases PRB / Phys. Rev. B and PRL / Phys. Rev. Lett.
+are verified against https://journals.aps.org/prb/ and https://journals.aps.org/prl/
+(accessed 2026-10-01); alias sources are also recorded in provenance.json.
+
+All author/contributor metadata and CC BY-SA 3.0 notices remain intact; the adjacent
+`CC-BY-SA-3.0.txt` applies to these files too. Attribution: Citation Style Language
+project, https://citationstyles.org/. The runtime bibliography XML adaptation removes
+only `text` elements for `citation-number` within `bibliography`, also CC BY-SA 3.0.
+No leading numbers are removed from rendered strings.
+
+The application retains numeric in-text citations and its own bibliography order.
+This catalog supports individual-entry bibliography formatting only: the selected
+numeric styles have no bibliography disambiguation or subsequent-author substitution.
+It does not claim to enforce an entire journal submission template. Unknown journal
+abbreviations are not inferred; missing metadata (especially title) falls back to
+original user text. Embedded local chunks load lazily without a remote style request;
+exports await loading and synchronous export helpers reject an unready style.

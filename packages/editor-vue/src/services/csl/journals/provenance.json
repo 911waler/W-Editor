@@ -1,0 +1,79 @@
+{
+  "repository": "https://github.com/citation-style-language/styles",
+  "revision": "20af0514b2c754b2dc766a31617b31f5b3eee8de",
+  "branch": "v1.0.2",
+  "styles": [
+    {
+      "slug": "nature",
+      "title": "Nature",
+      "aliases": [],
+      "issns": [
+        "0028-0836",
+        "1476-4687"
+      ],
+      "source": "nature.csl",
+      "parent": "nature"
+    },
+    {
+      "slug": "science",
+      "title": "Science",
+      "aliases": [],
+      "issns": [
+        "0036-8075",
+        "1095-9203"
+      ],
+      "source": "science.csl",
+      "parent": "science"
+    },
+    {
+      "slug": "physical-review-b",
+      "title": "Physical Review B",
+      "aliases": [
+        "PRB",
+        "Phys. Rev. B"
+      ],
+      "issns": [
+        "2469-9950",
+        "2469-9969"
+      ],
+      "source": "dependent/physical-review-b.csl",
+      "parent": "american-physics-society",
+      "aliasesSource": "https://journals.aps.org/prb/"
+    },
+    {
+      "slug": "physical-review-letters",
+      "title": "Physical Review Letters",
+      "aliases": [
+        "PRL",
+        "Phys. Rev. Lett."
+      ],
+      "issns": [
+        "0031-9007",
+        "1079-7114"
+      ],
+      "source": "dependent/physical-review-letters.csl",
+      "parent": "american-physics-society",
+      "aliasesSource": "https://journals.aps.org/prl/"
+    },
+    {
+      "slug": "physics-letters-a",
+      "title": "Physics Letters A",
+      "aliases": [],
+      "issns": [
+        "0375-9601"
+      ],
+      "source": "dependent/physics-letters-a.csl",
+      "parent": "elsevier-with-titles"
+    },
+    {
+      "slug": "journal-of-materiomics",
+      "title": "Journal of Materiomics",
+      "aliases": [],
+      "issns": [
+        "2352-8478"
+      ],
+      "source": "dependent/journal-of-materiomics.csl",
+      "parent": "elsevier-vancouver"
+    }
+  ]
+}

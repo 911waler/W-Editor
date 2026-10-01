@@ -13,9 +13,20 @@ export interface ReferenceMetadata {
   readonly publisher?: string
   readonly type?: 'article-journal' | 'book' | 'webpage'
 }
-export type ReferenceStyle = 'plain' | 'gbt7714' | 'apa' | 'mla'
+/** Curated CSL catalog; IDs version the bundled definition, never a remote URL. */
+export const JOURNAL_REFERENCE_STYLES = [
+  { id: 'journal:nature@1', label: 'Nature', aliases: [], issns: ["0028-0836", "1476-4687"] },
+  { id: 'journal:science@1', label: 'Science', aliases: [], issns: ["0036-8075", "1095-9203"] },
+  { id: 'journal:physical-review-b@1', label: 'Physical Review B', aliases: ['PRB', 'Phys. Rev. B'], issns: ["2469-9950", "2469-9969"] },
+  { id: 'journal:physical-review-letters@1', label: 'Physical Review Letters', aliases: ['PRL', 'Phys. Rev. Lett.'], issns: ["0031-9007", "1079-7114"] },
+  { id: 'journal:physics-letters-a@1', label: 'Physics Letters A', aliases: [], issns: ["0375-9601"] },
+  { id: 'journal:journal-of-materiomics@1', label: 'Journal of Materiomics', aliases: [], issns: ["2352-8478"] },
+] as const
+export type JournalReferenceStyle = typeof JOURNAL_REFERENCE_STYLES[number]['id']
+export type ReferenceStyle = 'plain' | 'gbt7714' | 'apa' | 'mla' | JournalReferenceStyle
 export function parseReferenceStyle(value: unknown): ReferenceStyle {
   if (value === 'plain' || value === 'gbt7714' || value === 'apa' || value === 'mla') return value
+  for (const style of JOURNAL_REFERENCE_STYLES) if (value === style.id) return style.id
   throw new TypeError('Invalid reference style')
 }
 /** Whitelisting prevents editor-only fields from leaking through untrusted pasted data. */

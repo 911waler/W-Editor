@@ -1,7 +1,10 @@
+import { buildReferenceList } from '../adapters/referenceNode'
+import { ensureReferenceStyles } from '../services/citationFormatting'
 import {
   DocumentSession,
   createTaskItemCheckedPlan,
   projectOrdinaryMarkdown,
+  scanReferences,
   type DocumentSnapshot,
   type ResourceOptions,
 } from '@w-editor/editor-core'
@@ -176,9 +179,10 @@ class TiptapPresentationController implements TiptapPresentationInstance {
     this.#mountAdapter()
   }
 
-  settle(timeoutMs = 10_000): Promise<void> {
+  async settle(timeoutMs = 10_000): Promise<void> {
     this.#assertActive()
-    return waitForPresentation(this.root, timeoutMs)
+    await ensureReferenceStyles(scanReferences(this.#session.snapshot().markdown).map(reference => reference.style ?? 'plain'))
+    await waitForPresentation(this.root, timeoutMs)
   }
 
   destroy(): void {
@@ -273,6 +277,17 @@ class TiptapPresentationController implements TiptapPresentationInstance {
       presentation?.querySelectorAll(
         '[data-semantic-edit], [data-raw-edit], .visual-code-block__language, .table-node-view__handle, .table-node-view__menu, .table-cell-selection-overlay',
       ).forEach((control) => control.remove())
+    }
+    // Fallback fragments have their own serialized bibliography. Replace all fragments
+    // with one live document list, which hydrates after local journal chunks load.
+    this.#host.querySelectorAll('.w-reference-list').forEach(list => list.remove())
+    const references = scanReferences(this.#session.snapshot().markdown)
+    if (references.length) this.#host.append(buildReferenceList(references, this.#host.ownerDocument))
+    const seen = new Set<string>()
+    for (const anchor of this.#host.querySelectorAll<HTMLElement>('[data-reference-id]')) {
+      const id = anchor.dataset['referenceId']!
+      anchor.id = seen.has(id) ? '' : `citation-${id}`
+      seen.add(id)
     }
     this.#adapter = adapter
   }

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { scanReferences } from '../../packages/editor-core/src'
+import { ensureReferenceStyles } from '../../packages/editor-vue/src/services'
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import TiptapReaderPresentation from '../../packages/editor-vue/src/ui/TiptapReaderPresentation.vue'
 import { hydrateCherryChartPreviews } from '../../packages/editor-vue/src/adapters/cherryChartPreviewRenderer'
@@ -120,6 +122,7 @@ async function download(format: 'markdown'|'html'|'pdf'|'image') {
     let omitted=0
     if(format==='markdown') artifact=createMarkdownExport(snapshot)
     else {
+      await ensureReferenceStyles(scanReferences(snapshot.markdown).map(entry => entry.style ?? 'plain'))
       const rendered=createTiptapRenderedExportDocument(snapshot,{lineHeight:1.75,locale:locale.value,localization:createUiLocalizationStore(locale.value),theme:theme.value})
       if(format==='html') {
         const artifacts=createHtmlDerivedExportArtifacts(await materializeRenderedExportDocument(rendered,document))

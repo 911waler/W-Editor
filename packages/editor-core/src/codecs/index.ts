@@ -28,3 +28,5 @@ export * from './drawio'
 
 export * from './references'
 export * from './referenceMetadata'
+
+export * from './referenceDocumentStyle'

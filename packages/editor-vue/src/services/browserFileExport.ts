@@ -1,3 +1,4 @@
+import { ensureReferenceStyles, areReferenceStylesReady } from './citationFormatting'
 import { buildReferenceList } from '../adapters/referenceNode'
 import { scanReferences } from '@w-editor/editor-core'
 import type { DocumentSnapshot } from '@w-editor/editor-core'
@@ -106,6 +107,7 @@ export function renderSafeExportDocument(
   renderer: PreviewRenderer,
   presentation?: ExportPresentation,
 ): SafeRenderedExportDocument {
+  assertReferenceStylesReady(snapshot)
   const result = renderer.render(snapshot)
   if (result.snapshot.documentId !== snapshot.documentId
     || result.snapshot.revision !== snapshot.revision
@@ -139,11 +141,15 @@ export function renderSafeTiptapExportDocument(
   presentationRoot: HTMLElement,
   presentation?: ExportPresentation,
 ): SafeRenderedExportDocument {
+  assertReferenceStylesReady(snapshot)
   if (!presentationRoot.classList.contains('ProseMirror')) {
     throw new BrowserFileExportError('The Tiptap export root is not a ProseMirror presentation.')
   }
   const clone = presentationRoot.cloneNode(true)
   if (!(clone instanceof HTMLElement)) throw new BrowserFileExportError('The Tiptap presentation could not be cloned.')
+  const references = scanReferences(snapshot.markdown)
+  // Fallback blocks can contain local bibliographies. Export one document-wide list.
+  if (references.length) clone.querySelectorAll('.w-reference-list').forEach(element => element.remove())
   clone.querySelectorAll(TIPTAP_EXPORT_CHROME_SELECTOR).forEach((element) => element.remove())
   clone.querySelectorAll('script, iframe, object, embed, form').forEach((element) => element.remove())
   const elements = [clone, ...clone.querySelectorAll<HTMLElement>('*')]
@@ -158,7 +164,7 @@ export function renderSafeTiptapExportDocument(
     element.removeAttribute('aria-readonly')
   }
   return Object.freeze({
-    bodyHtml: clone.innerHTML + (scanReferences(snapshot.markdown).length ? buildReferenceList(scanReferences(snapshot.markdown), clone.ownerDocument).outerHTML : ''),
+    bodyHtml: clone.innerHTML + (references.length ? buildReferenceList(references, clone.ownerDocument).outerHTML : ''),
     documentId: snapshot.documentId,
     ...(presentation === undefined ? {} : { lineHeight: presentation.lineHeight, theme: presentation.theme }),
     presentationEngine: 'tiptap',
@@ -175,6 +181,7 @@ export function createTiptapRenderedExportDocument(
     documentId: snapshot.documentId,
     lineHeight: options.lineHeight,
     mountPresentation: async (container: HTMLElement) => {
+      await ensureReferenceStyles(scanReferences(snapshot.markdown).map(reference => reference.style ?? 'plain'))
       const { createTiptapPresentation } = await import('../rendering/tiptapPresentation')
       const instance = createTiptapPresentation(container, {
         ...(options.extensions === undefined ? {} : { extensions: options.extensions }),
@@ -189,6 +196,10 @@ export function createTiptapRenderedExportDocument(
         await instance.settle()
         const root = instance.root.querySelector<HTMLElement>('.ProseMirror')
         if (root === null) throw new BrowserFileExportError('The Tiptap presentation root is unavailable.')
+        // Export captures the ProseMirror subtree; its ordinary reference footer is a sibling.
+        const references = scanReferences(snapshot.markdown)
+        root.querySelectorAll('.w-reference-list').forEach(element => element.remove())
+        if (references.length) root.append(buildReferenceList(references, root.ownerDocument))
         return Object.freeze({ dispose: () => instance.destroy(), root })
       } catch (failure) {
         instance.destroy()
@@ -307,5 +318,11 @@ export class BrowserFileExporter {
     } finally {
       if (url !== null) this.#objectUrls.revokeObjectURL(url)
     }
+  }
+}
+
+function assertReferenceStylesReady(snapshot: DocumentSnapshot): void {
+  if (!areReferenceStylesReady(scanReferences(snapshot.markdown).map(reference => reference.style ?? 'plain'))) {
+    throw new BrowserFileExportError('Journal styles must finish loading before exporting. Await ensureReferenceStyles first.')
   }
 }

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { referenceDialogFocus as vReferenceDialogFocus } from './referenceDialogFocus'
-import type { DocumentReference, ReferenceMetadata } from '@w-editor/editor-core'
+import type { DocumentReference, ReferenceMetadata, ReferenceStyle } from '@w-editor/editor-core'
 import ReferenceForm from './ReferenceForm.vue'
 defineProps<{
+  defaultStyle?: ReferenceStyle | null
   busy: boolean; error: string
   lookupDoi?: ((doi: string, signal: AbortSignal) => Promise<ReferenceMetadata>) | undefined
 }>()
@@ -32,6 +33,7 @@ const emit = defineEmits<{ insert: [reference: Pick<DocumentReference, 'text' | 
       </header>
       <ReferenceForm
         :busy="busy"
+        :default-style="defaultStyle"
         :lookup-doi="lookupDoi"
         submit-label="在光标处引用"
         @save="emit('insert', $event)"

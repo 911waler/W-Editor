@@ -1,7 +1,7 @@
 import { referenceFromAttributes } from './referenceNode'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
-import { INLINE_MARK_SPECS, referenceMarkdown, serializeFencedCode, serializeFormula, type ProjectionMapEntry } from '@w-editor/editor-core'
+import { INLINE_MARK_SPECS, serializeDocumentReferenceStyle, parseReferenceStyle, referenceMarkdown, serializeFencedCode, serializeFormula, type ProjectionMapEntry } from '@w-editor/editor-core'
 import { imageMarkdown } from './imageNode'
 import { formatRichInlineMark } from '@w-editor/editor-core'
 import { InvalidTiptapPatchSerializationError, type TiptapPatchSerializationInput } from './tiptapPatchPlanner'
@@ -151,6 +151,7 @@ function serializeList(node: ProseMirrorNode, indent = ''): string {
 }
 
 function serializeNode(node: ProseMirrorNode): string {
+  if (node.type.name === 'referenceDocumentStyle') return serializeDocumentReferenceStyle(parseReferenceStyle(node.attrs['style']))
   if (node.type.name === 'rawBlock') return String(node.attrs['source'] ?? '')
   if (node.type.name === 'table') return serializeTable(node)
   if (node.type.name === 'blockquote') {

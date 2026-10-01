@@ -1,5 +1,5 @@
 import { referenceFromAttributes } from './referenceNode'
-import { referenceRegistry, referenceMarkdown, type DocumentReference, type ReferenceStyle } from '@w-editor/editor-core'
+import { referenceRegistry, parseReferenceStyle, referenceMarkdown, type DocumentReference, type ReferenceStyle } from '@w-editor/editor-core'
 import { parseInlineImageAt } from '@w-editor/editor-core'
 import { imageAttributes, imageMarkdown } from './imageNode'
 import { Editor, getSchema, type JSONContent } from '@tiptap/core'
@@ -1349,10 +1349,10 @@ export class TiptapVisualAdapter {
   }
 
   setReferenceStyle(style: ReferenceStyle): VisualCommandResult {
-    return this.#changeReferences(reference => ({ ...reference, style }))
+    return this.#changeReferences(reference => ({ ...reference, style }), parseReferenceStyle(style))
   }
 
-  #changeReferences(change: (reference: DocumentReference) => DocumentReference | null): VisualCommandResult {
+  #changeReferences(change: (reference: DocumentReference) => DocumentReference | null, documentStyle?: ReferenceStyle): VisualCommandResult {
     this.#assertAlive()
     if (!this.#editor.isEditable) return { active: false, changed: false }
     const transaction = this.#editor.state.tr
@@ -1363,6 +1363,14 @@ export class TiptapVisualAdapter {
       if (next === null) transaction.delete(transaction.mapping.map(pos), transaction.mapping.map(pos + node.nodeSize))
       else if (referenceMarkdown(previous) !== referenceMarkdown(next)) transaction.setNodeMarkup(transaction.mapping.map(pos), undefined, { ...next })
     })
+    if (documentStyle !== undefined) {
+      const first = transaction.doc.firstChild
+      if (first?.type.name === 'referenceDocumentStyle') {
+        if (first.attrs['style'] !== documentStyle) transaction.setNodeMarkup(0, undefined, { ...first.attrs, style: documentStyle })
+      } else {
+        transaction.insert(0, this.#editor.schema.nodes['referenceDocumentStyle']!.create({ style: documentStyle }))
+      }
+    }
     if (!transaction.docChanged) return { active: false, changed: false }
     this.#editor.view.dispatch(closeHistory(transaction))
     this.#editor.view.dispatch(closeHistory(this.#editor.state.tr).setMeta('addToHistory', false))
