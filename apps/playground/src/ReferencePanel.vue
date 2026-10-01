@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { referenceDialogFocus as vReferenceDialogFocus } from './referenceDialogFocus'
 import { computed, ref, watch } from 'vue'
-import { referenceUrl, type DocumentReference, type ReferenceMetadata, type ReferenceStyle } from '@w-editor/editor-core'
+import { JOURNAL_REFERENCE_STYLES, referenceUrl, type DocumentReference, type ReferenceMetadata, type ReferenceStyle } from '@w-editor/editor-core'
 import { REFERENCE_STYLE_LABELS, type ReferenceNote } from '@w-editor/editor-vue/services'
 import ReferenceForm from './ReferenceForm.vue'
 import ReferenceStylePicker from './ReferenceStylePicker.vue'
@@ -54,7 +54,7 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
     data-testid="reference-panel"
     @keydown.esc="emit('close')"
   >
-    <header>
+    <header class="reference-panel__header">
       <div class="reference-panel__heading">
         <strong>参考文献</strong><span class="reference-panel__count">{{ entries.length }} 篇</span>
       </div><button
@@ -291,20 +291,41 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
       target="_blank"
       rel="noopener noreferrer"
     >项目与样式来源</a></small>
+    <nav
+      class="reference-panel__guidelines"
+      aria-label="期刊参考文献格式要求"
+      data-testid="reference-journal-guidelines"
+    >
+      <strong>期刊参考文献格式要求</strong>
+      <a
+        v-for="journal in JOURNAL_REFERENCE_STYLES"
+        :key="journal.id"
+        :href="journal.guidelinesUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+      >{{ journal.label }}</a>
+    </nav>
   </aside>
 </template>
 <style scoped>
 .reference-panel {
   --reference-border: var(--app-border, #d5ddd8);
   --reference-muted: var(--app-text-secondary, #53635b);
+  --reference-panel-padding: 18px;
   position: fixed; inset: 90px 16px 24px auto; z-index: 50;
   width: min(420px, calc(100vw - 32px)); box-sizing: border-box;
-  overflow: auto; padding: 18px;
+  overflow: auto; padding: var(--reference-panel-padding);
   background: var(--app-surface, #fff); color: var(--app-text, #24352c);
   border: 1px solid var(--reference-border); border-radius: 8px;
   font-size: 14px; line-height: 1.5;
 }
 header { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.reference-panel__header {
+  position: sticky; top: calc(-1 * var(--reference-panel-padding)); z-index: 1;
+  margin: calc(-1 * var(--reference-panel-padding)) calc(-1 * var(--reference-panel-padding)) 0;
+  padding: var(--reference-panel-padding) var(--reference-panel-padding) 12px;
+  background: var(--app-surface, #fff); border-bottom: 1px solid var(--reference-border);
+}
 .reference-panel__heading { display: flex; align-items: baseline; gap: 10px; }
 .reference-panel__heading strong { font-size: 16px; }
 .reference-panel__count { color: var(--reference-muted); font-size: 12px; white-space: nowrap; }
@@ -334,12 +355,15 @@ button:disabled { cursor: default; opacity: .55; }
 .reference-panel__note-editor .reference-panel__actions { padding-left: 0; }
 .reference-panel__credits { display: block; color: var(--reference-muted); font-size: 11px; line-height: 1.6; }
 .reference-panel__credits a { color: inherit; }
+.reference-panel__guidelines { display: grid; gap: 5px; margin-top: 14px; color: var(--reference-muted); font-size: 11px; line-height: 1.6; }
+.reference-panel__guidelines strong { font-size: 12px; font-weight: 600; }
+.reference-panel__guidelines a { width: fit-content; max-width: 100%; color: inherit; overflow-wrap: anywhere; text-underline-offset: 2px; }
 .reference-edit-overlay { position: fixed; inset: 0; z-index: 70; background: #0005; display: flex; align-items: flex-start; justify-content: center; padding-top: 16vh; }
 .reference-edit-dialog { width: min(480px, calc(100vw - 64px)); max-height: 70vh; overflow: auto; padding: 20px; background: var(--app-surface, #fff); border: 1px solid var(--reference-border); border-radius: 8px; }
 @media (pointer: coarse) {
   button, .reference-panel__actions > button, .reference-panel__source { min-height: 44px; }
 }
 @media (max-width: 480px) {
-  .reference-panel { inset: 72px 8px 8px; width: auto; padding: 14px; }
+  .reference-panel { --reference-panel-padding: 14px; inset: 72px 8px 8px; width: auto; }
 }
 </style>

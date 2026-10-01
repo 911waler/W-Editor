@@ -15,13 +15,13 @@ export interface ReferenceMetadata {
 }
 /** Curated CSL catalog; IDs version the bundled definition, never a remote URL. */
 export const JOURNAL_REFERENCE_STYLES = [
-  { id: 'journal:nature@1', label: 'Nature', aliases: [], issns: ["0028-0836", "1476-4687"] },
-  { id: 'journal:science@1', label: 'Science', aliases: [], issns: ["0036-8075", "1095-9203"] },
-  { id: 'journal:physical-review-b@1', label: 'Physical Review B', aliases: ['PRB', 'Phys. Rev. B'], issns: ["2469-9950", "2469-9969"] },
-  { id: 'journal:physical-review-letters@1', label: 'Physical Review Letters', aliases: ['PRL', 'Phys. Rev. Lett.'], issns: ["0031-9007", "1079-7114"] },
-  { id: 'journal:physics-letters-a@1', label: 'Physics Letters A', aliases: [], issns: ["0375-9601"] },
-  { id: 'journal:journal-of-materiomics@1', label: 'Journal of Materiomics', aliases: [], issns: ["2352-8478"] },
-  { id: 'journal:applied-physics-letters@1', label: 'Applied Physics Letters', aliases: ['APL', 'Appl. Phys. Lett.'], issns: ["0003-6951", "1077-3118"] },
+  { id: 'journal:nature@1', label: 'Nature', aliases: [], issns: ["0028-0836", "1476-4687"], guidelinesUrl: 'https://www.nature.com/nature/for-authors/formatting-guide' },
+  { id: 'journal:science@1', label: 'Science', aliases: [], issns: ["0036-8075", "1095-9203"], guidelinesUrl: 'https://www.science.org/content/page/instructions-preparing-initial-manuscript' },
+  { id: 'journal:physical-review-b@1', label: 'Physical Review B', aliases: ['PRB', 'Phys. Rev. B'], issns: ["2469-9950", "2469-9969"], guidelinesUrl: 'https://journals.aps.org/prb/authors' },
+  { id: 'journal:physical-review-letters@1', label: 'Physical Review Letters', aliases: ['PRL', 'Phys. Rev. Lett.'], issns: ["0031-9007", "1079-7114"], guidelinesUrl: 'https://journals.aps.org/prl/authors' },
+  { id: 'journal:physics-letters-a@1', label: 'Physics Letters A', aliases: [], issns: ["0375-9601"], guidelinesUrl: 'https://www.sciencedirect.com/journal/physics-letters-a/publish/guide-for-authors' },
+  { id: 'journal:journal-of-materiomics@1', label: 'Journal of Materiomics', aliases: [], issns: ["2352-8478"], guidelinesUrl: 'https://www.sciencedirect.com/journal/journal-of-materiomics/publish/guide-for-authors' },
+  { id: 'journal:applied-physics-letters@1', label: 'Applied Physics Letters', aliases: ['APL', 'Appl. Phys. Lett.'], issns: ["0003-6951", "1077-3118"], guidelinesUrl: 'https://publishing.aip.org/resources/researchers/author-instructions/' },
 ] as const
 export type JournalReferenceStyle = typeof JOURNAL_REFERENCE_STYLES[number]['id']
 export type ReferenceStyle = 'plain' | 'gbt7714' | 'apa' | 'mla' | JournalReferenceStyle
