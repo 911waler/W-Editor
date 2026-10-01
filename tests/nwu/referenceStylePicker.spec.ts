@@ -23,6 +23,18 @@ beforeEach(() => {
 afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()) })
 
 describe('reference style picker', () => {
+  it('finds Applied Physics Letters by APL, full title and either ISSN', async () => {
+    const wrapper = picker()
+    for (const query of ['APL', 'Applied Physics Letters', '00036951', '1077-3118']) {
+      await wrapper.get('[data-testid="reference-style-search"]').setValue(query)
+      expect(wrapper.find('[data-testid="reference-style-result-journal:applied-physics-letters@1"]').exists()).toBe(true)
+    }
+    await wrapper.get('[data-testid="reference-style-result-journal:applied-physics-letters@1"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="reference-style-apply"]').trigger('click')
+    expect(wrapper.emitted('apply')).toEqual([['journal:applied-physics-letters@1']])
+  })
+
   it('searches journal names, aliases and ISSNs, previews real references and emits one full-document style choice', async () => {
     const wrapper = picker()
     const journal = JOURNAL_REFERENCE_STYLES.find(style => style.issns.length && style.aliases.length)!

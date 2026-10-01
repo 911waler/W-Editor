@@ -17,6 +17,7 @@ function withoutBibliographyLabel(xml: string): string {
 }
 const styles: Partial<Record<ReferenceStyle, string>> = { apa, mla, gbt7714: withoutBibliographyLabel(gbt) }
 const journalLoaders: Record<JournalReferenceStyle, () => Promise<{ default: string }>> = {
+  'journal:applied-physics-letters@1': () => import('./csl/journals/american-institute-of-physics.csl?raw'),
   'journal:nature@1': () => import('./csl/journals/nature.csl?raw'),
   'journal:science@1': () => import('./csl/journals/science.csl?raw'),
   'journal:physical-review-b@1': () => import('./csl/journals/american-physics-society.csl?raw'),

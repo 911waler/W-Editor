@@ -21,6 +21,7 @@ export const JOURNAL_REFERENCE_STYLES = [
   { id: 'journal:physical-review-letters@1', label: 'Physical Review Letters', aliases: ['PRL', 'Phys. Rev. Lett.'], issns: ["0031-9007", "1079-7114"] },
   { id: 'journal:physics-letters-a@1', label: 'Physics Letters A', aliases: [], issns: ["0375-9601"] },
   { id: 'journal:journal-of-materiomics@1', label: 'Journal of Materiomics', aliases: [], issns: ["2352-8478"] },
+  { id: 'journal:applied-physics-letters@1', label: 'Applied Physics Letters', aliases: ['APL', 'Appl. Phys. Lett.'], issns: ["0003-6951", "1077-3118"] },
 ] as const
 export type JournalReferenceStyle = typeof JOURNAL_REFERENCE_STYLES[number]['id']
 export type ReferenceStyle = 'plain' | 'gbt7714' | 'apa' | 'mla' | JournalReferenceStyle

@@ -74,6 +74,20 @@
       ],
       "source": "dependent/journal-of-materiomics.csl",
       "parent": "elsevier-vancouver"
+    },
+    {
+      "slug": "applied-physics-letters",
+      "title": "Applied Physics Letters",
+      "aliases": [
+        "APL",
+        "Appl. Phys. Lett."
+      ],
+      "issns": [
+        "0003-6951",
+        "1077-3118"
+      ],
+      "source": "dependent/applied-physics-letters.csl",
+      "parent": "american-institute-of-physics"
     }
   ]
 }
