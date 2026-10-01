@@ -48,7 +48,9 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
     @keydown.esc="emit('close')"
   >
     <header>
-      <strong>参考文献</strong><button
+      <div class="reference-panel__heading">
+        <strong>参考文献</strong><span class="reference-panel__count">{{ entries.length }} 篇</span>
+      </div><button
         type="button"
         aria-label="关闭 / Close"
         @click="emit('close')"
@@ -56,9 +58,6 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
         ×
       </button>
     </header>
-    <p class="reference-panel__hint">
-      编辑时保留编号；发布时按正文首次出现顺序重排。
-    </p>
     <button
       type="button"
       data-testid="reference-add"
@@ -130,17 +129,13 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
         <div class="reference-panel__entry-title">
           <button
             type="button"
+            class="reference-panel__number"
+            :aria-label="`跳转到正文引用 ${entry.number}`"
             @click="emit('jump', entry.id)"
           >
             [{{ entry.number }}]
-          </button><span>{{ formatReference(entry) }}</span>
+          </button><span class="reference-panel__citation">{{ formatReference(entry) }}</span>
         </div>
-        <a
-          v-if="referenceUrl(entry.metadata?.doi || entry.metadata?.url || entry.text)"
-          :href="referenceUrl(entry.metadata?.doi || entry.metadata?.url || entry.text)!"
-          target="_blank"
-          rel="noopener noreferrer"
-        >打开来源</a>
         <div class="reference-panel__actions">
           <button
             type="button"
@@ -159,12 +154,30 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
           </button>
           <button
             type="button"
+            class="reference-panel__delete"
             :data-reference-delete="entry.id"
             :disabled="busy"
             @click="deleteId = entry.id"
           >
             删除
           </button>
+          <button
+            v-if="!noteEditing[entry.id]"
+            type="button"
+            :data-reference-note-open="entry.id"
+            :disabled="notesLoading"
+            @click="openNote(entry.id)"
+          >
+            备注
+          </button>
+          <a
+            v-if="referenceUrl(entry.metadata?.doi || entry.metadata?.url || entry.text)"
+            class="reference-panel__source"
+            :href="referenceUrl(entry.metadata?.doi || entry.metadata?.url || entry.text)!"
+            aria-label="打开文献来源（新窗口）"
+            target="_blank"
+            rel="noopener noreferrer"
+          >来源 ↗</a>
         </div>
         <div
           v-if="deleteId === entry.id"
@@ -194,16 +207,10 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
         >
           {{ notes[entry.id]?.text }}
         </p>
-        <button
-          v-if="!noteEditing[entry.id]"
-          type="button"
-          :data-reference-note-open="entry.id"
-          :disabled="notesLoading"
-          @click="openNote(entry.id)"
+        <div
+          v-if="noteEditing[entry.id]"
+          class="reference-panel__note-editor"
         >
-          备注
-        </button>
-        <div v-else>
           <label>备注（仅编辑者可见）<textarea
             v-model="noteDrafts[entry.id]"
             :data-reference-note="entry.id"
@@ -244,7 +251,7 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
     <p v-if="!entries.length">
       还没有参考文献。
     </p>
-    <small>引用格式由 Citation Style Language 提供。<a
+    <small class="reference-panel__credits">引用格式由 Citation Style Language 提供。<a
       href="https://citeproc-js.readthedocs.io/"
       target="_blank"
       rel="noopener noreferrer"
@@ -256,23 +263,51 @@ function reloadNotes(): void { noteDrafts.value = {}; noteEditing.value = {}; pe
   </aside>
 </template>
 <style scoped>
-.reference-panel { position: fixed; inset: 90px 16px 24px auto; z-index: 50; width: min(420px, calc(100vw - 32px)); overflow: auto; padding: 20px; background: var(--app-surface, #fff); color: var(--app-text, #24352c); border: 1px solid #9caaa2; border-radius: 10px; box-shadow: 0 8px 32px #0002; }
-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
-header, .reference-panel__form-title { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.reference-panel {
+  --reference-border: var(--app-border, #d5ddd8);
+  --reference-muted: var(--app-text-secondary, #53635b);
+  position: fixed; inset: 90px 16px 24px auto; z-index: 50;
+  width: min(420px, calc(100vw - 32px)); box-sizing: border-box;
+  overflow: auto; padding: 18px;
+  background: var(--app-surface, #fff); color: var(--app-text, #24352c);
+  border: 1px solid var(--reference-border); border-radius: 8px;
+  font-size: 14px; line-height: 1.5;
+}
+header { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.reference-panel__heading { display: flex; align-items: baseline; gap: 10px; }
+.reference-panel__heading strong { font-size: 16px; }
+.reference-panel__count { color: var(--reference-muted); font-size: 12px; white-space: nowrap; }
+[data-testid="reference-add"] { margin-top: 16px; }
 label { display: block; margin-top: 10px; font-size: 13px; }
-p, small { font-size: 13px; }
-.reference-panel__hint, small { color: var(--app-text-secondary, #52655d); }
-textarea, input, select { display: block; width: 100%; box-sizing: border-box; margin: 5px 0; padding: 7px; border: 1px solid #aab6af; border-radius: 4px; background: var(--app-surface, #fff); color: inherit; }
-.reference-panel__actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
-ol { list-style: none; padding: 0; }
-li { padding: 14px 8px; border-bottom: 1px solid #ccc; overflow-wrap: anywhere; }
-li.selected { border-left: 3px solid #38705b; }
-.reference-panel__entry-title { display: flex; align-items: start; gap: 6px; }
-.reference-preview { padding: 10px; background: var(--app-surface-muted, #eef3f0); overflow-wrap: anywhere; }
-.reference-delete-confirm { padding: 8px; border: 1px solid #bd7364; }
-button { cursor: pointer; padding: 5px 8px; border: 1px solid #aab6af; border-radius: 4px; background: var(--app-surface, #fff); color: inherit; }
+p { font-size: 13px; }
+textarea { display: block; width: 100%; box-sizing: border-box; margin: 6px 0; padding: 8px; border: 1px solid var(--reference-border); border-radius: 4px; background: var(--app-surface, #fff); color: inherit; font: inherit; resize: vertical; }
+ol { list-style: none; padding: 0; margin: 14px 0 20px; }
+li { padding: 16px 0; border-bottom: 1px solid var(--reference-border); overflow-wrap: anywhere; }
+li.selected { background: var(--app-surface-muted, #eef3f0); outline: 1px solid var(--reference-border); border-radius: 4px; }
+.reference-panel__entry-title { display: flex; align-items: flex-start; gap: 10px; }
+.reference-panel__number { flex: 0 0 auto; min-width: 34px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.reference-panel__citation { flex: 1; min-width: 0; line-height: 1.6; overflow-wrap: anywhere; }
+.reference-panel__actions { display: flex; align-items: center; gap: 2px 6px; flex-wrap: wrap; margin: 9px 0 0; padding-left: 44px; }
+.reference-panel__actions > button, .reference-panel__source { border: 0; padding: 5px 4px; background: transparent; font-size: 13px; line-height: 20px; }
+.reference-panel__source { color: var(--reference-muted); text-decoration: none; white-space: nowrap; }
+.reference-panel__source:hover { text-decoration: underline; }
+.reference-panel__actions > .reference-panel__delete { color: var(--app-text-secondary, #72504b); }
+.reference-delete-confirm { margin-top: 12px; padding: 10px; border: 1px solid var(--reference-border); border-radius: 4px; }
+button { cursor: pointer; padding: 5px 8px; border: 1px solid var(--reference-border); border-radius: 4px; background: var(--app-surface, #fff); color: inherit; font: inherit; line-height: 20px; }
+button:hover:not(:disabled), .reference-panel__source:hover { background: var(--app-surface-muted, #eef3f0); }
+button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 button:disabled { cursor: default; opacity: .55; }
-.reference-note-text { color: var(--app-text-secondary, #68776f); white-space: pre-wrap; }
+.reference-note-text { margin: 8px 0 0 44px; color: var(--reference-muted); white-space: pre-wrap; font-size: 12px; line-height: 1.6; }
+.reference-panel__note-editor { margin: 12px 0 0 44px; }
+.reference-panel__note-editor .reference-panel__actions { padding-left: 0; }
+.reference-panel__credits { display: block; color: var(--reference-muted); font-size: 11px; line-height: 1.6; }
+.reference-panel__credits a { color: inherit; }
 .reference-edit-overlay { position: fixed; inset: 0; z-index: 70; background: #0005; display: flex; align-items: flex-start; justify-content: center; padding-top: 16vh; }
-.reference-edit-dialog { width: min(480px, calc(100vw - 64px)); max-height: 70vh; overflow: auto; padding: 20px; background: var(--app-surface, #fff); border: 1px solid #9caaa2; border-radius: 10px; box-shadow: 0 8px 32px #0002; }
+.reference-edit-dialog { width: min(480px, calc(100vw - 64px)); max-height: 70vh; overflow: auto; padding: 20px; background: var(--app-surface, #fff); border: 1px solid var(--reference-border); border-radius: 8px; }
+@media (pointer: coarse) {
+  button, .reference-panel__actions > button, .reference-panel__source { min-height: 44px; }
+}
+@media (max-width: 480px) {
+  .reference-panel { inset: 72px 8px 8px; width: auto; padding: 14px; }
+}
 </style>
