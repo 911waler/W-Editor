@@ -48,6 +48,10 @@ export const ReferenceNode = Node.create({
 export function buildReferenceList(references: readonly DocumentReference[], doc: Document): HTMLElement {
   const section = doc.createElement('section')
   section.className = 'w-reference-list'
+  if (references.length === 0) {
+    section.hidden = true
+    return section
+  }
   section.setAttribute('aria-label', '参考文献 / References')
   section.setAttribute('contenteditable', 'false')
   const heading = doc.createElement('h2')

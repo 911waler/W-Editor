@@ -27,3 +27,9 @@ This is a local source synchronization in `/tmp/w-editor-sync-20260930`. No GitH
 ## Remaining work
 
 No known unresolved issue within the verified journal feature. Production deployment, GitHub publication and desktop runtime/build verification were not performed and are outside this synchronization.
+
+## Empty bibliography follow-up
+
+Final parity checks found that an empty, hidden bibliography still contained its heading in `textContent`, producing inconsistent editor/reader text comparisons. The builder now returns an empty hidden section before creating heading or attributes when no references exist. A regression checks hidden state, empty text and absent heading.
+
+The final two-file delta from NWU commit `30c1a7a` was synchronized locally. Four focused presentation, document-style, CSL and export test files passed (27 tests); `git diff --check` also passed. No new deployment or publication occurred, and there are no known remaining issues from this follow-up.

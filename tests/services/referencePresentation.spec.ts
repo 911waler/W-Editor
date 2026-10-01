@@ -6,6 +6,12 @@ import { createSharedRendererPipeline } from '../../packages/editor-vue/src/rend
 import { renderSafeTiptapExportDocument } from '../../packages/editor-vue/src/services/browserFileExport'
 
 describe('reference reader presentation', () => {
+  it('keeps empty reference lists free of headings and text in all presentation modes', () => {
+    const list = buildReferenceList([], document)
+    expect(list.hidden).toBe(true)
+    expect(list.textContent).toBe('')
+    expect(list.querySelector('h2')).toBeNull()
+  })
   it('links only bibliography numbers, keeping URLs and DOI as plain text', () => {
     const list = buildReferenceList([{ id: 'url', number: 1, text: 'https://example.org/paper' }, { id: 'doi', number: 2, text: '10.1234/book', metadata: { doi: '10.1234/book' } }], document)
     expect([...list.querySelectorAll('a')].map(a => a.textContent)).toEqual(['[1]', '[2]'])
