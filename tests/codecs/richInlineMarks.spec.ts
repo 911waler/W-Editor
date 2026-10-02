@@ -14,6 +14,23 @@ import { renderWithCherryOracle } from '../harness/cherryOracle'
 const fixture = readFileSync('tests/fixtures/cherry/rich-inline-marks.md', 'utf8').trimEnd()
 
 describe('Cherry-compatible attributed inline mark codecs', () => {
+  it('leaves RGB-looking code examples and invalid color sources untouched', () => {
+    const source = '!!rgb(93, 93, 93) example!!'
+    const code = ['`' + source + '`', '', '```text', source, '```'].join('\n')
+    expect(normalizeRichInlineMarkdownForCherry(code)).toBe(code)
+    expect(normalizeRichInlineMarkdownForCherry('!!rgb(999, 93, 93) invalid!!'))
+      .toBe('!!rgb(999, 93, 93) invalid!!')
+  })
+
+  it('renders legacy RGB color and background with nested size through Cherry', () => {
+    const source = '!16 !!!rgb(255, 255, 0) !!rgb(93, 93, 93) 网页文字!!!!!!'
+    const normalized = normalizeRichInlineMarkdownForCherry(source)
+    expect(normalized).toBe('!16 !!!#ffff00 !!#5d5d5d 网页文字!!!!!!')
+    const host = document.createElement('div')
+    host.innerHTML = renderWithCherryOracle(normalized).html
+    expect(host.textContent?.trim()).toBe('网页文字')
+  })
+
   it('recognizes and losslessly serializes Ruby, size, text color, and background color', () => {
     const registry = new CodecRegistry(richInlineMarkCodecs)
     const matches = registry.scanInline({ markdown: fixture, revision: 0 }, { from: 0, to: fixture.length })
