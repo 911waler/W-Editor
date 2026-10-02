@@ -189,6 +189,7 @@ const props = defineProps<{
   readonly articleTitles?: Readonly<Record<string, string>>
   readonly readonlyMode?: boolean
   readonly toolbarImport?: boolean
+  readonly hideToolbarManualSave?: boolean
   readonly loadArticle?: (documentId: string) => Promise<ArticleDefinition>
   readonly persistDrawio?: (payload: DrawioSavePayload) => Promise<Readonly<{png: string; xml: string}>>
   readonly articleCatalog?: readonly ArticleDefinition[]
@@ -683,7 +684,6 @@ const manualSaving = ref(false)
 const capabilityProbe = shallowRef<Component | null>(null)
 const modeSwitching = ref(false)
 const lastRequestedMode = ref<EditorMode | null>(null)
-const lastEditingMode = ref<'source' | 'visual'>('visual')
 const fullscreenActive = ref(false)
 const fullscreenError = ref<UiNotice | null>(null)
 const exportError = ref<UiNotice | null>(null)
@@ -1677,14 +1677,14 @@ type ToolbarSlotDefinition =
   | Readonly<{ commandId: string; id: string; kind: 'command-alias' }>
   | Readonly<{ id: string; kind: 'menu'; menuId: ToolbarMenuId }>
   | Readonly<{ id: string; kind: 'line-spacing' }>
-  | Readonly<{ id: string; kind: 'preview-alias' | 'separator' | 'spacer' | 'references' }>
+  | Readonly<{ id: string; kind: 'separator' | 'spacer' | 'references' }>
 
 type ToolbarSlotView =
   | Readonly<{ command: CommandView; id: string; kind: 'command' }>
   | Readonly<{ command: CommandView; id: string; kind: 'command-alias' }>
   | Readonly<{ id: string; kind: 'menu'; menu: CommandMenuView }>
   | Readonly<{ id: string; kind: 'line-spacing' }>
-  | Readonly<{ id: string; kind: 'preview-alias' | 'separator' | 'spacer' | 'references' }>
+  | Readonly<{ id: string; kind: 'separator' | 'spacer' | 'references' }>
 
 const TOOLBAR_SLOT_DEFINITIONS: readonly ToolbarSlotDefinition[] = Object.freeze([
   ...['text.bold', 'text.italic']
@@ -1697,25 +1697,20 @@ const TOOLBAR_SLOT_DEFINITIONS: readonly ToolbarSlotDefinition[] = Object.freeze
   Object.freeze({ id: 'separator.text', kind: 'separator' }),
   Object.freeze({ commandId: 'insert.drawio', id: 'insert.drawio', kind: 'command' }),
   Object.freeze({ id: 'separator.drawing', kind: 'separator' }),
-  ...['list.ordered', 'list.unordered', 'list.task']
-    .map((commandId) => Object.freeze({ commandId, id: commandId, kind: 'command' as const })),
+  Object.freeze({ id: 'menu.list', kind: 'menu', menuId: 'list' }),
   Object.freeze({ id: 'menu.panel', kind: 'menu', menuId: 'panel' }),
-  Object.freeze({ commandId: 'layout.timeline', id: 'layout.timeline', kind: 'command' }),
   Object.freeze({ id: 'menu.alignment', kind: 'menu', menuId: 'alignment' }),
-  Object.freeze({ commandId: 'layout.accordion', id: 'layout.accordion', kind: 'command' }),
   Object.freeze({ id: 'separator.structure', kind: 'separator' }),
   Object.freeze({ commandId: 'insert.formula', id: 'insert.formula.alias', kind: 'command-alias' }),
   Object.freeze({ id: 'references', kind: 'references' }),
   Object.freeze({ id: 'menu.insert', kind: 'menu', menuId: 'insert' }),
   Object.freeze({ id: 'menu.mermaid', kind: 'menu', menuId: 'mermaid' }),
-  Object.freeze({ id: 'menu.chart', kind: 'menu', menuId: 'chart' }),
   Object.freeze({ id: 'separator.history', kind: 'separator' }),
   ...['history.undo', 'history.redo']
     .map((commandId) => Object.freeze({ commandId, id: commandId, kind: 'command' as const })),
   Object.freeze({ id: 'separator.reference-utilities', kind: 'separator' }),
   ...['settings.shortcuts', 'search.replace']
     .map((commandId) => Object.freeze({ commandId, id: commandId, kind: 'command' as const })),
-  Object.freeze({ id: 'mode.preview.alias', kind: 'preview-alias' }),
   Object.freeze({ commandId: 'document.manual-save', id: 'document.manual-save', kind: 'command' }),
   Object.freeze({ id: 'spacer', kind: 'spacer' }),
   Object.freeze({ id: 'line-spacing', kind: 'line-spacing' }),
@@ -3807,6 +3802,7 @@ function toolbarCommandText(command: CommandView): string {
 }
 
 function toolbarMenuText(menu: CommandMenuView): string {
+  if (menu.descriptor.id === 'text-style') return menu.descriptor.icon
   if (menu.descriptor.id === 'language') {
     if (toolbarLocale.value === 'zh') return '中文'
     return toolbarLocale.value.toUpperCase()
@@ -3841,10 +3837,11 @@ function selectAppearanceTheme(theme: AppearanceTheme, event: Event): void {
 const modeCommands = computed(() => commandRegistry.list()
   .filter((command) => command.surface.region === 'mode')
   .map(toCommandView))
-const previewToggleCommand = computed(() => toCommandView(commandRegistry.get('mode.preview')))
 const toolbarSlots = computed<readonly ToolbarSlotView[]>(() => {
   const menuViews = new Map(TOOLBAR_MENU_DESCRIPTORS.map((menu) => [menu.id, buildMenuView(menu)]))
-  return Object.freeze(TOOLBAR_SLOT_DEFINITIONS.map((slot): ToolbarSlotView => {
+  return Object.freeze(TOOLBAR_SLOT_DEFINITIONS.filter((slot) =>
+    slot.id !== 'document.manual-save' || props.hideToolbarManualSave !== true,
+  ).map((slot): ToolbarSlotView => {
     if (slot.kind === 'command' || slot.kind === 'command-alias') {
       return Object.freeze({ command: toCommandView(commandRegistry.get(slot.commandId)), id: slot.id, kind: slot.kind })
     }
@@ -3873,8 +3870,6 @@ async function selectMode(nextMode: EditorMode, eventOrTrigger?: Event | HTMLEle
     const result = await activeRuntime.value.root.modeCoordinator.request(nextMode)
     if (result.changed) {
       actionCount.value += 1
-      if (nextMode === 'preview' && previousMode !== 'preview') lastEditingMode.value = previousMode
-      if (nextMode !== 'preview') lastEditingMode.value = nextMode
       persistWorkspaceState()
     }
     await focusActiveSurface()
@@ -3888,15 +3883,6 @@ async function selectMode(nextMode: EditorMode, eventOrTrigger?: Event | HTMLEle
       failedTrigger.focus()
     }
   }
-}
-
-async function toggleFinalPreview(event: Event): Promise<void> {
-  activeCommandTrigger.value = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
-  const nextMode = mode.value === 'preview' ? lastEditingMode.value : 'preview'
-  await selectMode(nextMode, event)
-  commandFeedback.value = mode.value === 'preview'
-    ? uiNotice('feedback.modePreviewOpened')
-    : localizedUiNotice('feedback.modeReturned', { mode: mode.value }, { mode: `mode.${mode.value}` as UiMessageKey })
 }
 
 async function focusActiveSurface(): Promise<void> {
@@ -5671,6 +5657,11 @@ defineExpose({
                   class="tool-button__text"
                   aria-hidden="true"
                 >{{ toolbarMenuText(slot.menu) }}</span>
+                <span
+                  v-if="slot.menu.descriptor.id === 'list'"
+                  class="tool-button__chevron"
+                  aria-hidden="true"
+                >▾</span>
                 <span class="tool-button__label">{{ slot.menu.label }}</span>
               </button>
               <div
@@ -5740,40 +5731,6 @@ defineExpose({
                   </button>
                 </section>
               </div>
-            </div>
-            <div
-              v-else-if="slot.kind === 'preview-alias'"
-              class="toolbar-command"
-              :data-toolbar-slot="slot.id"
-            >
-              <button
-                :aria-label="previewToggleCommand.label"
-                :aria-pressed="mode === 'preview'"
-                :class="commandButtonClasses(previewToggleCommand)"
-                data-command-alias="mode.preview"
-                data-testid="toolbar-preview-toggle"
-                :disabled="commandDisabled(previewToggleCommand)"
-                type="button"
-                :title="commandDisabledReason(previewToggleCommand) ?? previewToggleCommand.label"
-                @blur="hideToolbarTooltip"
-                @click="toggleFinalPreview"
-                @focus="showToolbarTooltip(previewToggleCommand, $event)"
-                @mouseenter="showToolbarTooltip(previewToggleCommand, $event)"
-                @mouseleave="hideToolbarTooltip"
-              >
-                <i
-                  v-if="previewToggleCommand.descriptor.iconClass"
-                  class="ch-icon tool-button__icon"
-                  :class="previewToggleCommand.descriptor.iconClass"
-                  aria-hidden="true"
-                ></i>
-                <span
-                  v-else
-                  class="tool-button__text"
-                  aria-hidden="true"
-                >{{ toolbarCommandText(previewToggleCommand) }}</span>
-                <span class="tool-button__label">{{ previewToggleCommand.label }}</span>
-              </button>
             </div>
             <template v-if="slot.id === 'menu.export'">
               <slot name="toolbar-after-export"></slot>

@@ -168,6 +168,16 @@ const MENUS = Object.freeze([
   },
   {
     commands: Object.freeze([
+      ['list.ordered', localized('Ordered list', '有序列表', 'Нумерованный список')],
+      ['list.unordered', localized('Bullet list', '无序列表', 'Маркированный список')],
+      ['list.task', localized('Task list', '任务列表', 'Список задач')],
+    ] as const),
+    id: 'list',
+    label: localized('Lists', '列表', 'Списки'),
+    sections: Object.freeze([localized('Lists', '列表', 'Списки')]),
+  },
+  {
+    commands: Object.freeze([
       ['panel.primary', localized('Primary panel', '主要面板', 'Основная панель')],
       ['panel.info', localized('Info panel', '信息面板', 'Информационная панель')],
       ['panel.warning', localized('Warning panel', '警告面板', 'Панель предупреждения')],
@@ -219,19 +229,14 @@ const MENUS = Object.freeze([
   },
   {
     commands: Object.freeze([
+      ['layout.accordion', localized('Accordion', '折叠面板', 'Аккордеон')],
+      ['layout.timeline', localized('Timeline', '时间线', 'Временная шкала')],
       ['mermaid.flowchart', localized('Flowchart', '流程图', 'Блок-схема')],
       ['mermaid.sequence', localized('Sequence diagram', '时序图', 'Диаграмма последовательности')],
       ['mermaid.state', localized('State diagram', '状态图', 'Диаграмма состояний')],
       ['mermaid.class', localized('Class diagram', '类图', 'Диаграмма классов')],
       ['mermaid.pie', localized('Pie diagram', '饼图', 'Круговая диаграмма')],
       ['mermaid.gantt', localized('Gantt diagram', '甘特图', 'Диаграмма Ганта')],
-    ] as const),
-    id: 'mermaid',
-    label: localized('Draw', '画图', 'Рисование'),
-    sections: Object.freeze([localized('Mermaid', 'Mermaid 绘图', 'Mermaid')]),
-  },
-  {
-    commands: Object.freeze([
       ['chart.line', localized('Line chart', '折线图', 'Линейный график')],
       ['chart.bar', localized('Bar chart', '柱状图', 'Столбчатая диаграмма')],
       ['chart.radar', localized('Radar chart', '雷达图', 'Радарная диаграмма')],
@@ -241,9 +246,13 @@ const MENUS = Object.freeze([
       ['chart.pie', localized('Pie chart', '饼状图', 'Круговая диаграмма')],
       ['chart.sankey', localized('Sankey chart', '桑基图', 'Диаграмма Санки')],
     ] as const),
-    id: 'chart',
-    label: localized('Chart', '图表', 'Диаграмма'),
-    sections: Object.freeze([localized('Chart tables', '图表', 'Диаграммы')]),
+    id: 'mermaid',
+    label: localized('Draw', '画图', 'Рисование'),
+    sections: Object.freeze([
+      localized('Layout and disclosure', '布局与展开', 'Макет'),
+      localized('Mermaid', 'Mermaid 绘图', 'Mermaid'),
+      localized('Chart tables', '图表', 'Диаграммы'),
+    ]),
   },
   {
     commands: Object.freeze([

@@ -118,7 +118,7 @@ test('inactive visual semantic selection cannot disable commands for the active 
   const mermaidDialog = page.locator('[data-editor-command="mermaid.source"]')
   await mermaidDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
   await mermaid.click()
-  await page.locator('[data-toolbar-menu="chart"] .toolbar-menu__trigger').click()
+  await page.locator('[data-toolbar-menu="mermaid"] .toolbar-menu__trigger').click()
   await expect(page.locator('[data-command-id="chart.line"]')).toBeDisabled()
   await expect(page.locator('[data-command-id="chart.line"]')).toHaveAttribute(
     'title',
@@ -128,7 +128,7 @@ test('inactive visual semantic selection cannot disable commands for the active 
   await page.locator('[data-command-id="mode.source"]').click()
   await page.locator('#markdown-source-editor').locator('.cm-line').last().click()
   await page.keyboard.press('End')
-  await page.locator('[data-toolbar-menu="chart"] .toolbar-menu__trigger').click()
+  await page.locator('[data-toolbar-menu="mermaid"] .toolbar-menu__trigger').click()
   await expect(page.locator('[data-command-id="chart.line"]')).toBeEnabled()
 })
 

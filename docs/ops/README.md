@@ -2,6 +2,7 @@
 
 | Issue | Record |
 | --- | --- |
+| Crowded toolbar menus and duplicate host save/preview controls | [2026-10-02: Compact toolbar](2026-10-02-toolbar-compact.md) |
 | Saved workspace mode overrides the Visual entry default | [2026-10-02: Visual entry](2026-10-02-visual-entry.md) |
 | Source words include citation metadata; add a separate prose count | [2026-10-02: Body word count](2026-10-02-body-word-count.md) |
 | RGB webpage paste exposes internal formatting after reload | [2026-10-02: RGB paste](2026-10-02-editor-rgb-paste.md) |

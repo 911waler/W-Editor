@@ -20,7 +20,7 @@ describe('toolbar command descriptors', () => {
     }
   })
 
-  it('places commands in the frozen Cherry menu hierarchy and exposes official icon tokens', () => {
+  it('groups list and drawing commands in compact menus while preserving their identities and icons', () => {
     const declaredMenus = new Set<string>(TOOLBAR_MENU_DESCRIPTORS.map((menu) => menu.id))
     const descriptors = createToolbarCommandDescriptors()
 
@@ -32,11 +32,11 @@ describe('toolbar command descriptors', () => {
       'text-style',
       'color',
       'heading',
+      'list',
       'panel',
       'alignment',
       'insert',
       'mermaid',
-      'chart',
       'theme',
       'language',
       'export',
@@ -57,9 +57,14 @@ describe('toolbar command descriptors', () => {
     expect(byId.has('insert.word')).toBe(true)
     expect(byId.get('insert.reference')).toMatchObject({ icon: 'Ref', surface: { menuId: 'insert' } })
     expect(byId.get('insert.table')?.surface.menuId).toBe('insert')
-    expect(byId.get('layout.accordion')?.surface.control).toBe('button')
+    for (const commandId of ['list.ordered', 'list.unordered', 'list.task']) {
+      expect(byId.get(commandId)?.surface).toMatchObject({ control: 'menu-item', menuId: 'list' })
+    }
+    for (const commandId of ['layout.accordion', 'layout.timeline']) {
+      expect(byId.get(commandId)?.surface).toMatchObject({ control: 'menu-item', menuId: 'mermaid' })
+    }
     expect(byId.get('mermaid.flowchart')?.surface.menuId).toBe('mermaid')
-    expect(byId.get('chart.line')?.surface.menuId).toBe('chart')
+    expect(byId.get('chart.line')?.surface.menuId).toBe('mermaid')
 
     expect(byId.get('text.bold')?.iconClass).toBe('ch-icon-bold')
     expect(byId.get('text.italic')?.iconClass).toBe('ch-icon-italic')
@@ -70,12 +75,12 @@ describe('toolbar command descriptors', () => {
     expect(byId.get('application.fullscreen')?.iconClass).toBe('ch-icon-fullscreen')
 
     const menus = new Map(TOOLBAR_MENU_DESCRIPTORS.map((menu) => [menu.id, menu]))
-    expect(menus.get('text-style')?.iconClass).toBe('ch-icon-strike')
+    expect(menus.get('text-style')).toMatchObject({ icon: '+', iconClass: null })
+    expect(byId.get('text.strike')?.iconClass).toBe('ch-icon-strike')
     expect(menus.get('color')?.iconClass).toBe('ch-icon-color')
     expect(menus.get('heading')?.iconClass).toBe('ch-icon-header')
     expect(menus.get('panel')?.iconClass).toBe('ch-icon-tips')
     expect(menus.get('alignment')?.iconClass).toBe('ch-icon-align')
-    expect(menus.get('chart')?.iconClass).toBe('ch-icon-insertLineChart')
     expect(menus.get('theme')?.iconClass).toBe('ch-icon-main-theme')
   })
 

@@ -56,7 +56,7 @@ for (const descriptor of CHART_TABLE_DESCRIPTORS) {
     await setSourceMarkdown(page, 'Anchor')
     await page.locator('[data-command-id="mode.visual"]').click()
 
-    await page.locator('[data-toolbar-menu="chart"] .toolbar-menu__trigger').click()
+    await page.locator('[data-toolbar-menu="mermaid"] .toolbar-menu__trigger').click()
     await page.locator(`[data-command-id="${descriptor.commandId}"]`).click()
     await expectAuthorityMarkdown(page, insertedDocument)
 

@@ -160,6 +160,7 @@ describe('announcement editor mode', () => {
     expect(wrapper.get('a[href="/admin/announcements"]').text()).toBe('公告管理')
     expect(wrapper.get('[data-testid="announcement-settings"]').text()).toBe('发布设置')
     expect(wrapper.get('[data-testid="announcement-manual-save"]').text()).toBe('保存修改')
+    expect(wrapper.find('[data-command-id="document.manual-save"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('笔记属性')
     expect(wrapper.text()).not.toContain('仅自己')
     expect(wrapper.text()).not.toContain('指定用户')

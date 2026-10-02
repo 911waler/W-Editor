@@ -75,9 +75,9 @@ test('real utility controls execute search, shortcuts, modes, fullscreen, langua
 
   await page.locator('[data-command-id="mode.visual"]').click()
   await expect(page.getByTestId('editor-surface')).toHaveAttribute('data-mode', 'visual')
-  await page.getByTestId('toolbar-preview-toggle').click()
+  await page.locator('[data-command-id="mode.preview"]').click()
   await expect(page.getByTestId('editor-surface')).toHaveAttribute('data-mode', 'preview')
-  await page.getByTestId('toolbar-preview-toggle').click()
+  await page.locator('[data-command-id="mode.visual"]').click()
   await expect(page.getByTestId('editor-surface')).toHaveAttribute('data-mode', 'visual')
   await page.locator('[data-command-id="mode.source"]').click()
   await expect(page.getByTestId('editor-surface')).toHaveAttribute('data-mode', 'source')

@@ -53,6 +53,7 @@ async function openVisualMarkdown(page: Page, markdown: string): Promise<Locator
 }
 
 async function invokeListToolbar(page: Page, commandId: ListCommandId): Promise<void> {
+  await page.locator('[data-toolbar-menu="list"] .toolbar-menu__trigger').click()
   const command = page.locator(`[data-command-id="${commandId}"]`)
   await expect(command).toBeEnabled()
   await command.click()
@@ -208,12 +209,12 @@ test('ordered, unordered, and task toolbar states follow the current caret locat
   ] as const
   for (const current of cases) {
     await current.paragraph.click()
-    await expect(page.locator(`[data-command-id="${current.commandId}"]`)).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator(`[data-command-id="${current.commandId}"]`)).toHaveAttribute('aria-checked', 'true')
   }
 
   await editor.locator(':scope > p', { hasText: 'Plain' }).click()
   for (const current of cases) {
-    await expect(page.locator(`[data-command-id="${current.commandId}"]`)).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.locator(`[data-command-id="${current.commandId}"]`)).toHaveAttribute('aria-checked', 'false')
   }
 })
 

@@ -66,6 +66,7 @@ const adapterProps = computed(() => adapter ? {
   ...(announcementMode ? {class:'announcement-editor',toolbarImport:true} : {}),
   articleSwitchPolicy: 'save-discard' as const,
   storage: adapter.storage,
+  hideToolbarManualSave: true,
   savedMarkdown: (id: string) => adapter.savedMarkdown.get(id),
   articleTitles: articleTitles.value,
   ...(announcementMode ? {} : {

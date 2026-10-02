@@ -41,8 +41,8 @@ const requiredComponentIds = [
 const requiredToolbarContractFragments = [
   '## Frozen Cherry top-toolbar contract',
   '`text.bold` → `text.italic` → `menu.text-style` → `text.size`',
-  '`insert.formula.alias` → `menu.insert` → `menu.mermaid` → `menu.chart`',
-  '`settings.shortcuts` → `search.replace` → `mode.preview.alias` → `document.manual-save`',
+  '`insert.formula.alias` → `references` → `menu.insert` → `menu.mermaid`',
+  '`settings.shortcuts` → `search.replace` → `document.manual-save`',
   '`document.word-count` → `menu.theme` → `menu.language` → `menu.export` → `application.fullscreen`',
   '`line-spacing` is a W-Editor non-command appearance extension immediately left of Word count',
   '`4px 24px` toolbar padding',
