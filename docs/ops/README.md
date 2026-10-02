@@ -2,6 +2,7 @@
 
 | Issue | Record |
 | --- | --- |
+| Saved workspace mode overrides the Visual entry default | [2026-10-02: Visual entry](2026-10-02-visual-entry.md) |
 | Source words include citation metadata; add a separate prose count | [2026-10-02: Body word count](2026-10-02-body-word-count.md) |
 | RGB webpage paste exposes internal formatting after reload | [2026-10-02: RGB paste](2026-10-02-editor-rgb-paste.md) |
 | Formula copy/paste loses LaTeX and blocks visual synchronization | [2026-09-25: Formula clipboard](2026-09-25-formula-clipboard.md) |

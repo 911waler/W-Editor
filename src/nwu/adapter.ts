@@ -127,6 +127,9 @@ export class NwuAdapter {
     }
     this.accept(envelope)
     if(id!==canonical) this.storage.seedDocument(id,envelope.document.markdown)
+    // Every document entry starts visually; stored layout must not restore an
+    // earlier source/preview mode over that entry policy.
+    this.articleModes[id]='visual'
     const stored=state.workspace
     if(stored && String(stored.userId)===String(this.config.userId) && stored.documentId===canonical && typeof stored.workspace==='object' && stored.workspace!==null) {
       const layout=stored.workspace as Record<string,unknown>
@@ -134,9 +137,7 @@ export class NwuAdapter {
       if(layout['documentId']===canonical && sidebar && typeof sidebar==='object' && typeof sidebar['collapsed']==='boolean' && typeof sidebar['width']==='number' && Number.isFinite(sidebar['width'])) {
         const width=Math.min(360,Math.max(200,sidebar['width']))
         this.storage.setItem(WORKSPACE_KEY,JSON.stringify({schemaVersion:1,activeDocumentId:id,catalogDocumentIds:[id],articlePanel:{collapsed:sidebar['collapsed'],width}}))
-        const mode=layout['mode']
-        if(mode==='source' || mode==='visual' || mode==='preview') this.articleModes[id]=mode
-        this.layouts.set(canonical,{documentId:canonical,mode:this.articleModes[id] ?? 'visual',sidebar:{collapsed:sidebar['collapsed'],width}})
+        this.layouts.set(canonical,{documentId:canonical,mode:'visual',sidebar:{collapsed:sidebar['collapsed'],width}})
       }
     }
     return {documentId:id,initialMarkdown:envelope.document.markdown,title:envelope.metadata.title,group:this.config.categories?.[envelope.metadata.category] ?? this.config.categories?.['other'] ?? '其他'}
