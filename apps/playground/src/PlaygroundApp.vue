@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Component, type CSSProperties } from 'vue'
+import ReferencePanel from './ReferencePanel.vue'
+import ReferenceInsertDialog from './ReferenceInsertDialog.vue'
+import { getDocumentReferenceStyle, documentReferenceStylePlan, referenceRegistry, scanReferences, referenceMarkdown, updateReferencePlan, removeReferencePlan, type ReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
+import { ensureReferenceStyles, createReferenceLibraryController, createLocalReferenceServices, type ReferenceEditorServices, type ReferenceNote, publishReferenceSnapshot } from '@w-editor/editor-vue/services'
 import MarkdownImportZone from './MarkdownImportZone.vue'
 import { loadCapabilityProbe } from './testing/capabilityLoader'
 
@@ -86,6 +90,7 @@ import {
   createUiLocalizationStore,
   materializeRenderedExportDocument,
   calculateDocumentStatistics,
+  calculateBodyWordCount,
   findShortcutConflict,
   createAlignmentCommandPlan,
   createColumnLayoutCommandPlan,
@@ -184,6 +189,7 @@ const props = defineProps<{
   readonly articleTitles?: Readonly<Record<string, string>>
   readonly readonlyMode?: boolean
   readonly toolbarImport?: boolean
+  readonly hideToolbarManualSave?: boolean
   readonly loadArticle?: (documentId: string) => Promise<ArticleDefinition>
   readonly persistDrawio?: (payload: DrawioSavePayload) => Promise<Readonly<{png: string; xml: string}>>
   readonly articleCatalog?: readonly ArticleDefinition[]
@@ -212,6 +218,7 @@ const props = defineProps<{
   }>
   readonly previewRenderer?: PreviewRenderer
   readonly renderedExportAdapter?: RenderedExportAdapter
+  readonly referenceServices?: ReferenceEditorServices
   readonly storage?: Storage
   readonly uploadAdapter?: UploadAdapter
   readonly visualProjector?: TiptapVisualProjector
@@ -427,6 +434,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
     initialMode,
   })
   let runtime: ArticleRuntime
+  referenceRegistry(root.session)
   const autosave = new AutosaveCoordinator({
     pageLifecycle: window,
     persist: async (nextSnapshot) => {
@@ -436,6 +444,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
           code: 'AUTOSAVE_FAILED',
         })
       }
+      await referenceLibrary.flush(definition.documentId)
       await props.persistence?.saveAutosave?.({
         documentId: definition.documentId,
         markdown: nextSnapshot.markdown,
@@ -473,7 +482,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
   })
   flushRecoveryPersistence = () => autosave.flush()
   const manualCheckpoint = new ManualCheckpointService({
-    flushPersistence: () => autosave.flush(),
+    flushPersistence: async () => { await referenceLibrary.flush(definition.documentId); await autosave.flush() },
     flushSynchronization: async () => {
       await flushComposition(`manual-save:${definition.documentId}:${createRandomId()}`)
       await flushVisualSynchronization()
@@ -546,6 +555,11 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
       publishRuntime(runtime)
     }),
     root.session.subscribe((change) => {
+      // Ordinary visual/source edits use their existing incremental reference events.
+      if (change.acknowledgement.origin !== 'tiptap-visual' && change.acknowledgement.origin !== 'cherry-source') {
+        observeDocumentReferences(change.previous.documentId, scanReferences(change.previous.markdown))
+        observeDocumentReferences(change.current.documentId, scanReferences(change.current.markdown))
+      }
       autosave.request(change.current)
       if (change.acknowledgement.transactionId?.startsWith('author-preview-task:') === true) return
       runtime.previewTaskHistory.redo.length = 0
@@ -609,7 +623,7 @@ const articleSwitch = new ArticleSwitchCoordinator({
         const state = runtime.root.synchronization.snapshot()
         if (state.status === 'failed' && state.operation?.kind === 'convert-mode') throw state.failure
       },
-      flushPersistence: () => runtime.autosave.flush(),
+      flushPersistence: async () => { await referenceLibrary.flush(runtime.definition.documentId); await runtime.autosave.flush() },
       flushSynchronization: async () => {
         await runtime.flushVisualSynchronization()
         const state = runtime.root.synchronization.snapshot()
@@ -670,7 +684,6 @@ const manualSaving = ref(false)
 const capabilityProbe = shallowRef<Component | null>(null)
 const modeSwitching = ref(false)
 const lastRequestedMode = ref<EditorMode | null>(null)
-const lastEditingMode = ref<'source' | 'visual'>('visual')
 const fullscreenActive = ref(false)
 const fullscreenError = ref<UiNotice | null>(null)
 const exportError = ref<UiNotice | null>(null)
@@ -708,6 +721,10 @@ const visualSurface = ref<{
   readonly applyColumnLayout: (source: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyHeading: (commandId: HeadingCommandId) => { readonly active: boolean; readonly changed: boolean }
   readonly applyList: (commandId: ListCommandId) => { readonly active: boolean; readonly changed: boolean }
+  readonly updateReference: (id: string, reference: Pick<DocumentReference, 'text' | 'metadata' | 'style'>) => { readonly changed: boolean }
+  readonly removeReference: (id: string) => { readonly changed: boolean }
+  readonly setReferenceStyle: (style: ReferenceStyle) => { readonly changed: boolean }
+  readonly applyReference: (reference: DocumentReference) => { readonly active: boolean; readonly changed: boolean }
   readonly applyLink: (href: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyMermaid: (source: string, fallbackType?: MermaidDiagramType | null) => { readonly active: boolean; readonly changed: boolean }
   readonly applyFormula: (mode: FormulaMode, content: string) => { readonly active: boolean; readonly changed: boolean }
@@ -1033,6 +1050,7 @@ const lifecycleOperation = ref(false)
 const lifecycleTrigger = ref<HTMLElement | null>(null)
 const activeEditorCommandIds = ref<ReadonlySet<string>>(new Set())
 const liveDocumentStatistics = computed(() => calculateDocumentStatistics(workspace.value.activeDocument))
+const liveBodyWordCount = computed(() => calculateBodyWordCount(workspace.value.activeDocument))
 
 function lifecycleTriggerFrom(event: Event | HTMLElement | null): HTMLElement | null {
   if (event instanceof HTMLElement) return event
@@ -1659,14 +1677,14 @@ type ToolbarSlotDefinition =
   | Readonly<{ commandId: string; id: string; kind: 'command-alias' }>
   | Readonly<{ id: string; kind: 'menu'; menuId: ToolbarMenuId }>
   | Readonly<{ id: string; kind: 'line-spacing' }>
-  | Readonly<{ id: string; kind: 'preview-alias' | 'separator' | 'spacer' }>
+  | Readonly<{ id: string; kind: 'separator' | 'spacer' | 'references' }>
 
 type ToolbarSlotView =
   | Readonly<{ command: CommandView; id: string; kind: 'command' }>
   | Readonly<{ command: CommandView; id: string; kind: 'command-alias' }>
   | Readonly<{ id: string; kind: 'menu'; menu: CommandMenuView }>
   | Readonly<{ id: string; kind: 'line-spacing' }>
-  | Readonly<{ id: string; kind: 'preview-alias' | 'separator' | 'spacer' }>
+  | Readonly<{ id: string; kind: 'separator' | 'spacer' | 'references' }>
 
 const TOOLBAR_SLOT_DEFINITIONS: readonly ToolbarSlotDefinition[] = Object.freeze([
   ...['text.bold', 'text.italic']
@@ -1679,24 +1697,20 @@ const TOOLBAR_SLOT_DEFINITIONS: readonly ToolbarSlotDefinition[] = Object.freeze
   Object.freeze({ id: 'separator.text', kind: 'separator' }),
   Object.freeze({ commandId: 'insert.drawio', id: 'insert.drawio', kind: 'command' }),
   Object.freeze({ id: 'separator.drawing', kind: 'separator' }),
-  ...['list.ordered', 'list.unordered', 'list.task']
-    .map((commandId) => Object.freeze({ commandId, id: commandId, kind: 'command' as const })),
+  Object.freeze({ id: 'menu.list', kind: 'menu', menuId: 'list' }),
   Object.freeze({ id: 'menu.panel', kind: 'menu', menuId: 'panel' }),
-  Object.freeze({ commandId: 'layout.timeline', id: 'layout.timeline', kind: 'command' }),
   Object.freeze({ id: 'menu.alignment', kind: 'menu', menuId: 'alignment' }),
-  Object.freeze({ commandId: 'layout.accordion', id: 'layout.accordion', kind: 'command' }),
   Object.freeze({ id: 'separator.structure', kind: 'separator' }),
   Object.freeze({ commandId: 'insert.formula', id: 'insert.formula.alias', kind: 'command-alias' }),
+  Object.freeze({ id: 'references', kind: 'references' }),
   Object.freeze({ id: 'menu.insert', kind: 'menu', menuId: 'insert' }),
   Object.freeze({ id: 'menu.mermaid', kind: 'menu', menuId: 'mermaid' }),
-  Object.freeze({ id: 'menu.chart', kind: 'menu', menuId: 'chart' }),
   Object.freeze({ id: 'separator.history', kind: 'separator' }),
   ...['history.undo', 'history.redo']
     .map((commandId) => Object.freeze({ commandId, id: commandId, kind: 'command' as const })),
   Object.freeze({ id: 'separator.reference-utilities', kind: 'separator' }),
   ...['settings.shortcuts', 'search.replace']
     .map((commandId) => Object.freeze({ commandId, id: commandId, kind: 'command' as const })),
-  Object.freeze({ id: 'mode.preview.alias', kind: 'preview-alias' }),
   Object.freeze({ commandId: 'document.manual-save', id: 'document.manual-save', kind: 'command' }),
   Object.freeze({ id: 'spacer', kind: 'spacer' }),
   Object.freeze({ id: 'line-spacing', kind: 'line-spacing' }),
@@ -1922,6 +1936,278 @@ async function applyRichPicker(): Promise<void> {
     await nextTick()
     richPickerInput.value?.focus()
   }
+}
+
+const referencePanelOpen = ref(false)
+const referenceInsertOpen = ref(false)
+const referenceEntries = shallowRef<readonly DocumentReference[]>([])
+const referenceSelected = ref<string | null>(null)
+const referenceError = ref('')
+const documentReferenceStyle = shallowRef<ReferenceStyle | null>(null)
+const referenceBusy = ref(false)
+const referenceCounts = shallowRef<Readonly<Record<string, number>>>({})
+const referenceNotes = shallowRef<Readonly<Record<string, ReferenceNote>>>({})
+const referenceNotesError = ref('')
+const referenceNotesBusy = ref(false)
+const referenceNotesLoading = ref(false)
+const referenceSavedVersion = ref(0)
+const referenceServices = props.referenceServices ?? createLocalReferenceServices(props.storage ?? window.localStorage)
+const referenceLibraryError = ref('')
+const referenceOccurrences = new Map<string, readonly DocumentReference[]>()
+const referenceLibraryErrors = new Map<string, string>()
+const referenceLibrary = createReferenceLibraryController(referenceServices, props.storage ?? window.localStorage,
+  (documentId, library) => {
+    const runtime = runtimes.get(documentId)
+    if (runtime) referenceRegistry(runtime.root.session).reserveNumbersThrough(library.highWater)
+    if (documentId === activeRuntime.value.definition.documentId) {
+      assignReferences(referenceOccurrences.get(documentId) ?? [])
+    }
+  }, (documentId, message) => {
+    referenceLibraryErrors.set(documentId, message)
+    if (documentId === activeRuntime.value.definition.documentId) referenceLibraryError.value = message
+  })
+function observeDocumentReferences(documentId: string, entries: readonly DocumentReference[]): void {
+  if (props.readonlyMode) return
+  referenceOccurrences.set(documentId, entries)
+  try { referenceLibrary.observe(documentId, entries) }
+  catch (error) { referenceLibraryErrors.set(documentId, error instanceof Error ? error.message : String(error)) }
+  if (documentId === activeRuntime.value.definition.documentId) {
+    referenceLibraryError.value = referenceLibraryErrors.get(documentId) ?? ''
+    assignReferences(entries)
+  }
+}
+function activateReferenceLibrary(): void {
+  if (props.readonlyMode) return
+  const snapshot = activeRuntime.value.root.session.snapshot()
+  observeDocumentReferences(snapshot.documentId, scanReferences(snapshot.markdown))
+  void referenceLibrary.load(snapshot.documentId).catch(() => undefined)
+}
+async function retryReferenceLibrary(): Promise<void> {
+  try { await referenceLibrary.retry(activeRuntime.value.definition.documentId) } catch { /* The controller keeps the recovery snapshot and error. */ }
+}
+activateReferenceLibrary()
+let notesGeneration = 0
+function assignReferences(entries: readonly DocumentReference[]): void {
+  const counts: Record<string, number> = Object.create(null)
+  for (const entry of entries) counts[entry.id] = (counts[entry.id] ?? 0) + 1
+  referenceCounts.value = counts
+  documentReferenceStyle.value = getDocumentReferenceStyle(activeRuntime.value.root.session.snapshot().markdown) ?? (entries.length && entries.every(entry => (entry.style ?? 'plain') === (entries[0]?.style ?? 'plain')) ? entries[0]?.style ?? 'plain' : null)
+  const cited = [...new Map(entries.map(item => [item.id, item])).values()].sort((a, b) => a.number - b.number)
+  const collected = referenceLibrary.get(activeRuntime.value.definition.documentId).entries.filter(entry => !counts[entry.id]).map(entry => ({ ...entry, number: 0 }))
+  referenceEntries.value = [...cited, ...collected]
+}
+async function loadReferenceNotes(): Promise<void> {
+  const generation = ++notesGeneration
+  const documentId = activeRuntime.value.root.session.snapshot().documentId
+  referenceNotesLoading.value = true
+  referenceNotesBusy.value = false
+  referenceNotesError.value = ''
+  try {
+    const notes = await referenceServices.loadNotes(documentId)
+    if (generation === notesGeneration) referenceNotes.value = notes
+  } catch (error) {
+    if (generation === notesGeneration) referenceNotesError.value = error instanceof Error ? error.message : String(error)
+  } finally { if (generation === notesGeneration) referenceNotesLoading.value = false }
+}
+async function saveReferenceNote(id: string, text: string): Promise<void> {
+  if (referenceNotesBusy.value || referenceNotesLoading.value || referenceNotesError.value) return
+  const generation = notesGeneration
+  const documentId = activeRuntime.value.root.session.snapshot().documentId
+  referenceNotesBusy.value = true
+  try {
+    const note = await referenceServices.saveNote(documentId, id, { text, revision: referenceNotes.value[id]?.revision ?? 0 })
+    if (generation === notesGeneration) referenceNotes.value = { ...referenceNotes.value, [id]: note }
+  } catch (error) {
+    if (generation === notesGeneration) referenceNotesError.value = error instanceof Error ? error.message : String(error)
+  } finally { if (generation === notesGeneration) referenceNotesBusy.value = false }
+}
+const lookupReferenceDoi = referenceServices.lookupDoi
+  ? (doi: string, signal: AbortSignal) => referenceServices.lookupDoi!(activeRuntime.value.root.session.snapshot().documentId, doi, signal)
+  : undefined
+watch(() => workspace.value.activeDocument.documentId, () => {
+  referencePanelOpen.value = false
+  referenceInsertOpen.value = false
+  notesGeneration++
+  referenceNotes.value = {}
+  referenceNotesBusy.value = false
+  referenceNotesLoading.value = false
+  activateReferenceLibrary()
+})
+onBeforeUnmount(() => { notesGeneration++; referenceLibrary.dispose() })
+function onReferenceChange(event: Event): void {
+  const entries = (event as CustomEvent<{ references: readonly DocumentReference[] }>).detail.references
+  observeDocumentReferences(activeRuntime.value.definition.documentId, entries)
+}
+function onSourceReferenceChange(event: Event): void {
+  const detail = (event as CustomEvent<{ documentId: string; previous: readonly DocumentReference[]; references: readonly DocumentReference[] }>).detail
+  observeDocumentReferences(detail.documentId, detail.previous)
+  observeDocumentReferences(detail.documentId, detail.references)
+}
+let referenceContext: DedicatedEditorOpenContext | null = null
+function refreshReferences(): void {
+  const snapshot = activeRuntime.value.root.session.snapshot()
+  const references = scanReferences(snapshot.markdown)
+  documentReferenceStyle.value = getDocumentReferenceStyle(snapshot.markdown) ?? (references.length && references.every(entry => (entry.style ?? 'plain') === (references[0]?.style ?? 'plain')) ? references[0]?.style ?? 'plain' : null)
+  observeDocumentReferences(snapshot.documentId, references)
+}
+async function openReferences(id: string | null = null): Promise<void> {
+  try {
+    await flushLifecycleSynchronization(activeRuntime.value)
+    referenceContext = captureDedicatedEditorContext(null)
+    referenceSelected.value = id
+    referenceError.value = ''
+    refreshReferences()
+    referencePanelOpen.value = true
+    void referenceLibrary.load(activeRuntime.value.definition.documentId).catch(() => undefined)
+    void loadReferenceNotes()
+    await nextTick()
+    workspaceShell.value?.querySelector<HTMLButtonElement>('[data-testid="reference-panel"] button')?.focus()
+  } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
+}
+async function openReferenceInsert(): Promise<void> {
+  if (props.readonlyMode || mode.value === 'preview' || referenceBusy.value) return
+  try {
+    await flushLifecycleSynchronization(activeRuntime.value)
+    referenceContext = captureDedicatedEditorContext(null)
+    referenceError.value = ''
+    refreshReferences()
+    referenceInsertOpen.value = true
+    activeRuntime.value.root.setModalActivity('reference-insert')
+  } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
+}
+function closeReferenceInsert(): void {
+  if (referenceBusy.value) return
+  referenceInsertOpen.value = false
+  activeRuntime.value.root.setModalActivity(null)
+}
+
+function onReferenceOpen(event: Event): void {
+  void openReferences((event as CustomEvent<{ id: string }>).detail.id)
+}
+function jumpToReference(id: string): void {
+  const entry = [...(workspaceShell.value?.querySelectorAll<HTMLElement>('.w-reference-list p') ?? [])].find(item => item.id === `reference-${id}`)
+  entry?.scrollIntoView({ block: 'center' })
+}
+async function insertReference(input: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): Promise<void> {
+  if (!referenceInsertOpen.value && !referenceBusy.value) referenceContext = captureDedicatedEditorContext(null)
+  if (!referenceContext || referenceBusy.value) return
+  const context = referenceContext
+  const runtime = activeRuntime.value
+  referenceBusy.value = true
+  referenceError.value = ''
+  try {
+    await flushLifecycleSynchronization(runtime)
+    assertDedicatedEditorContext(context)
+    if (activeRuntime.value !== runtime) throw new Error('文档已切换，请重新插入引用。')
+    const snapshot = runtime.root.session.snapshot()
+    const registry = referenceRegistry(runtime.root.session)
+    const bodyReferences = scanReferences(snapshot.markdown)
+    const collected = await referenceLibrary.collect(snapshot.documentId, { ...input, style: input.style ?? documentReferenceStyle.value ?? 'plain', id: 'id' in input ? String(input.id) : createRandomId() })
+    registry.reset(bodyReferences)
+    registry.reserveNumbersThrough(referenceLibrary.get(snapshot.documentId).highWater)
+    await ensureReferenceStyles([collected.style ?? 'plain'])
+    assertDedicatedEditorContext(context)
+    if (activeRuntime.value !== runtime) throw new Error('文档已切换，请重新插入引用。')
+    const reference = bodyReferences.find(entry => entry.id === collected.id) ?? registry.adopt({ ...collected, number: 1 })
+    if (mode.value === 'source' && context.sourceSelection) {
+      const { from, to } = context.sourceSelection
+      const replacement = referenceMarkdown(reference)
+      await applySourcePlan({ baseRevision: snapshot.revision, transactionId: `reference:${createRandomId()}`, patches: [{ codecId: 'reference', from, to, expected: snapshot.markdown.slice(from, to), replacement }] }, { from: from + replacement.length, to: from + replacement.length })
+    } else {
+      if (!visualSurface.value?.applyReference(reference).changed) throw new Error('当前光标位置无法插入引用。')
+      await flushLifecycleSynchronization(runtime)
+      visualSurface.value?.focus()
+    }
+    refreshReferences()
+    referencePanelOpen.value = false
+    referenceInsertOpen.value = false
+    activeRuntime.value.root.setModalActivity(null)
+  } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
+  finally { referenceBusy.value = false }
+}
+
+async function collectReference(input: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): Promise<void> {
+  if (referenceBusy.value || props.readonlyMode) return
+  const runtime = activeRuntime.value
+  referenceBusy.value = true
+  referenceError.value = ''
+  try {
+    await referenceLibrary.collect(runtime.definition.documentId, { ...input, id: createRandomId(), style: input.style ?? documentReferenceStyle.value ?? 'plain' })
+    if (runtime !== activeRuntime.value) return
+    referenceInsertOpen.value = false
+    runtime.root.setModalActivity(null)
+    refreshReferences()
+    referencePanelOpen.value = true
+    void loadReferenceNotes()
+  } catch (error) { if (runtime === activeRuntime.value) referenceError.value = error instanceof Error ? error.message : String(error) }
+  finally { referenceBusy.value = false }
+}
+
+async function mutateReference(action: (snapshot: ReturnType<typeof activeRuntime.value.root.session.snapshot>, runtime: ArticleRuntime) => Promise<void>, acknowledge = false): Promise<void> {
+  if (referenceBusy.value || props.readonlyMode) return
+  referenceBusy.value = true
+  referenceError.value = ''
+  const runtime = activeRuntime.value
+  try {
+    await flushLifecycleSynchronization(runtime)
+    if (runtime !== activeRuntime.value) throw new Error('文档已切换，请重新打开参考文献。')
+    await action(runtime.root.session.snapshot(), runtime)
+    await flushLifecycleSynchronization(runtime)
+    if (runtime !== activeRuntime.value) return
+    refreshReferences()
+    referenceContext = captureDedicatedEditorContext(null)
+    if (acknowledge) referenceSavedVersion.value++
+  } catch (error) { if (runtime === activeRuntime.value) referenceError.value = error instanceof Error ? error.message : String(error) }
+  finally { referenceBusy.value = false }
+}
+function referenceContent(reference: DocumentReference): string {
+  return JSON.stringify([reference.text, reference.metadata, reference.style])
+}
+async function updateReference(original: DocumentReference, input: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): Promise<void> {
+  await mutateReference(async (snapshot, runtime) => {
+    const cited = scanReferences(snapshot.markdown).find(item => item.id === original.id)
+    const current = cited ?? referenceLibrary.get(snapshot.documentId).entries.find(item => item.id === original.id)
+    if (!current || referenceContent({ ...current, number: original.number }) !== referenceContent(original)) throw new Error('这条文献已变化，请重新选择“修改”后保存。')
+    if (cited) {
+      if (mode.value === 'source') await applySourcePlan(updateReferencePlan(snapshot, original.id, input, `reference:${createRandomId()}`), sourceSelection())
+      else if (!visualSurface.value?.updateReference(original.id, input).changed) throw new Error('没有找到可修改的引用。')
+    }
+    await referenceLibrary.update(snapshot.documentId, { id: original.id, ...input })
+    referenceRegistry(runtime.root.session).forget(original.id)
+  }, true)
+}
+async function removeReference(id: string): Promise<void> {
+  await mutateReference(async (snapshot, runtime) => {
+    if (scanReferences(snapshot.markdown).some(entry => entry.id === id)) {
+      if (mode.value === 'source') await applySourcePlan(removeReferencePlan(snapshot, id, `reference:${createRandomId()}`), { from: 0, to: 0 })
+      else if (!visualSurface.value?.removeReference(id).changed) throw new Error('没有找到可删除的引用。')
+    }
+    await referenceLibrary.remove(snapshot.documentId, id)
+    referenceRegistry(runtime.root.session).forget(id)
+  })
+}
+async function setReferenceStyle(style: ReferenceStyle): Promise<void> {
+  await mutateReference(async (snapshot, runtime) => {
+    await ensureReferenceStyles([style])
+    const current = activeRuntime.value.root.session.snapshot()
+    if (current.documentId !== snapshot.documentId || current.revision !== snapshot.revision) throw new Error('文档已变化，请重新应用引用样式。')
+    if (mode.value === 'source') {
+      const plan = documentReferenceStylePlan(snapshot, style, `reference-style:${createRandomId()}`)
+      const selection = sourceSelection()
+      const mapPosition = (position: number): number => {
+        let delta = 0
+        for (const patch of plan.patches) {
+          if (position >= patch.to) delta += patch.replacement.length - (patch.to - patch.from)
+          else if (position > patch.from) return patch.from + delta + patch.replacement.length
+        }
+        return position + delta
+      }
+      await applySourcePlan(plan, { from: mapPosition(selection.from), to: mapPosition(selection.to) })
+    } else if (!visualSurface.value) throw new Error('编辑器尚未就绪。')
+    else visualSurface.value.setReferenceStyle(style)
+    await referenceLibrary.setStyle(snapshot.documentId, style)
+    for (const entry of scanReferences(snapshot.markdown)) referenceRegistry(runtime.root.session).forget(entry.id)
+  })
 }
 
 async function openLinkDialog(): Promise<void> {
@@ -2798,6 +3084,10 @@ const sourceEditorDispatcher = Object.freeze({
         semanticOutcome: `cherry:${commandId}`,
       })
     }
+    if (commandId === 'insert.reference') {
+      await openReferenceInsert()
+      return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
+    }
     if (commandId === 'insert.drawio') {
       await openDrawioDialog()
       return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
@@ -3044,6 +3334,10 @@ const visualEditorDispatcher = Object.freeze({
         semanticOutcome: `cherry:${commandId}`,
       })
     }
+    if (commandId === 'insert.reference') {
+      await openReferenceInsert()
+      return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
+    }
     if (commandId === 'insert.drawio') {
       await openDrawioDialog()
       return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
@@ -3263,9 +3557,10 @@ const applicationDispatcher = Object.freeze({
         return Object.freeze({ changed: false, commandId, detail: uiNoticeText(exportError.value)!, semanticOutcome: `application:${commandId}` })
       }
     }
-    if (commandId === 'export.html' || commandId === 'export.word') {
+    if (commandId === 'export.html') {
       try {
         const snapshot = await flushAuthoritativeSnapshotForUtility()
+        await ensureReferenceStyles(scanReferences(snapshot.markdown).map(entry => entry.style ?? 'plain'))
         const rendered = createTiptapRenderedExportDocument(snapshot, {
           lineHeight: lineSpacingValue.value,
           locale: toolbarLocale.value,
@@ -3277,10 +3572,10 @@ const applicationDispatcher = Object.freeze({
           workspaceShell.value?.ownerDocument ?? document,
         )
         const artifacts = createHtmlDerivedExportArtifacts(materialized)
-        await writeExportArtifact(commandId === 'export.html' ? artifacts.html : artifacts.word)
+        await writeExportArtifact(artifacts.html)
         exportError.value = null
         commandFeedback.value = uiNotice('export.renderedDownloaded', {
-          format: commandId === 'export.html' ? 'HTML' : 'Word',
+          format: 'HTML',
           revision: snapshot.revision,
         })
         return Object.freeze({
@@ -3298,6 +3593,7 @@ const applicationDispatcher = Object.freeze({
     if (commandId === 'export.pdf') {
       try {
         const snapshot = await flushAuthoritativeSnapshotForUtility()
+        await ensureReferenceStyles(scanReferences(snapshot.markdown).map(entry => entry.style ?? 'plain'))
         const rendered = createTiptapRenderedExportDocument(snapshot, {
           lineHeight: lineSpacingValue.value,
           locale: toolbarLocale.value,
@@ -3328,6 +3624,7 @@ const applicationDispatcher = Object.freeze({
     if (commandId === 'export.screenshot') {
       try {
         const snapshot = await flushAuthoritativeSnapshotForUtility()
+        await ensureReferenceStyles(scanReferences(snapshot.markdown).map(entry => entry.style ?? 'plain'))
         const rendered = createTiptapRenderedExportDocument(snapshot, {
           lineHeight: lineSpacingValue.value,
           locale: toolbarLocale.value,
@@ -3505,6 +3802,7 @@ function toolbarCommandText(command: CommandView): string {
 }
 
 function toolbarMenuText(menu: CommandMenuView): string {
+  if (menu.descriptor.id === 'text-style') return menu.descriptor.icon
   if (menu.descriptor.id === 'language') {
     if (toolbarLocale.value === 'zh') return '中文'
     return toolbarLocale.value.toUpperCase()
@@ -3539,10 +3837,11 @@ function selectAppearanceTheme(theme: AppearanceTheme, event: Event): void {
 const modeCommands = computed(() => commandRegistry.list()
   .filter((command) => command.surface.region === 'mode')
   .map(toCommandView))
-const previewToggleCommand = computed(() => toCommandView(commandRegistry.get('mode.preview')))
 const toolbarSlots = computed<readonly ToolbarSlotView[]>(() => {
   const menuViews = new Map(TOOLBAR_MENU_DESCRIPTORS.map((menu) => [menu.id, buildMenuView(menu)]))
-  return Object.freeze(TOOLBAR_SLOT_DEFINITIONS.map((slot): ToolbarSlotView => {
+  return Object.freeze(TOOLBAR_SLOT_DEFINITIONS.filter((slot) =>
+    slot.id !== 'document.manual-save' || props.hideToolbarManualSave !== true,
+  ).map((slot): ToolbarSlotView => {
     if (slot.kind === 'command' || slot.kind === 'command-alias') {
       return Object.freeze({ command: toCommandView(commandRegistry.get(slot.commandId)), id: slot.id, kind: slot.kind })
     }
@@ -3571,8 +3870,6 @@ async function selectMode(nextMode: EditorMode, eventOrTrigger?: Event | HTMLEle
     const result = await activeRuntime.value.root.modeCoordinator.request(nextMode)
     if (result.changed) {
       actionCount.value += 1
-      if (nextMode === 'preview' && previousMode !== 'preview') lastEditingMode.value = previousMode
-      if (nextMode !== 'preview') lastEditingMode.value = nextMode
       persistWorkspaceState()
     }
     await focusActiveSurface()
@@ -3586,15 +3883,6 @@ async function selectMode(nextMode: EditorMode, eventOrTrigger?: Event | HTMLEle
       failedTrigger.focus()
     }
   }
-}
-
-async function toggleFinalPreview(event: Event): Promise<void> {
-  activeCommandTrigger.value = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
-  const nextMode = mode.value === 'preview' ? lastEditingMode.value : 'preview'
-  await selectMode(nextMode, event)
-  commandFeedback.value = mode.value === 'preview'
-    ? uiNotice('feedback.modePreviewOpened')
-    : localizedUiNotice('feedback.modeReturned', { mode: mode.value }, { mode: `mode.${mode.value}` as UiMessageKey })
 }
 
 async function focusActiveSurface(): Promise<void> {
@@ -4419,7 +4707,9 @@ function previewTaskHistoryDirection(event: KeyboardEvent): 'redo' | 'undo' | nu
 }
 
 function handleApplicationShortcut(event: KeyboardEvent): void {
-  if (props.readonlyMode) return
+  if (props.readonlyMode || workspace.value.modalActivity !== null) return
+  // Hosted and nested dialogs do not necessarily belong to the workspace modal state.
+  if (event.target instanceof Element && event.target.closest('[aria-modal="true"], dialog[open]') !== null) return
   if (mode.value !== 'preview' && (event.target as Element | null)?.closest('.ProseMirror') !== null) return
   if (isCherrySourceHistoryShortcutEvent(event)) return
   const previewHistory = mode.value === 'preview' ? previewTaskHistoryDirection(event) : null
@@ -4445,18 +4735,32 @@ async function flushForLifecycle(): Promise<void> {
   const runtime = activeRuntime.value
   await flushLifecycleComposition(runtime, `lifecycle:${runtime.definition.documentId}:${createRandomId()}`)
   await flushLifecycleSynchronization(runtime)
+  await referenceLibrary.flush(runtime.definition.documentId)
   await runtime.autosave.flush()
 }
 
-async function publishForLifecycle(): Promise<void> {
+async function publishForLifecycle(persist = props.persistence?.savePublish): Promise<void> {
+  if (!persist) return
   const runtime = activeRuntime.value
-  await flushLifecycleComposition(runtime, `publish:${runtime.definition.documentId}:${createRandomId()}`)
-  await flushLifecycleSynchronization(runtime)
-  await runtime.autosave.flush()
-  const snapshot = runtime.root.session.snapshot()
-  if (props.persistence?.savePublish) {
-    await props.persistence.savePublish(snapshot)
-    runtime.manualCheckpoint.acceptSavedMarkdown(snapshot.markdown)
+  const flush = async () => {
+    await flushLifecycleComposition(runtime, `publish:${runtime.definition.documentId}:${createRandomId()}`)
+    await flushLifecycleSynchronization(runtime)
+    await referenceLibrary.flush(runtime.definition.documentId)
+    await runtime.autosave.flush()
+  }
+  try {
+    const published = await publishReferenceSnapshot(runtime.root.session, async snapshot => { await persist(snapshot) }, flush)
+    referenceRegistry(runtime.root.session).reserveNumbersThrough(referenceLibrary.get(runtime.definition.documentId).highWater)
+    runtime.manualCheckpoint.acceptSavedMarkdown(published.markdown)
+  } catch (failure) {
+    // A host may have saved a normalized candidate before a second publish request failed.
+    // Restore the latest draft to both host recovery storage and private draft persistence.
+    try {
+      await flushLifecycleComposition(runtime, `publish-recovery:${createRandomId()}`)
+      await flushLifecycleSynchronization(runtime)
+      await props.persistence?.saveAutosave?.(runtime.root.session.snapshot())
+    } catch { /* Host save adapters retain a local recovery record even when offline. */ }
+    throw failure
   }
 }
 
@@ -4871,7 +5175,46 @@ defineExpose({
     :data-error-code="workspace.error?.code ?? undefined"
     :data-theme="appearanceTheme"
     :style="workspaceShellStyle"
+    @w-reference-open="onReferenceOpen"
+    @w-reference-change="onReferenceChange"
+    @w-reference-source-change="onSourceReferenceChange"
   >
+    <ReferencePanel
+      v-if="referencePanelOpen"
+      :entries="referenceEntries"
+      :library-error="referenceLibraryError"
+      :current-style="documentReferenceStyle"
+      :selected="referenceSelected"
+      :error="referenceError"
+      :busy="referenceBusy"
+      :counts="referenceCounts"
+      :notes="referenceNotes"
+      :notes-error="referenceNotesError"
+      :notes-busy="referenceNotesBusy"
+      :notes-loading="referenceNotesLoading"
+      :saved-version="referenceSavedVersion"
+      :lookup-doi="lookupReferenceDoi"
+      @retry-library="retryReferenceLibrary"
+      @update="updateReference"
+      @remove="removeReference"
+      @style="setReferenceStyle"
+      @save-note="saveReferenceNote"
+      @reload-notes="loadReferenceNotes"
+      @close="referencePanelOpen = false"
+      @request-insert="openReferenceInsert"
+      @insert="insertReference"
+      @jump="jumpToReference"
+    />
+    <ReferenceInsertDialog
+      v-if="referenceInsertOpen"
+      :default-style="documentReferenceStyle"
+      :busy="referenceBusy"
+      :error="referenceError"
+      :lookup-doi="lookupReferenceDoi"
+      @close="closeReferenceInsert"
+      @insert="insertReference"
+      @collect="collectReference"
+    />
     <input
       ref="lifecycleFileInput"
       accept=".md,.markdown,text/markdown,text/plain"
@@ -5134,7 +5477,7 @@ defineExpose({
         :aria-label="t('workspace.editor')"
       >
         <div
-          v-if="$slots['document-actions'] || props.toolbarImport"
+          v-if="!props.readonlyMode"
           class="toolbar-region"
           aria-label="文档操作"
         >
@@ -5230,6 +5573,28 @@ defineExpose({
               </div>
             </div>
             <div
+              v-else-if="slot.kind === 'references'"
+              class="toolbar-command"
+              data-toolbar-slot="references"
+            >
+              <button
+                type="button"
+                class="tool-button"
+                data-testid="insert-reference"
+                aria-label="参考文献"
+                title="参考文献"
+                :aria-expanded="referencePanelOpen"
+                :disabled="mode === 'preview' || lifecycleOperation || articleSwitching"
+                @mousedown.prevent
+                @click="referencePanelOpen ? referencePanelOpen = false : openReferences()"
+              >
+                <span
+                  class="reference-ref-icon"
+                  aria-hidden="true"
+                >Ref</span>
+              </button>
+            </div>
+            <div
               v-else-if="slot.kind === 'command' || slot.kind === 'command-alias'"
               class="toolbar-command"
               :data-toolbar-slot="slot.id"
@@ -5292,6 +5657,11 @@ defineExpose({
                   class="tool-button__text"
                   aria-hidden="true"
                 >{{ toolbarMenuText(slot.menu) }}</span>
+                <span
+                  v-if="slot.menu.descriptor.id === 'list'"
+                  class="tool-button__chevron"
+                  aria-hidden="true"
+                >▾</span>
                 <span class="tool-button__label">{{ slot.menu.label }}</span>
               </button>
               <div
@@ -5361,40 +5731,6 @@ defineExpose({
                   </button>
                 </section>
               </div>
-            </div>
-            <div
-              v-else-if="slot.kind === 'preview-alias'"
-              class="toolbar-command"
-              :data-toolbar-slot="slot.id"
-            >
-              <button
-                :aria-label="previewToggleCommand.label"
-                :aria-pressed="mode === 'preview'"
-                :class="commandButtonClasses(previewToggleCommand)"
-                data-command-alias="mode.preview"
-                data-testid="toolbar-preview-toggle"
-                :disabled="commandDisabled(previewToggleCommand)"
-                type="button"
-                :title="commandDisabledReason(previewToggleCommand) ?? previewToggleCommand.label"
-                @blur="hideToolbarTooltip"
-                @click="toggleFinalPreview"
-                @focus="showToolbarTooltip(previewToggleCommand, $event)"
-                @mouseenter="showToolbarTooltip(previewToggleCommand, $event)"
-                @mouseleave="hideToolbarTooltip"
-              >
-                <i
-                  v-if="previewToggleCommand.descriptor.iconClass"
-                  class="ch-icon tool-button__icon"
-                  :class="previewToggleCommand.descriptor.iconClass"
-                  aria-hidden="true"
-                ></i>
-                <span
-                  v-else
-                  class="tool-button__text"
-                  aria-hidden="true"
-                >{{ toolbarCommandText(previewToggleCommand) }}</span>
-                <span class="tool-button__label">{{ previewToggleCommand.label }}</span>
-              </button>
             </div>
             <template v-if="slot.id === 'menu.export'">
               <slot name="toolbar-after-export"></slot>
@@ -5499,6 +5835,11 @@ defineExpose({
           </div>
           <div class="workspace-controls__meta">
             <span>{{ activeArticleTitle }}</span><span aria-hidden="true">·</span><span>{{ t('workspace.words', { count: liveDocumentStatistics.words }) }}</span>
+            <span aria-hidden="true">·</span>
+            <span
+              data-testid="body-word-count"
+              :title="t('workspace.bodyWordsHelp')"
+            >{{ t('workspace.bodyWords', { count: liveBodyWordCount }) }}</span>
           </div>
         </div>
 
@@ -6639,3 +6980,7 @@ defineExpose({
     <component :is="capabilityProbe" />
   </main>
 </template>
+
+<style scoped>
+.reference-ref-icon { display: inline-grid; place-items: center; width: 22px; height: 22px; border: 1px solid currentColor; border-radius: 2px; font-size: 10px; line-height: 1; font-weight: 600; }
+</style>

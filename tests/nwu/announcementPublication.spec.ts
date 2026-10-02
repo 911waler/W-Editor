@@ -1,5 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { emptyReferenceLibrary, parseReferenceLibrary } from '../../packages/editor-vue/src/services/referenceEditorServices'
 
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', '') }
@@ -7,8 +8,9 @@ beforeEach(() => {
 })
 afterEach(() => { document.body.replaceChildren(); localStorage.clear(); vi.unstubAllGlobals(); vi.resetModules() })
 
-async function editor(options: {failSave?:boolean; scheduled?:boolean; failSettings?:boolean} = {}) {
+async function editor(options: {failSave?:boolean; scheduled?:boolean; failSettings?:boolean; failPublish?:boolean; markdown?:string} = {}) {
   let revision = '1'
+  let library = emptyReferenceLibrary()
   const requests: Array<{path:string; method:string; body:Record<string,unknown>}> = []
   const publication = {serverRevision:revision,state:'draft',title:'标题',level:'normal',sendEmail:false,
     scheduledFor:options.scheduled ? '2027-01-20T10:37' : '',reminderEndsAt:'',recipientCount:2,missingCount:1,mailLabel:'邮件已停用'}
@@ -21,6 +23,13 @@ async function editor(options: {failSave?:boolean; scheduled?:boolean; failSetti
     const path=new URL(String(input)).pathname, method=init?.method ?? 'GET'
     const body=typeof init?.body==='string' ? JSON.parse(init.body) as Record<string,unknown> : {}
     requests.push({path,method,body})
+    if(path.endsWith('/reference-library')) {
+      if(method==='PUT') {
+        expect(body['baseRevision']).toBe(library.revision)
+        library=parseReferenceLibrary({revision:library.revision+1,entries:body['entries'],deletedIds:body['deletedIds'],highWater:body['highWater']})
+      }
+      return new Response(JSON.stringify(library))
+    }
     if(path.includes('/state/')) return new Response('{}')
     if(path.endsWith('/save')) {
       if(options.failSave) return new Response(JSON.stringify({error:{message:'保存失败'}}),{status:409})
@@ -33,13 +42,14 @@ async function editor(options: {failSave?:boolean; scheduled?:boolean; failSetti
         Object.assign(publication,body); revision=String(Number(revision)+1)
       }
       if(method==='POST') {
+        if(options.failPublish) return new Response(JSON.stringify({error:{message:'发布失败'}}),{status:409})
         expect(body['baseServerRevision']).toBe(revision)
         publication.state=publication.scheduledFor ? 'scheduled' : 'published'
         revision=String(Number(revision)+1)
       }
       return new Response(JSON.stringify({...publication,serverRevision:revision}))
     }
-    return new Response(JSON.stringify({document:{documentId:'announcement:42',markdown:'# 正文',revision:1,serverRevision:revision},metadata:{title:'标题',category:'other',visibility:'private',allowedUsernames:[],state:'draft'}}))
+    return new Response(JSON.stringify({document:{documentId:'announcement:42',markdown:options.markdown ?? '# 正文',revision:1,serverRevision:revision},metadata:{title:'标题',category:'other',visibility:'private',allowedUsernames:[],state:'draft'}}))
   })
   const {default:App}=await import('../../src/ui/App.vue')
   const wrapper=mount(App,{attachTo:document.body})
@@ -96,3 +106,18 @@ it('keeps settings and edited values open on a conflict', async () => {
   expect(document.querySelector('dialog[open]')?.textContent).toContain('设置冲突')
   wrapper.unmount()
 },20000)
+
+it('restores the provisional private draft after canonical save succeeds but publication fails', async () => {
+  const original = '[8](#wref-book~Book)'
+  const {wrapper, requests} = await editor({ failPublish: true, markdown: original })
+  try {
+    await wrapper.get('[data-testid="announcement-direct-publish"]').trigger('click')
+    await flushPromises()
+    const canonical = requests.find(request => request.path.endsWith('/save') && request.body['saveKind'] === 'manual-save')
+    expect(canonical?.body['markdown']).toBe('[1](#wref-book~Book)')
+    const restored = requests.filter(request => request.path.endsWith('/save') && request.body['saveKind'] === 'autosave-draft').at(-1)
+    expect(restored?.body['markdown']).toBe(original)
+    expect(restored?.body['baseServerRevision']).toBe('2')
+    expect(wrapper.text()).toContain('发布失败')
+  } finally { wrapper.unmount() }
+}, 20000)

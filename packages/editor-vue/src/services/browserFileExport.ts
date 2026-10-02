@@ -1,3 +1,6 @@
+import { ensureReferenceStyles, areReferenceStylesReady } from './citationFormatting'
+import { buildReferenceList } from '../adapters/referenceNode'
+import { scanReferences } from '@w-editor/editor-core'
 import type { DocumentSnapshot } from '@w-editor/editor-core'
 import { sanitizeCherryHtmlWithSafeFormulas } from './rehydrateCherryFormulas'
 import type { PreviewRenderer } from './workspaceModeAdapters'
@@ -43,10 +46,11 @@ export interface ExportPresentation {
 export interface HtmlDerivedExportArtifacts {
   readonly html: ExportArtifact
   readonly rendered: SafeRenderedExportDocument
-  readonly word: ExportArtifact
 }
 
 export const EXPORT_STYLES = `
+.w-reference { font-size: .8em; vertical-align: super; }
+.w-reference-list { border-top: 1px solid #aaa; margin-top: 24px; overflow-wrap: anywhere; }
 html { --w-editor-content-font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --w-editor-heading-font-family: Georgia, serif; color: #17211d; background: #fff; font-family: var(--w-editor-content-font-family); font-synthesis: weight style; line-height: 1.75; }
 body { margin: 0; }
 .rendered-document-theme { position: static; display: block; width: 100%; min-height: 0; height: auto; background: transparent; box-shadow: none; }
@@ -85,14 +89,8 @@ function escapeHtmlText(value: string): string {
     .replaceAll("'", '&#39;')
 }
 
-export function createStandaloneExportHtml(rendered: SafeRenderedExportDocument, wordCompatible = false): string {
+export function createStandaloneExportHtml(rendered: SafeRenderedExportDocument): string {
   const title = escapeHtmlText(rendered.documentId)
-  const namespaces = wordCompatible
-    ? ' xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"'
-    : ' lang="en"'
-  const wordMetadata = wordCompatible
-    ? '<meta name="ProgId" content="Word.Document"><meta name="Generator" content="W-Editor">'
-    : '<meta name="generator" content="W-Editor">'
   const theme = isAppearanceTheme(rendered.theme) ? rendered.theme : 'default'
   const lineHeight = typeof rendered.lineHeight === 'number'
     && Number.isFinite(rendered.lineHeight)
@@ -101,7 +99,7 @@ export function createStandaloneExportHtml(rendered: SafeRenderedExportDocument,
     ? rendered.lineHeight
     : 1.75
   const engineClass = rendered.presentationEngine === 'tiptap' ? 'tiptap ProseMirror' : 'cherry-markdown'
-  return `<!doctype html>\n<html${namespaces}>\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n${wordMetadata}\n<title>${title}</title>\n<style>${EXPORT_STYLES}</style>\n</head>\n<body>\n<div class="cherry theme__${theme} rendered-document-theme w-editor-export-theme" style="--w-editor-line-height:${lineHeight}"><main class="w-editor-export ${engineClass} rendered-document-content" data-document-id="${title}" data-revision="${rendered.revision}">${rendered.bodyHtml}</main></div>\n</body>\n</html>\n`
+  return `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="generator" content="W-Editor">\n<title>${title}</title>\n<style>${EXPORT_STYLES}</style>\n</head>\n<body>\n<div class="cherry theme__${theme} rendered-document-theme w-editor-export-theme" style="--w-editor-line-height:${lineHeight}"><main class="w-editor-export ${engineClass} rendered-document-content" data-document-id="${title}" data-revision="${rendered.revision}">${rendered.bodyHtml}</main></div>\n</body>\n</html>\n`
 }
 
 export function renderSafeExportDocument(
@@ -109,6 +107,7 @@ export function renderSafeExportDocument(
   renderer: PreviewRenderer,
   presentation?: ExportPresentation,
 ): SafeRenderedExportDocument {
+  assertReferenceStylesReady(snapshot)
   const result = renderer.render(snapshot)
   if (result.snapshot.documentId !== snapshot.documentId
     || result.snapshot.revision !== snapshot.revision
@@ -142,11 +141,15 @@ export function renderSafeTiptapExportDocument(
   presentationRoot: HTMLElement,
   presentation?: ExportPresentation,
 ): SafeRenderedExportDocument {
+  assertReferenceStylesReady(snapshot)
   if (!presentationRoot.classList.contains('ProseMirror')) {
     throw new BrowserFileExportError('The Tiptap export root is not a ProseMirror presentation.')
   }
   const clone = presentationRoot.cloneNode(true)
   if (!(clone instanceof HTMLElement)) throw new BrowserFileExportError('The Tiptap presentation could not be cloned.')
+  const references = scanReferences(snapshot.markdown)
+  // Fallback blocks can contain local bibliographies. Export one document-wide list.
+  if (references.length) clone.querySelectorAll('.w-reference-list').forEach(element => element.remove())
   clone.querySelectorAll(TIPTAP_EXPORT_CHROME_SELECTOR).forEach((element) => element.remove())
   clone.querySelectorAll('script, iframe, object, embed, form').forEach((element) => element.remove())
   const elements = [clone, ...clone.querySelectorAll<HTMLElement>('*')]
@@ -161,7 +164,7 @@ export function renderSafeTiptapExportDocument(
     element.removeAttribute('aria-readonly')
   }
   return Object.freeze({
-    bodyHtml: clone.innerHTML,
+    bodyHtml: clone.innerHTML + (references.length ? buildReferenceList(references, clone.ownerDocument).outerHTML : ''),
     documentId: snapshot.documentId,
     ...(presentation === undefined ? {} : { lineHeight: presentation.lineHeight, theme: presentation.theme }),
     presentationEngine: 'tiptap',
@@ -178,6 +181,7 @@ export function createTiptapRenderedExportDocument(
     documentId: snapshot.documentId,
     lineHeight: options.lineHeight,
     mountPresentation: async (container: HTMLElement) => {
+      await ensureReferenceStyles(scanReferences(snapshot.markdown).map(reference => reference.style ?? 'plain'))
       const { createTiptapPresentation } = await import('../rendering/tiptapPresentation')
       const instance = createTiptapPresentation(container, {
         ...(options.extensions === undefined ? {} : { extensions: options.extensions }),
@@ -192,6 +196,10 @@ export function createTiptapRenderedExportDocument(
         await instance.settle()
         const root = instance.root.querySelector<HTMLElement>('.ProseMirror')
         if (root === null) throw new BrowserFileExportError('The Tiptap presentation root is unavailable.')
+        // Export captures the ProseMirror subtree; its ordinary reference footer is a sibling.
+        const references = scanReferences(snapshot.markdown)
+        root.querySelectorAll('.w-reference-list').forEach(element => element.remove())
+        if (references.length) root.append(buildReferenceList(references, root.ownerDocument))
         return Object.freeze({ dispose: () => instance.destroy(), root })
       } catch (failure) {
         instance.destroy()
@@ -245,7 +253,6 @@ export function createHtmlDerivedExportArtifacts(
     throw new BrowserFileExportError('Mounted presentations must be materialized before creating HTML-derived exports.')
   }
   const htmlMediaType = 'text/html;charset=utf-8'
-  const wordMediaType = 'application/msword;charset=utf-8'
   return Object.freeze({
     html: Object.freeze({
       blob: new Blob([createStandaloneExportHtml(rendered)], { type: htmlMediaType }),
@@ -254,12 +261,6 @@ export function createHtmlDerivedExportArtifacts(
       revision: rendered.revision,
     }),
     rendered,
-    word: Object.freeze({
-      blob: new Blob(['\uFEFF', createStandaloneExportHtml(rendered, true)], { type: wordMediaType }),
-      filename: `${rendered.documentId}.doc`,
-      mediaType: wordMediaType,
-      revision: rendered.revision,
-    }),
   })
 }
 
@@ -317,5 +318,11 @@ export class BrowserFileExporter {
     } finally {
       if (url !== null) this.#objectUrls.revokeObjectURL(url)
     }
+  }
+}
+
+function assertReferenceStylesReady(snapshot: DocumentSnapshot): void {
+  if (!areReferenceStylesReady(scanReferences(snapshot.markdown).map(reference => reference.style ?? 'plain'))) {
+    throw new BrowserFileExportError('Journal styles must finish loading before exporting. Await ensureReferenceStyles first.')
   }
 }

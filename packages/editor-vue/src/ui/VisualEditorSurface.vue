@@ -9,7 +9,7 @@ import {
 } from '../adapters'
 import { createRandomId } from '../services/randomId'
 import { copyText } from '../services/copyText'
-import { projectOrdinaryMarkdown } from '@w-editor/editor-core'
+import { projectOrdinaryMarkdown, type DocumentReference, type ReferenceStyle } from '@w-editor/editor-core'
 import type { InlineMarkCommandId } from '@w-editor/editor-core'
 import type { RichInlineMarkCommandId } from '@w-editor/editor-core'
 import {
@@ -498,6 +498,10 @@ defineExpose({
   applyList: (commandId: ListCommandId) => adapter?.applyList(commandId)
     ?? Object.freeze({ active: false, changed: false }),
   applyLink: (href: string) => adapter?.applyLink(href) ?? Object.freeze({ active: false, changed: false }),
+  updateReference: (id: string, patch: Pick<DocumentReference, 'text' | 'metadata' | 'style'>) => adapter?.updateReference(id, patch) ?? { active: false, changed: false },
+  removeReference: (id: string) => adapter?.removeReference(id) ?? { active: false, changed: false },
+  setReferenceStyle: (style: ReferenceStyle) => adapter?.setReferenceStyle(style) ?? { active: false, changed: false },
+  applyReference: (reference: DocumentReference) => adapter?.applyReference(reference) ?? { active: false, changed: false },
   applyFormula: (mode: FormulaMode, content: string) => adapter?.applyFormula(mode, content)
     ?? Object.freeze({ active: false, changed: false }),
   applyCodeBlock: (language: string, code: string) => adapter?.applyCodeBlock(language, code)

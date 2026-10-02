@@ -4,7 +4,7 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } 
 import { createRandomId } from '../services/randomId'
 import { EditorView } from '@codemirror/view'
 import { CherrySourceAdapter, type SourceSearchMatch, type SourceSelection } from '../adapters'
-import type { DocumentSession, PatchPlan } from '@w-editor/editor-core'
+import { scanReferences, type DocumentSession, type PatchPlan } from '@w-editor/editor-core'
 import type { SynchronizationStateStore } from '@w-editor/editor-core'
 import type { AppearanceTheme } from '../services/appearanceTheme'
 import { translateUi, type UiLocale, type UiMessageKey } from '../services/uiLocalization'
@@ -99,11 +99,22 @@ function quoteSelectedSource(): boolean {
 
 function updateTestValue(event: Event): void {
   const markdown = (event.currentTarget as HTMLTextAreaElement).value
-  props.session.commitSource({
+  const previous = props.session.snapshot()
+  const acknowledgement = props.session.commitSource({
     markdown,
     origin: 'cherry-source',
     transactionId: `source-test-input:${createRandomId()}`,
   })
+  if (acknowledgement.changed) {
+    host.value?.dispatchEvent(new CustomEvent('w-reference-source-change', {
+      bubbles: true,
+      detail: {
+        documentId: previous.documentId,
+        previous: scanReferences(previous.markdown).map(({ from: _from, to: _to, ...reference }) => reference),
+        references: scanReferences(markdown).map(({ from: _from, to: _to, ...reference }) => reference),
+      },
+    }))
+  }
   props.state.succeed(props.session.snapshot())
 }
 

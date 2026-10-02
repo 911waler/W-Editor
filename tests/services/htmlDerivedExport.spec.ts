@@ -47,7 +47,7 @@ describe('safe HTML-derived exports', () => {
     expect(html).not.toContain('onclick="bad()')
   })
 
-  it('renders one exact snapshot once and derives standalone HTML and Word-compatible artifacts from it', async () => {
+  it('renders one exact snapshot once and derives a standalone HTML artifact from it', async () => {
     const snapshot = Object.freeze({ documentId: 'safe-article', markdown: '# Exact\n', revision: 12 })
     const render = vi.fn(() => ({
       html: '<h1>Exact</h1><script>globalThis.pwned=true</script><a href="javascript:alert(1)" onclick="bad()">unsafe</a>',
@@ -65,17 +65,13 @@ describe('safe HTML-derived exports', () => {
       revision: 12,
     })
     expect(artifacts.html).toMatchObject({ filename: 'safe-article.html', mediaType: 'text/html;charset=utf-8', revision: 12 })
-    expect(artifacts.word).toMatchObject({ filename: 'safe-article.doc', mediaType: 'application/msword;charset=utf-8', revision: 12 })
 
     const html = await artifacts.html.blob.text()
-    const word = await artifacts.word.blob.text()
     expect(html).toMatch(/^<!doctype html>\n<html lang="en">/u)
     expect(html).toContain('<meta charset="utf-8">')
     expect(html).toContain('data-revision="12"><h1>Exact</h1><a>unsafe</a>')
-    expect([...new Uint8Array(await artifacts.word.blob.arrayBuffer()).slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
-    expect(word.startsWith('<!doctype html>')).toBe(true)
-    expect(word).toContain('xmlns:w="urn:schemas-microsoft-com:office:word"')
-    for (const document of [html, word]) {
+    expect(artifacts).not.toHaveProperty('word')
+    for (const document of [html]) {
       expect(document).not.toMatch(/<script|onclick=|javascript:/iu)
       expect(document).toContain('<style>')
       expect(document).toContain('<main class="w-editor-export cherry-markdown rendered-document-content"')

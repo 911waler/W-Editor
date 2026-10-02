@@ -26,3 +26,12 @@ export * from './workspaceModeAdapters'
 export * from '@w-editor/editor-core'
 
 export * from './outlinePresentation'
+
+export * from './referencePublication'
+
+export * from "./referenceEditorServices"
+export * from './citationFormatting'
+
+export type { DocumentHistoryVersion, DocumentHistorySnapshot, DocumentHistoryPage, DocumentHistoryServices } from './documentHistory'
+
+export * from "./referenceLibrary"

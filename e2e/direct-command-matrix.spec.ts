@@ -3,7 +3,7 @@ import type { Locator, Page } from '@playwright/test'
 import { openReadyApp } from './fixtures/app'
 import { expect, test } from './fixtures/test'
 
-type ToolbarMenu = 'color' | 'heading' | 'insert' | 'text-style'
+type ToolbarMenu = 'color' | 'heading' | 'insert' | 'list' | 'text-style'
 
 interface CommandCase {
   readonly active: boolean
@@ -109,7 +109,7 @@ const lists: readonly CommandCase[] = [
   expected,
   id,
   initial: 'Alpha',
-  menu: null,
+  menu: 'list' as const,
   preview: Object.freeze({ selector: `.preview-rendered-content ${previewSelector}`, text: 'Alpha' }),
   selection: Object.freeze({ from: 0, to: 5 }),
   visualSelector: `.ProseMirror ${visualSelector}`,

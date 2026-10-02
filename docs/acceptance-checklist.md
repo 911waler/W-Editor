@@ -119,79 +119,79 @@ For every row, automated evidence is the stable-ID case in `e2e/toolbar-matrix.s
 | `CMD-005` | `text.subscript` | Exact subscript range and active state. |
 | `CMD-006` | `text.superscript` | Exact superscript range and active state. |
 | `CMD-007` | `text.ruby` | Cherry-referenced base/annotation or pinyin picker, keyboard/focus, rendering, exact source, cancel, undo, reload, and Final. |
-| `CMD-080` | `block.quote` | Compact `>` entry in the Text style menu plus contextual `Turn into → Quote`, exact blockquote Markdown, cancel, undo, and reload. |
-| `CMD-008` | `text.size` | Size picker value, source, and active state. |
-| `CMD-009` | `text.color` | Text-color picker, source, and active state. |
-| `CMD-010` | `text.background` | Background picker, source, and active state. |
-| `CMD-011` | `block.h1` | H1 source/visual active state. |
-| `CMD-012` | `block.h2` | H2 source/visual active state. |
-| `CMD-013` | `block.h3` | H3 source/visual active state. |
-| `CMD-014` | `block.h4` | H4 source/visual active state. |
-| `CMD-015` | `block.h5` | H5 source/visual active state and H6 absence. |
-| `CMD-016` | `list.ordered` | Cherry hanging indent, toolbar focus, immediate real Enter, non-empty split, empty exit, nesting, exact Markdown, undo, reload, desktop/narrow and keyboard/SR. |
-| `CMD-017` | `list.unordered` | Cherry hanging indent, toolbar focus, immediate real Enter, non-empty split, empty exit, nesting, exact Markdown, undo, reload, desktop/narrow and keyboard/SR. |
-| `CMD-018` | `list.task` | Marker-free horizontal checkbox/content row, immediate caret/typing, check state, hanging indent, Enter split/exit, exact Markdown, undo, reload and keyboard/SR. |
-| `CMD-019` | `panel.primary` | Cherry Panel parity plus valid Apply, every deterministic failure, invalid Retry, cancel/dirty close, exact revision/undo/Markdown, focus and diagnostics. |
-| `CMD-020` | `panel.info` | Info typed preview and apply/cancel. |
-| `CMD-021` | `panel.warning` | Warning typed preview and apply/cancel. |
-| `CMD-022` | `panel.danger` | Danger typed preview and apply/cancel. |
-| `CMD-023` | `panel.success` | Success typed preview and apply/cancel. |
-| `CMD-024` | `align.left` | Compatible range and left preview. |
-| `CMD-025` | `align.center` | Compatible range and centered preview. |
-| `CMD-026` | `align.right` | Compatible range and right preview. |
-| `CMD-027` | `align.justify` | Single-line and multiline Chinese/English final-line fill in Visual/Final, literal Source round-trip, computed pixels, undo and reload. |
-| `CMD-028` | `layout.two-column` | Starter, edit route, and exact container patch. |
-| `CMD-029` | `layout.multi-column` | Starter, extra columns, and validation. |
-| `CMD-030` | `layout.tabs` | Starter, disclosure behavior, apply/cancel. |
-| `CMD-031` | `layout.accordion` | Cherry component hierarchy/tokens, keyboard disclosure, starter, validation, apply/cancel, exact Source/Final, undo and reload. |
-| `CMD-032` | `layout.timeline` | Every Cherry state and pixel hierarchy, editing/local error, apply/cancel, exact Source/Final, undo and reload. |
-| `CMD-033` | `insert.image` | URL/upload success, edit, fallback, cancel/fail. |
-| `CMD-034` | `insert.audio` | URL/upload success, edit, fallback, cancel/fail. |
-| `CMD-035` | `insert.video` | URL/upload success, edit, fallback, cancel/fail. |
-| `CMD-036` | `insert.link` | URL validation, active state, edit, cancel. |
-| `CMD-037` | `insert.horizontal-rule` | Exact insertion, preview, undo. |
-| `CMD-038` | `insert.hard-break` | Exact break semantics, preview, undo. |
-| `CMD-039` | `insert.code-block` | Direct Visual typing/selection/newline/language/highlight/copy/context/native undo/safe fences, optional CodeMirror lifecycle, Visual/Final fold with zero content effect, Source/Final and reload. |
-| `CMD-040` | `insert.inline-code` | Tiptap Visual editing DOM/style/selection, mixed marks, exact delimiters, Cherry Final, computed pixels, undo and reload. |
-| `CMD-041` | `insert.formula` | One Cherry-style keyboard picker for Inline and Block, templates/symbols, invalid Retry, visible Visual math, exact source forms, Final, undo and reload. |
-| `CMD-042` | `insert.toc` | Empty and populated Visual TOC, live add/rename/remove/reorder, duplicate/Unicode anchors, keyboard navigation, exact Source, Cherry Final links and reload. |
-| `CMD-043` | `insert.table` | Accessible Cherry 9-by-9 choice/cancel plus Tiptap cell/overlay/handle/grouped-menu operations, add/delete/move/duplicate, alignment, one-time sort, absent advanced actions, exact pipe Markdown, Final, undo and reload. |
-| `CMD-044` | `insert.pdf` | URL/upload card, edit, reload, cancel/fail. |
-| `CMD-045` | `insert.word` | URL/upload card, edit, reload, cancel/fail. |
-| `CMD-046` | `insert.file` | URL/upload card, edit, reload, cancel/fail. |
-| `CMD-047` | `insert.drawio` | Hostile rejection, online apply/cancel/edit/quota. |
-| `CMD-048` | `mermaid.flowchart` | Starter, source edit, invalid local error. |
-| `CMD-049` | `mermaid.sequence` | Starter, source edit, invalid local error. |
-| `CMD-050` | `mermaid.state` | Starter, source edit, invalid local error. |
-| `CMD-051` | `mermaid.class` | Starter, source edit, invalid local error. |
-| `CMD-052` | `mermaid.pie` | Starter, source edit, invalid local error. |
-| `CMD-053` | `mermaid.gantt` | Starter, source edit, invalid local error. |
-| `CMD-054` | `chart.line` | Type/title/data apply and preview. |
-| `CMD-055` | `chart.bar` | Type/title/data apply and preview. |
-| `CMD-056` | `chart.radar` | Type/title/data apply and preview. |
-| `CMD-057` | `chart.map` | Type/title/data apply and preview. |
-| `CMD-058` | `chart.heatmap` | Type/title/data apply and preview. |
-| `CMD-059` | `chart.scatter` | Type/title/data apply and preview. |
-| `CMD-060` | `chart.pie` | Type/title/data apply and preview. |
-| `CMD-061` | `chart.sankey` | Type/title/data apply and preview. |
-| `CMD-062` | `history.undo` | Active-mode single intent; no boundary traversal. |
-| `CMD-063` | `history.redo` | Active-mode single intent; no boundary traversal. |
-| `CMD-064` | `document.manual-save` | Flush, latest checkpoint, dirty becomes clean. |
-| `CMD-065` | `search.replace` | Navigation, checked replace, cancel, preview safety. |
-| `CMD-066` | `settings.shortcuts` | Armed physical keydown recording, modifier normalization/keycaps, reserved/duplicate conflicts, acceptance, immediate routing, persistence/reload, reset, focus/keyboard access and zero content revision. |
-| `CMD-067` | `mode.source` | Atomic activation, checkpoint, one surface. |
-| `CMD-068` | `mode.visual` | Atomic activation, checkpoint, one surface. |
-| `CMD-069` | `mode.preview` | Flushed read-only Cherry output. |
-| `CMD-070` | `application.fullscreen` | Enter/exit/failure/cleanup without revision. |
-| `CMD-071` | `language.zh` | Chinese labels; IDs/source unchanged. |
-| `CMD-072` | `language.en` | English labels; IDs/source unchanged. |
-| `CMD-073` | `language.ru` | Russian labels; IDs/source unchanged. |
-| `CMD-074` | `document.word-count` | Current flushed counts without revision. |
-| `CMD-075` | `export.markdown` | Exact Markdown bytes; save states unchanged. |
-| `CMD-076` | `export.html` | Safe standalone HTML or visible failure. |
-| `CMD-077` | `export.word` | Word-compatible result or visible failure. |
-| `CMD-078` | `export.pdf` | Valid `.pdf` download from the same formula-aware rendered HTML and canonical desktop layout as Final Preview, with visible opaque-image substitution/notice when needed, or genuine visible failure without mutation. |
-| `CMD-079` | `export.screenshot` | Settled PNG with visible opaque-image substitution/notice when needed, or genuine taint/oversize failure. |
+| `CMD-008` | `block.quote` | Compact `>` entry in the Text style menu plus contextual `Turn into → Quote`, exact blockquote Markdown, cancel, undo, and reload. |
+| `CMD-009` | `text.size` | Size picker value, source, and active state. |
+| `CMD-010` | `text.color` | Text-color picker, source, and active state. |
+| `CMD-011` | `text.background` | Background picker, source, and active state. |
+| `CMD-012` | `block.h1` | H1 source/visual active state. |
+| `CMD-013` | `block.h2` | H2 source/visual active state. |
+| `CMD-014` | `block.h3` | H3 source/visual active state. |
+| `CMD-015` | `block.h4` | H4 source/visual active state. |
+| `CMD-016` | `block.h5` | H5 source/visual active state and H6 absence. |
+| `CMD-017` | `list.ordered` | Cherry hanging indent, toolbar focus, immediate real Enter, non-empty split, empty exit, nesting, exact Markdown, undo, reload, desktop/narrow and keyboard/SR. |
+| `CMD-018` | `list.unordered` | Cherry hanging indent, toolbar focus, immediate real Enter, non-empty split, empty exit, nesting, exact Markdown, undo, reload, desktop/narrow and keyboard/SR. |
+| `CMD-019` | `list.task` | Marker-free horizontal checkbox/content row, immediate caret/typing, check state, hanging indent, Enter split/exit, exact Markdown, undo, reload and keyboard/SR. |
+| `CMD-020` | `panel.primary` | Cherry Panel parity plus valid Apply, every deterministic failure, invalid Retry, cancel/dirty close, exact revision/undo/Markdown, focus and diagnostics. |
+| `CMD-021` | `panel.info` | Info typed preview and apply/cancel. |
+| `CMD-022` | `panel.warning` | Warning typed preview and apply/cancel. |
+| `CMD-023` | `panel.danger` | Danger typed preview and apply/cancel. |
+| `CMD-024` | `panel.success` | Success typed preview and apply/cancel. |
+| `CMD-025` | `align.left` | Compatible range and left preview. |
+| `CMD-026` | `align.center` | Compatible range and centered preview. |
+| `CMD-027` | `align.right` | Compatible range and right preview. |
+| `CMD-028` | `align.justify` | Single-line and multiline Chinese/English final-line fill in Visual/Final, literal Source round-trip, computed pixels, undo and reload. |
+| `CMD-029` | `layout.two-column` | Starter, edit route, and exact container patch. |
+| `CMD-030` | `layout.multi-column` | Starter, extra columns, and validation. |
+| `CMD-031` | `layout.tabs` | Starter, disclosure behavior, apply/cancel. |
+| `CMD-032` | `layout.accordion` | Cherry component hierarchy/tokens, keyboard disclosure, starter, validation, apply/cancel, exact Source/Final, undo and reload. |
+| `CMD-033` | `layout.timeline` | Every Cherry state and pixel hierarchy, editing/local error, apply/cancel, exact Source/Final, undo and reload. |
+| `CMD-034` | `insert.image` | URL/upload success, edit, fallback, cancel/fail. |
+| `CMD-035` | `insert.audio` | URL/upload success, edit, fallback, cancel/fail. |
+| `CMD-036` | `insert.video` | URL/upload success, edit, fallback, cancel/fail. |
+| `CMD-037` | `insert.link` | URL validation, active state, edit, cancel. |
+| `CMD-038` | `insert.horizontal-rule` | Exact insertion, preview, undo. |
+| `CMD-039` | `insert.hard-break` | Exact break semantics, preview, undo. |
+| `CMD-040` | `insert.code-block` | Direct Visual typing/selection/newline/language/highlight/copy/context/native undo/safe fences, optional CodeMirror lifecycle, Visual/Final fold with zero content effect, Source/Final and reload. |
+| `CMD-041` | `insert.inline-code` | Tiptap Visual editing DOM/style/selection, mixed marks, exact delimiters, Cherry Final, computed pixels, undo and reload. |
+| `CMD-042` | `insert.formula` | One Cherry-style keyboard picker for Inline and Block, templates/symbols, invalid Retry, visible Visual math, exact source forms, Final, undo and reload. |
+| `CMD-043` | `insert.toc` | Empty and populated Visual TOC, live add/rename/remove/reorder, duplicate/Unicode anchors, keyboard navigation, exact Source, Cherry Final links and reload. |
+| `CMD-044` | `insert.table` | Accessible Cherry 9-by-9 choice/cancel plus Tiptap cell/overlay/handle/grouped-menu operations, add/delete/move/duplicate, alignment, one-time sort, absent advanced actions, exact pipe Markdown, Final, undo and reload. |
+| `CMD-045` | `insert.pdf` | URL/upload card, edit, reload, cancel/fail. |
+| `CMD-046` | `insert.word` | URL/upload card, edit, reload, cancel/fail. |
+| `CMD-047` | `insert.file` | URL/upload card, edit, reload, cancel/fail. |
+| `CMD-048` | `insert.drawio` | Hostile rejection, online apply/cancel/edit/quota. |
+| `CMD-049` | `insert.reference` | Reference dialog inserts citation at the captured cursor. |
+| `CMD-050` | `mermaid.flowchart` | Starter, source edit, invalid local error. |
+| `CMD-051` | `mermaid.sequence` | Starter, source edit, invalid local error. |
+| `CMD-052` | `mermaid.state` | Starter, source edit, invalid local error. |
+| `CMD-053` | `mermaid.class` | Starter, source edit, invalid local error. |
+| `CMD-054` | `mermaid.pie` | Starter, source edit, invalid local error. |
+| `CMD-055` | `mermaid.gantt` | Starter, source edit, invalid local error. |
+| `CMD-056` | `chart.line` | Type/title/data apply and preview. |
+| `CMD-057` | `chart.bar` | Type/title/data apply and preview. |
+| `CMD-058` | `chart.radar` | Type/title/data apply and preview. |
+| `CMD-059` | `chart.map` | Type/title/data apply and preview. |
+| `CMD-060` | `chart.heatmap` | Type/title/data apply and preview. |
+| `CMD-061` | `chart.scatter` | Type/title/data apply and preview. |
+| `CMD-062` | `chart.pie` | Type/title/data apply and preview. |
+| `CMD-063` | `chart.sankey` | Type/title/data apply and preview. |
+| `CMD-064` | `history.undo` | Active-mode single intent; no boundary traversal. |
+| `CMD-065` | `history.redo` | Active-mode single intent; no boundary traversal. |
+| `CMD-066` | `document.manual-save` | Flush, latest checkpoint, dirty becomes clean. |
+| `CMD-067` | `search.replace` | Navigation, checked replace, cancel, preview safety. |
+| `CMD-068` | `settings.shortcuts` | Armed physical keydown recording, modifier normalization/keycaps, reserved/duplicate conflicts, acceptance, immediate routing, persistence/reload, reset, focus/keyboard access and zero content revision. |
+| `CMD-069` | `mode.source` | Atomic activation, checkpoint, one surface. |
+| `CMD-070` | `mode.visual` | Atomic activation, checkpoint, one surface. |
+| `CMD-071` | `mode.preview` | Flushed read-only Cherry output. |
+| `CMD-072` | `application.fullscreen` | Enter/exit/failure/cleanup without revision. |
+| `CMD-073` | `language.zh` | Chinese labels; IDs/source unchanged. |
+| `CMD-074` | `language.en` | English labels; IDs/source unchanged. |
+| `CMD-075` | `language.ru` | Russian labels; IDs/source unchanged. |
+| `CMD-076` | `document.word-count` | Current flushed counts without revision. |
+| `CMD-077` | `export.markdown` | Exact Markdown bytes; save states unchanged. |
+| `CMD-078` | `export.html` | Safe standalone HTML or visible failure. |
+| `CMD-079` | `export.pdf` | Valid `.pdf` download from the same formula-aware rendered HTML and canonical desktop layout as Final Preview, with visible opaque-image substitution/notice when needed, or genuine visible failure without mutation. |
+| `CMD-080` | `export.screenshot` | Settled PNG with visible opaque-image substitution/notice when needed, or genuine taint/oversize failure. |
 
 ## Named parity component hands-on matrix
 

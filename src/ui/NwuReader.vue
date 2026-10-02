@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { scanReferences } from '../../packages/editor-core/src'
+import { ensureReferenceStyles } from '../../packages/editor-vue/src/services'
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import TiptapReaderPresentation from '../../packages/editor-vue/src/ui/TiptapReaderPresentation.vue'
 import { hydrateCherryChartPreviews } from '../../packages/editor-vue/src/adapters/cherryChartPreviewRenderer'
@@ -111,7 +113,7 @@ function jump(heading: HTMLElement) {
   activeHeading.value = headings.value.indexOf(heading)
   heading.setAttribute('tabindex','-1'); heading.focus({preventScroll:true})
 }
-async function download(format: 'markdown'|'html'|'word'|'pdf'|'image') {
+async function download(format: 'markdown'|'html'|'pdf'|'image') {
   if(busy.value || !published.value) return
   busy.value=true; message.value=''
   try {
@@ -120,10 +122,11 @@ async function download(format: 'markdown'|'html'|'word'|'pdf'|'image') {
     let omitted=0
     if(format==='markdown') artifact=createMarkdownExport(snapshot)
     else {
+      await ensureReferenceStyles(scanReferences(snapshot.markdown).map(entry => entry.style ?? 'plain'))
       const rendered=createTiptapRenderedExportDocument(snapshot,{lineHeight:1.75,locale:locale.value,localization:createUiLocalizationStore(locale.value),theme:theme.value})
-      if(format==='html'||format==='word') {
+      if(format==='html') {
         const artifacts=createHtmlDerivedExportArtifacts(await materializeRenderedExportDocument(rendered,document))
-        artifact=format==='html'?artifacts.html:artifacts.word
+        artifact=artifacts.html
       } else {
         const exporter=new BrowserRenderedExportAdapter({document,window,hydrateRenderedContent:root=>hydrateCherryChartPreviews(root,{showToolbox:false,showTooltip:false})})
         const result=format==='pdf'?await exporter.capturePdf(rendered):await exporter.captureLongScreenshot(rendered)
@@ -330,7 +333,7 @@ async function download(format: 'markdown'|'html'|'word'|'pdf'|'image') {
           >
             <summary>{{ busy?words.loading:words.export }}</summary><div class="nwu-reader-export-menu">
               <button
-                v-for="(label,format) in {markdown:'Markdown',html:'HTML',word:'Word',pdf:'PDF',image:words.image}"
+                v-for="(label,format) in {markdown:'Markdown',html:'HTML',pdf:'PDF',image:words.image}"
                 :key="format"
                 type="button"
                 :disabled="busy"

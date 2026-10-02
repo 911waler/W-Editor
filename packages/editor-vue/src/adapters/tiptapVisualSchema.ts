@@ -18,6 +18,7 @@ import { Decoration, DecorationSet, type ViewMutationRecord } from '@tiptap/pm/v
 
 import {
   CHART_TABLE_DESCRIPTORS,
+  type ReferenceRegistry,
   codeLanguageOptions,
   createTocHeadingItems,
   serializeFencedCode,
@@ -30,6 +31,7 @@ import {
   type UiLocalizationStore,
   type UiMessageKey,
 } from '../services/uiLocalization'
+import { ReferenceNode, ReferenceBibliography } from './referenceNode'
 import { InlineImage } from './imageNode'
 import { highlightCodeTokens } from './codeSyntaxHighlighting'
 import { renderFormulaVisual } from './formulaVisualRenderer'
@@ -408,6 +410,15 @@ export const RawInline = Node.create<RawNodeOptions>({
     mergeAttributes(HTMLAttributes, { 'data-w-editor-node': 'raw-inline' }),
     String(node.attrs['source'] ?? ''),
   ],
+})
+
+const ReferenceDocumentStyle = Node.create({
+  name: 'referenceDocumentStyle',
+  group: 'block',
+  atom: true,
+  selectable: false,
+  addAttributes: () => ({ ...projectionAttributes(), style: { default: 'plain' } }),
+  renderHTML: () => ['div', { 'data-w-editor-node': 'reference-document-style', hidden: '', 'aria-hidden': 'true' }],
 })
 
 export const RawBlock = Node.create<RawNodeOptions>({
@@ -2785,6 +2796,7 @@ const OrdinaryTable = Table.extend<OrdinaryTableOptions>({
 })
 
 interface TiptapVisualExtensionOptions {
+  readonly referenceRegistry?: ReferenceRegistry
   readonly localization: UiLocalizationStore
   readonly mountChart?: (target: HTMLElement, source: string) => () => void
   readonly onRawEdit?: (event: RawNodeEditEvent) => void
@@ -2839,6 +2851,9 @@ export function createTiptapVisualExtensions(options?: Readonly<TiptapVisualExte
     RawBlock.configure({ localization, onEdit: resolvedOptions.onRawEdit ?? null }),
     PresentationFallback,
     InlineImage.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
+    ReferenceDocumentStyle,
+    ReferenceNode,
+    ReferenceBibliography.configure({ registry: resolvedOptions.referenceRegistry ?? null }),
     InlineFormula.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     FormulaBlock.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     TocBlock.configure({ localization }),

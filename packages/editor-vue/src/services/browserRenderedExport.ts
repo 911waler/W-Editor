@@ -50,6 +50,7 @@ type CaptureToBlob = (node: HTMLElement, options: {
   readonly canvasHeight: number
   readonly canvasWidth: number
   readonly height: number
+  readonly filter: (node: HTMLElement) => boolean
   readonly pixelRatio: number
   readonly skipAutoScale: boolean
   readonly width: number
@@ -335,6 +336,9 @@ export class BrowserRenderedExportAdapter implements RenderedExportAdapter {
         blob = await this.#capture(captureTarget, {
           backgroundColor: this.#window.getComputedStyle(captureTarget).backgroundColor || '#ffffff',
           cacheBust: true,
+          // ProseMirror inserts source-less helper images beside inline atoms.
+          // Filter the html-to-image clone; never mutate the live editor DOM.
+          filter: (node) => !node.matches?.('img.ProseMirror-separator'),
           canvasHeight: height,
           canvasWidth: width,
           height,
@@ -346,7 +350,11 @@ export class BrowserRenderedExportAdapter implements RenderedExportAdapter {
         if (isCrossOriginFailure(error)) {
           throw fail('CROSS_ORIGIN_TAINT', 'A cross-origin asset prevented safe screenshot capture.', error)
         }
-        throw fail('CAPTURE_FAILED', error instanceof Error ? error.message : 'The browser could not capture the rendered document.', error)
+        const message = error instanceof Error ? error.message
+          : error instanceof Event && error.target instanceof HTMLImageElement
+          ? 'An image resource could not be decoded during export capture. Check document images and browser resource access.'
+          : 'The browser could not capture the rendered document.'
+        throw fail('CAPTURE_FAILED', message, error)
       }
       if (blob === null) throw fail('CAPTURE_FAILED', 'The browser returned no PNG data for the rendered document.')
       return Object.freeze({ blob, breakCandidates, height, omittedRemoteImageCount, width })

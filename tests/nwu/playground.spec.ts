@@ -30,18 +30,20 @@ describe('NWU original application integration', () => {
 })
 
 describe('restored original workspace presentation', () => {
- it('opens the restored source mode and collapsed sidebar, then persists a visible mode change', async () => {
+ it.each(['source', 'preview', 'visual'])('opens visually despite saved %s mode, restores sidebar and allows manual mode changes', async (savedMode) => {
   const {NwuAdapter}=await import('../../src/nwu/adapter')
-  const adapter=new NwuAdapter({userId:7,csrfToken:'x',initialDocumentId:'blog:1',readonly:false,apiBase:'/api/blog-editor',blogListUrl:'/blogs'},async input=>new Response(JSON.stringify(String(input).includes('/state/')?{workspace:{userId:'7',documentId:'blog:1',workspace:{documentId:'blog:1',mode:'source',sidebar:{collapsed:true,width:310}}}}:{document:{documentId:'blog:1',markdown:'canonical text',revision:5,serverRevision:'r5'},metadata:{title:'Title',category:'other',visibility:'private',allowedUsernames:[]}})),localStorage)
+  const adapter=new NwuAdapter({userId:7,csrfToken:'x',initialDocumentId:'blog:1',readonly:false,apiBase:'/api/blog-editor',blogListUrl:'/blogs'},async input=>new Response(JSON.stringify(String(input).includes('/state/')?{workspace:{userId:'7',documentId:'blog:1',workspace:{documentId:'blog:1',mode:savedMode,sidebar:{collapsed:true,width:310}}}}:{document:{documentId:'blog:1',markdown:'canonical text',revision:5,serverRevision:'r5'},metadata:{title:'Title',category:'other',visibility:'private',allowedUsernames:[]}})),localStorage)
   const article=await adapter.load('blog:1')
   let persistedMode=''
   const wrapper=mount(PlaygroundApp,{attachTo:document.body,props:{articleCatalog:[article],storage:adapter.storage,articleModes:adapter.articleModes,persistence:{saveWorkspace:input=>{persistedMode=input.mode}}}})
   await flushPromises()
-  expect(wrapper.get('#markdown-source').element).toHaveProperty('value','canonical text')
+  expect(wrapper.get('[data-testid="editor-surface"]').attributes('data-mode')).toBe('visual')
+  expect(wrapper.get('.ProseMirror').text()).toBe('canonical text')
   expect(wrapper.find('.article-panel--collapsed').exists()).toBe(true)
-  await wrapper.get('[data-command-id="mode.visual"]').trigger('click')
+  await wrapper.get('[data-command-id="mode.source"]').trigger('click')
   await flushPromises()
-  expect(persistedMode).toBe('visual')
+  expect(persistedMode).toBe('source')
+  expect(wrapper.get('#markdown-source').element).toHaveProperty('value','canonical text')
   wrapper.unmount()
  })
 })

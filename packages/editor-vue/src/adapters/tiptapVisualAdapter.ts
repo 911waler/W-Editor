@@ -1,3 +1,5 @@
+import { referenceFromAttributes } from './referenceNode'
+import { referenceRegistry, parseReferenceStyle, referenceMarkdown, type DocumentReference, type ReferenceStyle } from '@w-editor/editor-core'
 import { parseInlineImageAt } from '@w-editor/editor-core'
 import { imageAttributes, imageMarkdown } from './imageNode'
 import { Editor, getSchema, type JSONContent } from '@tiptap/core'
@@ -541,6 +543,7 @@ export class TiptapVisualAdapter {
       content: this.#projection.content,
       element: options.host,
       extensions: createTiptapVisualExtensions({
+        referenceRegistry: referenceRegistry(options.session),
         localization,
         mountChart: (target, source) => (
           options.chartRenderer ?? defaultCherryChartPreviewRenderer
@@ -1324,6 +1327,54 @@ export class TiptapVisualAdapter {
 
   selectedFormulaSource(): string | null {
     return this.selectedFormula()?.source ?? null
+  }
+
+  applyReference(reference: DocumentReference): VisualCommandResult {
+    this.#assertAlive()
+    referenceMarkdown(reference)
+    const node = this.#editor.schema.nodes['citation']?.create(reference)
+    if (!node || !this.#editor.isEditable) return { active: false, changed: false }
+    this.#editor.view.dispatch(closeHistory(this.#editor.state.tr.replaceSelectionWith(node)))
+    return { active: true, changed: true }
+  }
+
+  updateReference(id: string, patch: Pick<DocumentReference, 'text' | 'metadata' | 'style'>): VisualCommandResult {
+    return this.#changeReferences(reference => reference.id === id ? { id: reference.id, number: reference.number, ...patch } : reference)
+  }
+
+  removeReference(id: string): VisualCommandResult {
+    const result = this.#changeReferences(reference => reference.id === id ? null : reference)
+    if (result.changed) referenceRegistry(this.#session).forget(id)
+    return result
+  }
+
+  setReferenceStyle(style: ReferenceStyle): VisualCommandResult {
+    return this.#changeReferences(reference => ({ ...reference, style }), parseReferenceStyle(style))
+  }
+
+  #changeReferences(change: (reference: DocumentReference) => DocumentReference | null, documentStyle?: ReferenceStyle): VisualCommandResult {
+    this.#assertAlive()
+    if (!this.#editor.isEditable) return { active: false, changed: false }
+    const transaction = this.#editor.state.tr
+    this.#editor.state.doc.descendants((node, pos) => {
+      if (node.type.name !== 'citation') return
+      const previous = referenceFromAttributes(node.attrs)
+      const next = change(previous)
+      if (next === null) transaction.delete(transaction.mapping.map(pos), transaction.mapping.map(pos + node.nodeSize))
+      else if (referenceMarkdown(previous) !== referenceMarkdown(next)) transaction.setNodeMarkup(transaction.mapping.map(pos), undefined, { ...next })
+    })
+    if (documentStyle !== undefined) {
+      const first = transaction.doc.firstChild
+      if (first?.type.name === 'referenceDocumentStyle') {
+        if (first.attrs['style'] !== documentStyle) transaction.setNodeMarkup(0, undefined, { ...first.attrs, style: documentStyle })
+      } else {
+        transaction.insert(0, this.#editor.schema.nodes['referenceDocumentStyle']!.create({ style: documentStyle }))
+      }
+    }
+    if (!transaction.docChanged) return { active: false, changed: false }
+    this.#editor.view.dispatch(closeHistory(transaction))
+    this.#editor.view.dispatch(closeHistory(this.#editor.state.tr).setMeta('addToHistory', false))
+    return { active: true, changed: true }
   }
 
   applyFormula(source: string): VisualCommandResult

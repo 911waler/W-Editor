@@ -6,6 +6,8 @@ The reference-ownership, DOM/geometry, visual-token, selection/caret, keyboard/f
 
 ## Text and headings
 
+The `text-style` menu uses a `+` trigger and contains Strike, Underline, Subscript, Superscript, Ruby/Pinyin, and Quote. The Strike item keeps its strikethrough icon.
+
 | Stable ID | Cherry control | Cherry-compatible source or outcome | S strategy | V strategy | P | Required outcome evidence |
 | --- | --- | --- | --- | --- | --- | --- |
 | `text.bold` | bold | `**text**` | checked selection replacement | direct mark | disabled | exact range, active state, preview, reload, undo |
@@ -28,6 +30,8 @@ The reference-ownership, DOM/geometry, visual-token, selection/caret, keyboard/f
 H6 is deliberately absent from the agreed top-toolbar surface.
 
 ## Lists, panels, layout, and disclosure
+
+One `list` icon menu contains Ordered, Unordered, and Task lists in that order. Panel retains its five variants, two-column, multi-column, and Tabs entries. Timeline and Accordion are the Layout and disclosure section of the combined Draw (`mermaid`) menu.
 
 | Stable ID | Cherry control | Cherry-compatible source or outcome | S strategy | V strategy | P | Required outcome evidence |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -68,10 +72,13 @@ H6 is deliberately absent from the agreed top-toolbar surface.
 | `insert.word` | word | Cherry Word attachment source with URL metadata | URL/upload dialog | typed attachment card | disabled | apply/cancel/failure, reload, export, undo |
 | `insert.file` | file | Cherry arbitrary-file source with URL metadata | URL/upload dialog | typed attachment card | disabled | apply/cancel/failure, reload, export, undo |
 | `insert.drawio` | drawIo | Cherry PNG data plus encoded XML form | draw.io dialog | semantic diagram node/dialog | disabled | origin/window/request validation, apply/cancel, quota, undo |
+| `insert.reference` | reference | Reference citation link and bibliography entry | captured-cursor dialog insertion | captured-cursor dialog insertion | disabled | add, cancel, citation, bibliography, undo |
 
 `insert.formula` and `insert.drawio` are single public identities even when reachable from more than one menu location.
 
-## Mermaid drawing menu
+## Draw menu: Mermaid section
+
+The single Draw menu is labeled `画图` in Chinese and retains the `mermaid` menu ID. Its sections are Layout and disclosure (`布局与展开`: Accordion, Timeline), Mermaid drawings, and Charts (`图表`). All existing command IDs and editors remain unchanged; Charts has no separate top-level menu.
 
 | Stable ID | Reference variant | Source/outcome | S strategy | V strategy | P | Required outcome evidence |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -82,7 +89,7 @@ H6 is deliberately absent from the agreed top-toolbar surface.
 | `mermaid.pie` | graph/pie | fenced `mermaid` pie starter | checked insertion | semantic source + preview | disabled | starter, apply/cancel, invalid-local error, reload |
 | `mermaid.gantt` | graph/gantt | fenced `mermaid` Gantt starter | checked insertion | semantic source + preview | disabled | starter, apply/cancel, invalid-local error, reload |
 
-## Chart-table menu
+## Draw menu: Charts section
 
 | Stable ID | Reference variant | Source/outcome | S strategy | V strategy | P | Required outcome evidence |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -101,12 +108,12 @@ H6 is deliberately absent from the agreed top-toolbar surface.
 | --- | --- | --- | --- | --- | --- | --- |
 | `history.undo` | undo | undo one native user-intent step in the active activation | source history | visual history | disabled | no mode-boundary traversal or feedback loop |
 | `history.redo` | redo | redo one native user-intent step in the active activation | source history | visual history | disabled | no mode-boundary traversal or feedback loop |
-| `document.manual-save` | customSave / Save version | flush and replace the latest manual checkpoint | enabled | enabled | enabled | dirty becomes clean; autosave/export meaning unchanged |
+| `document.manual-save` | customSave / Save version; NWU host Save button | flush and replace the latest manual checkpoint; NWU also persists the server document and revision | enabled | enabled | enabled | dirty becomes clean; autosave/export meaning unchanged |
 | `search.replace` | search | active-adapter match navigation and checked replacement | source adapter | visual adapter | search-only/no mutation | matches, cancel, exact replacements, no hidden mutation |
 | `settings.shortcuts` | shortcutKey | edit shortcut mappings by stable command ID | enabled | enabled | enabled | mapping changes, no content revision |
 | `mode.source` | W-Editor mode control | two-phase activation of source mode | active | enabled | enabled | one surface, checkpoint, failure preservation |
 | `mode.visual` | W-Editor mode control | two-phase activation of visual mode | enabled | active | enabled | one surface, checkpoint, failure preservation |
-| `mode.preview` | togglePreview / mode control | flush and activate read-only final preview | enabled | enabled | active | exact flushed revision, no hidden mutation |
+| `mode.preview` | mode control; no top-toolbar alias | flush and activate read-only final preview | enabled | enabled | active | exact flushed revision, no hidden mutation |
 | `application.fullscreen` | fullScreen | enter/exit browser fullscreen | enabled | enabled | enabled | state/failure/cleanup, no content revision |
 | `language.zh` | changeLocale/zh-CN | set toolbar presentation to Chinese | enabled | enabled | enabled | localized labels, stable IDs/source unchanged |
 | `language.en` | changeLocale/en-US | set toolbar presentation to English | enabled | enabled | enabled | localized labels, stable IDs/source unchanged |
@@ -114,9 +121,10 @@ H6 is deliberately absent from the agreed top-toolbar surface.
 | `document.word-count` | wordCount | report statistics from the flushed revision | enabled | enabled | enabled | values advance with revision; no content revision |
 | `export.markdown` | export/Markdown | exact authoritative Markdown download | enabled | enabled | enabled | exact bytes; save states unchanged |
 | `export.html` | export/HTML | safe standalone Cherry-rendered HTML | enabled | enabled | enabled | same revision, sanitization, visible failure |
-| `export.word` | export/Word | Word-compatible document from safe rendered HTML | enabled | enabled | enabled | same revision, downloadable result, visible failure |
 | `export.pdf` | export/PDF | downloadable PDF from the safe rendered export document | enabled | enabled | enabled | valid `.pdf` download with opaque-image substitution/notice when needed, or visible genuine capture/encoding failure; no mutation |
 | `export.screenshot` | export/long screenshot | settled long PNG capture of safe rendered output | enabled | enabled | enabled | success with opaque-image substitution/notice when needed, or genuine taint/oversize failure; no mutation |
+
+The NWU host hides the duplicate Save version toolbar button because its top Save button invokes the same manual-checkpoint save. Standalone and desktop editors keep the toolbar button; the command and Ctrl/Cmd+S binding remain available in all hosts. Preview remains in the Source/Visual/Preview mode controls, without a duplicate eye icon in the toolbar.
 
 ## Explicit exclusions
 

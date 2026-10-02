@@ -33,7 +33,7 @@ export interface ToolbarMenuDescriptor {
   readonly region: 'main' | 'overflow'
 }
 
-export type ToolbarMenuId = 'alignment' | 'chart' | 'color' | 'export' | 'heading' | 'insert' | 'language' | 'mermaid' | 'panel' | 'text-style' | 'theme'
+export type ToolbarMenuId = 'alignment' | 'color' | 'export' | 'heading' | 'insert' | 'language' | 'list' | 'mermaid' | 'panel' | 'text-style' | 'theme'
 
 export const EXCLUDED_TOOLBAR_CONTROL_IDS = Object.freeze([
   'customMenuAName',
@@ -64,14 +64,14 @@ const COMMAND_GROUPS = Object.freeze({
 })
 
 export const TOOLBAR_MENU_DESCRIPTORS: readonly ToolbarMenuDescriptor[] = Object.freeze([
-  Object.freeze({ icon: 'S', iconClass: 'ch-icon-strike', id: 'text-style', labels: labels('Text style', '文字样式', 'Стиль текста'), order: 10, region: 'main' }),
+  Object.freeze({ icon: '+', iconClass: null, id: 'text-style', labels: labels('Text style', '文字样式', 'Стиль текста'), order: 10, region: 'main' }),
   Object.freeze({ icon: 'A', iconClass: 'ch-icon-color', id: 'color', labels: labels('Text color and background', '文字颜色和背景', 'Цвет текста и фона'), order: 20, region: 'main' }),
   Object.freeze({ icon: 'H', iconClass: 'ch-icon-header', id: 'heading', labels: labels('Heading', '标题', 'Заголовок'), order: 30, region: 'main' }),
+  Object.freeze({ icon: '☷', iconClass: 'ch-icon-ul', id: 'list', labels: labels('Lists', '列表', 'Списки'), order: 35, region: 'main' }),
   Object.freeze({ icon: '▣', iconClass: 'ch-icon-tips', id: 'panel', labels: labels('Panel', '面板', 'Панель'), order: 40, region: 'main' }),
   Object.freeze({ icon: '≡', iconClass: 'ch-icon-align', id: 'alignment', labels: labels('Alignment', '对齐', 'Выравнивание'), order: 50, region: 'main' }),
   Object.freeze({ icon: '+', iconClass: null, id: 'insert', labels: labels('Insert', '插入', 'Вставка'), order: 60, region: 'main' }),
   Object.freeze({ icon: '◇', iconClass: null, id: 'mermaid', labels: labels('Draw', '画图', 'Рисование'), order: 70, region: 'main' }),
-  Object.freeze({ icon: '▥', iconClass: 'ch-icon-insertLineChart', id: 'chart', labels: labels('Chart', '图表', 'Диаграмма'), order: 80, region: 'main' }),
   Object.freeze({ icon: '◐', iconClass: 'ch-icon-main-theme', id: 'theme', labels: labels('Theme', '主题', 'Тема'), order: 85, region: 'main' }),
   Object.freeze({ icon: 'EN', iconClass: null, id: 'language', labels: labels('Language', '语言', 'Язык'), order: 90, region: 'main' }),
   Object.freeze({ icon: '⇩', iconClass: null, id: 'export', labels: labels('Export', '导出', 'Экспорт'), order: 100, region: 'main' }),
@@ -114,9 +114,9 @@ const COMMAND_SEEDS: readonly CommandSeed[] = Object.freeze([
   seed('block.h3', 'heading', 3, 'H3', 'Heading 3', '三级标题', 'Заголовок 3', { menuId: 'heading', selection: textSelection }),
   seed('block.h4', 'heading', 4, 'H4', 'Heading 4', '四级标题', 'Заголовок 4', { menuId: 'heading', selection: textSelection }),
   seed('block.h5', 'heading', 5, 'H5', 'Heading 5', '五级标题', 'Заголовок 5', { menuId: 'heading', selection: textSelection }),
-  seed('list.ordered', 'list', 1, '1.', 'Ordered list', '有序列表', 'Нумерованный список', { iconClass: 'ch-icon-ol', region: 'main', selection: textSelection }),
-  seed('list.unordered', 'list', 2, '•', 'Bullet list', '无序列表', 'Маркированный список', { iconClass: 'ch-icon-ul', region: 'main', selection: textSelection }),
-  seed('list.task', 'list', 3, '☐', 'Task list', '任务列表', 'Список задач', { iconClass: 'ch-icon-checklist', region: 'main', selection: textSelection }),
+  seed('list.ordered', 'list', 1, '1.', 'Ordered list', '有序列表', 'Нумерованный список', { iconClass: 'ch-icon-ol', menuId: 'list', selection: textSelection }),
+  seed('list.unordered', 'list', 2, '•', 'Bullet list', '无序列表', 'Маркированный список', { iconClass: 'ch-icon-ul', menuId: 'list', selection: textSelection }),
+  seed('list.task', 'list', 3, '☐', 'Task list', '任务列表', 'Список задач', { iconClass: 'ch-icon-checklist', menuId: 'list', selection: textSelection }),
   ...PANEL_DESCRIPTORS.map((descriptor, index) => seed(
     descriptor.commandId,
     'panel',
@@ -134,8 +134,8 @@ const COMMAND_SEEDS: readonly CommandSeed[] = Object.freeze([
   seed('layout.two-column', 'layout', 1, 'Ⅱ', 'Two columns', '双栏', 'Две колонки', { menuId: 'panel', selection: insertionSelection }),
   seed('layout.multi-column', 'layout', 2, 'Ⅲ', 'Multiple columns', '多栏', 'Несколько колонок', { menuId: 'panel', selection: insertionSelection }),
   seed('layout.tabs', 'layout', 3, '▤', 'Tabs', '标签页', 'Вкладки', { menuId: 'panel', selection: insertionSelection }),
-  seed('layout.accordion', 'layout', 4, '⌄', 'Accordion', '折叠面板', 'Аккордеон', { iconClass: 'ch-icon-insertFlow', region: 'main', selection: insertionSelection }),
-  seed('layout.timeline', 'layout', 5, '◉', 'Timeline', '时间线', 'Временная шкала', { iconClass: 'ch-icon-timeline', region: 'main', selection: insertionSelection }),
+  seed('layout.accordion', 'layout', 4, '⌄', 'Accordion', '折叠面板', 'Аккордеон', { iconClass: 'ch-icon-insertFlow', menuId: 'mermaid', selection: insertionSelection }),
+  seed('layout.timeline', 'layout', 5, '◉', 'Timeline', '时间线', 'Временная шкала', { iconClass: 'ch-icon-timeline', menuId: 'mermaid', selection: insertionSelection }),
   seed('insert.image', 'insert', 1, '▧', 'Image', '图片', 'Изображение', { menuId: 'insert', selection: insertionSelection }),
   seed('insert.audio', 'insert', 2, '♪', 'Audio', '音频', 'Аудио', { menuId: 'insert', selection: insertionSelection }),
   seed('insert.video', 'insert', 3, '▶', 'Video', '视频', 'Видео', { menuId: 'insert', selection: insertionSelection }),
@@ -151,6 +151,7 @@ const COMMAND_SEEDS: readonly CommandSeed[] = Object.freeze([
   seed('insert.word', 'insert', 13, 'W', 'Word attachment', 'Word 附件', 'Документ Word', { menuId: 'insert', selection: insertionSelection }),
   seed('insert.file', 'insert', 14, '⌑', 'File attachment', '文件附件', 'Файл', { menuId: 'insert', selection: insertionSelection }),
   seed('insert.drawio', 'insert', 15, '◇', 'draw.io diagram', 'draw.io 图表', 'Диаграмма draw.io', { region: 'main', selection: insertionSelection }),
+  seed('insert.reference', 'insert', 16, 'Ref', 'Reference', '参考文献', 'Библиографическая ссылка', { menuId: 'insert', selection: insertionSelection }),
   ...MERMAID_DESCRIPTORS.map((descriptor, index) => seed(
     descriptor.commandId,
     'mermaid',
@@ -169,7 +170,7 @@ const COMMAND_SEEDS: readonly CommandSeed[] = Object.freeze([
     descriptor.labels.en,
     descriptor.labels.zh,
     descriptor.labels.ru,
-    { menuId: 'chart', selection: insertionSelection },
+    { menuId: 'mermaid', selection: insertionSelection },
   )),
   seed('document.manual-save', 'document', 1, '✓', 'Save version', '保存版本', 'Сохранить версию', { iconClass: 'ch-icon-check', region: 'main', selection: anySelection }),
   seed('search.replace', 'workspace', 1, '⌕', 'Search', '搜索', 'Поиск', { iconClass: 'ch-icon-search', region: 'main', selection: anySelection }),
@@ -184,7 +185,6 @@ const COMMAND_SEEDS: readonly CommandSeed[] = Object.freeze([
   seed('language.ru', 'language', 3, 'RU', 'Russian', '俄语', 'Русский', { menuId: 'language', selection: anySelection }),
   seed('export.markdown', 'export', 1, 'MD', 'Markdown file', 'Markdown 文件', 'Файл Markdown', { menuId: 'export', selection: anySelection }),
   seed('export.html', 'export', 2, 'HTML', 'HTML file', 'HTML 文件', 'Файл HTML', { menuId: 'export', selection: anySelection }),
-  seed('export.word', 'export', 3, 'W', 'Word-compatible file', 'Word 兼容文件', 'Файл Word', { menuId: 'export', selection: anySelection }),
   seed('export.pdf', 'export', 4, 'PDF', 'Export PDF', '导出 PDF', 'Экспорт PDF', { menuId: 'export', selection: anySelection }),
   seed('export.screenshot', 'export', 5, 'PNG', 'Long screenshot', '长截图', 'Длинный снимок', { menuId: 'export', selection: anySelection }),
 ])

@@ -1,6 +1,7 @@
 import type { JSONContent } from '@tiptap/core'
 
 import type { Codec, CodecMatch, ProjectionNode, SafePatchUnit, ValidationResult } from './contracts'
+import { parseReferenceAt } from './references'
 import { parseInlineImageAt } from './images'
 import { parseInlineFormulaAt } from './formulas'
 import { recognizeRichInlineMark, richMarkJSON } from './richInlineMarks'
@@ -121,6 +122,14 @@ function parseRange(source: string, inheritedMarks: readonly JSONMark[] = []): J
     plain = ''
   }
   while (offset < source.length) {
+    if (source[offset] === '\\' && source[offset + 1] === '[') { plain += source.slice(offset, offset + 2); offset += 2; continue }
+    const reference = inheritedMarks.some(mark => mark.type === 'link') ? null : parseReferenceAt(source, offset)
+    if (reference) {
+      flushPlain()
+      content.push({ type: 'citation', attrs: { id: reference.id, number: reference.number, text: reference.text, ...(reference.metadata ? { metadata: reference.metadata } : {}), ...(reference.style ? { style: reference.style } : {}) } })
+      offset = reference.to
+      continue
+    }
     const image = parseInlineImageAt(source, offset)
     if (image !== null) {
       flushPlain()

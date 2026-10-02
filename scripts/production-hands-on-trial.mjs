@@ -59,6 +59,7 @@ const DIALOG_SELECTORS = Object.freeze({
   'insert.audio': '[data-editor-command="insert.audio"]',
   'insert.code-block': '[data-editor-command="insert.code-block"]',
   'insert.drawio': '[data-editor-command="insert.drawio"]',
+  'insert.reference': '[data-testid="reference-insert-dialog"]',
   'insert.file': '[data-editor-command="insert.file"]',
   'insert.formula': '[data-picker-command="insert.formula"]',
   'insert.image': '[data-editor-command="insert.image"]',
@@ -89,7 +90,6 @@ const DOWNLOAD_FILENAMES = Object.freeze({
   'export.markdown': 'welcome.md',
   'export.pdf': 'welcome.pdf',
   'export.screenshot': 'welcome.png',
-  'export.word': 'welcome.doc',
 })
 
 const ALL_SELECTION_COMMANDS = new Set([
@@ -435,6 +435,8 @@ async function selectAcrossBlocks(page) {
 async function closeCommandDialog(dialog, commandId, beginDrawioTeardown) {
   const closeName = commandId === 'insert.drawio'
     ? /Cancel draw\.io editing/u
+    : commandId === 'insert.reference'
+      ? /Close/u
     : commandId === 'document.word-count'
       ? /^Close$/u
       : /^Cancel$/u
@@ -985,7 +987,7 @@ async function runLifecycleAndIntegrationJourney(page, report, beginDrawioTeardo
     assertEqual(envelope?.preDestructiveReplace?.markdown, before, 'Pre-destructive import checkpoint')
   })
 
-  await recordStep(report, 'exports', 'Download exact Markdown, safe HTML, Word-compatible output, and a long PNG', async () => {
+  await recordStep(report, 'exports', 'Download exact Markdown, safe HTML and a long PNG', async () => {
     const download = async (commandId) => {
       const pending = page.waitForEvent('download')
       await clickMenuCommand(page, 'export', commandId)
@@ -1001,12 +1003,6 @@ async function runLifecycleAndIntegrationJourney(page, report, beginDrawioTeardo
     assert(htmlPath !== null, 'HTML export had no local download path.')
     const html = (await readFile(htmlPath)).toString('utf8')
     assert(html.includes('<!doctype html>') && !/<script/iu.test(html), 'HTML export was not a safe standalone document.')
-
-    const wordDownload = await download('export.word')
-    const wordPath = await wordDownload.path()
-    assert(wordPath !== null, 'Word export had no local download path.')
-    const word = await readFile(wordPath)
-    assertEqual([...word.subarray(0, 3)].join(','), '239,187,191', 'Word export UTF-8 BOM')
 
     const screenshotDownload = await download('export.screenshot')
     const screenshotPath = await screenshotDownload.path()

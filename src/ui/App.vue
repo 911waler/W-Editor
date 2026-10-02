@@ -66,6 +66,7 @@ const adapterProps = computed(() => adapter ? {
   ...(announcementMode ? {class:'announcement-editor',toolbarImport:true} : {}),
   articleSwitchPolicy: 'save-discard' as const,
   storage: adapter.storage,
+  hideToolbarManualSave: true,
   savedMarkdown: (id: string) => adapter.savedMarkdown.get(id),
   articleTitles: articleTitles.value,
   ...(announcementMode ? {} : {
@@ -79,6 +80,7 @@ const adapterProps = computed(() => adapter ? {
   } : {}),
   loadArticle: (id: string) => adapter.load(id),
   uploadAdapter: adapter.uploadAdapter,
+  referenceServices: adapter.referenceServices,
   persistDrawio: (payload: {png:string;xml:string}) => adapter.persistDrawio(payload),
   persistence: {
     saveAutosave: (input: {documentId:string;markdown:string;revision:number}) => adapter.save(input,'autosave-draft'),
@@ -169,8 +171,11 @@ async function publishAnnouncement() {
   if(!adapter || !editor.value || busy.value) return
   busy.value=true; message.value=''
   try {
-    await editor.value.saveForLifecycle()
-    acceptPublication(await adapter.publishAnnouncement(activeId.value))
+    const id = activeId.value
+    await editor.value.publishForLifecycle(async input => {
+      await adapter!.save(input, 'manual-save')
+      acceptPublication(await adapter!.publishAnnouncement(id))
+    })
     message.value=publication.value?.state==='scheduled' ? '已加入定时发布。' : '公告已发布。'
   } catch(error) { message.value=error instanceof Error ? error.message : '发布失败，正文已保留。'; recoveryAvailable.value=true }
   finally { busy.value=false }

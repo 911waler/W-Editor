@@ -8,5 +8,5 @@
     "rootDir": "src",
     "tsBuildInfoFile": "../../node_modules/.cache/editor-web.types.tsbuildinfo"
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "../editor-vue/src/services/citeproc.d.ts"]
 }

@@ -2,6 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
 import App from '../../src/ui/App.vue'
+import PlaygroundApp from '../../apps/playground/src/PlaygroundApp.vue'
 import {
   PANEL_DESCRIPTORS,
   chartTableStarterSource,
@@ -10,6 +11,7 @@ import {
   formatRichInlineMark,
   mermaidStarterSource,
   panelStarterSource,
+  referenceMarkdown,
   timelineStarterSource,
   type RichInlineMarkCommandId,
 } from '../../src/codecs'
@@ -445,22 +447,14 @@ describe('desktop workspace shell', () => {
         commandId: 'layout.timeline',
         input: '#timeline-source',
         invalid: '::: timeline Release\n:: [unknown] today Invalid status\n:::',
-        menuId: null,
+        menuId: 'mermaid',
         englishDiagnostic: 'Timeline requires a title and one or more valid [status] time title items.',
       },
     ] as const
 
     for (const entry of cases) {
       await chooseVisibleLanguage(wrapper, 'zh')
-      if (entry.menuId === null) {
-        const command = wrapper.get(`[data-command-id="${entry.commandId}"]`)
-        expect(command.isVisible()).toBe(true)
-        await command.trigger('pointerdown')
-        await command.trigger('click')
-        await flushPromises()
-      } else {
-        await clickVisibleMenuCommand(wrapper, entry.menuId, entry.commandId)
-      }
+      await clickVisibleMenuCommand(wrapper, entry.menuId, entry.commandId)
       const dialog = wrapper.get(`[data-picker-command="${entry.commandId}"]`)
       await dialog.get(entry.input).setValue(entry.invalid)
       await dialog.get('.dialog-panel__actions .primary-action').trigger('click')
@@ -809,7 +803,7 @@ describe('desktop workspace shell', () => {
   })
 
   it('stores only the latest manual checkpoint and marks exact checkpoint content clean', async () => {
-    const wrapper = mount(App, { attachTo: document.body })
+    const wrapper = mount(PlaygroundApp, { attachTo: document.body })
     await activateSourceMode(wrapper)
     await wrapper.get('#markdown-source').setValue('# First checkpoint')
     await wrapper.get('[data-command-id="document.manual-save"]').trigger('click')
@@ -821,9 +815,11 @@ describe('desktop workspace shell', () => {
     }
     expect(stored.manualCheckpoint.markdown).toBe('# First checkpoint')
 
+    await wrapper.setProps({ hideToolbarManualSave: true })
+    expect(wrapper.find('[data-command-id="document.manual-save"]').exists()).toBe(false)
     await wrapper.get('#markdown-source').setValue('# Second checkpoint')
     expect(wrapper.get('[aria-label="Workspace status"]').text()).toContain('Manual checkpoint dirty')
-    await wrapper.get('[data-command-id="document.manual-save"]').trigger('click')
+    await wrapper.get('#markdown-source').trigger('keydown', { key: 's', ctrlKey: true })
     await flushPromises()
     stored = JSON.parse(window.localStorage.getItem('w-editor:v1:document:welcome') ?? 'null') as {
       manualCheckpoint: { markdown: string }
@@ -869,22 +865,22 @@ describe('desktop workspace shell', () => {
     wrapper.unmount()
   })
 
-  it('renders the official Cherry toolbar hierarchy and icon font through the public DOM', async () => {
+  it('renders compact toolbar menus while retaining their commands and icon font', async () => {
     const wrapper = mount(App)
     await activateSourceMode(wrapper)
     const expectedByMenu = {
       'text-style': ['text.strike', 'text.underline', 'text.subscript', 'text.superscript', 'text.ruby'],
       color: ['text.color', 'text.background'],
       alignment: ['align.left', 'align.justify'],
-      mermaid: ['mermaid.flowchart', 'mermaid.gantt'],
-      chart: ['chart.line', 'chart.sankey'],
+      list: ['list.ordered', 'list.unordered', 'list.task'],
+      mermaid: ['layout.accordion', 'layout.timeline', 'mermaid.flowchart', 'mermaid.gantt', 'chart.line', 'chart.sankey'],
       export: ['export.markdown', 'export.screenshot'],
       heading: ['block.h1', 'block.h5'],
       insert: ['insert.image', 'insert.formula', 'insert.table', 'insert.file'],
       language: ['language.zh', 'language.ru'],
       panel: ['panel.success', 'layout.two-column', 'layout.tabs'],
     }
-    for (const commandId of ['text.bold', 'text.italic', 'text.size', 'insert.drawio', 'layout.timeline', 'layout.accordion', 'settings.shortcuts', 'document.word-count']) {
+    for (const commandId of ['text.bold', 'text.italic', 'text.size', 'insert.drawio', 'settings.shortcuts', 'document.word-count']) {
       expect(wrapper.find(`[data-command-id="${commandId}"]`).exists()).toBe(true)
     }
 
@@ -897,10 +893,12 @@ describe('desktop workspace shell', () => {
     }
     expect(wrapper.get('[data-command-id="text.bold"] .ch-icon').classes()).toContain('ch-icon-bold')
     expect(wrapper.get('[data-command-id="text.italic"] .ch-icon').classes()).toContain('ch-icon-italic')
-    expect(wrapper.get('[data-toolbar-menu="text-style"] .toolbar-menu__trigger .ch-icon').classes()).toContain('ch-icon-strike')
+    expect(wrapper.get('[data-toolbar-menu="text-style"] .toolbar-menu__trigger').text()).toContain('+')
+    expect(wrapper.find('[data-toolbar-menu="text-style"] .toolbar-menu__trigger .ch-icon').exists()).toBe(false)
+    expect(wrapper.get('[data-command-id="text.strike"] .ch-icon').classes()).toContain('ch-icon-strike')
     expect(wrapper.get('[data-toolbar-menu="color"] .toolbar-menu__trigger .ch-icon').classes()).toContain('ch-icon-color')
     expect(wrapper.get('[data-toolbar-menu="heading"] .toolbar-menu__trigger .ch-icon').classes()).toContain('ch-icon-header')
-    expect(wrapper.get('[data-toolbar-menu="chart"] .toolbar-menu__trigger .ch-icon').classes()).toContain('ch-icon-insertLineChart')
+    expect(wrapper.find('[data-toolbar-menu="chart"]').exists()).toBe(false)
     expect(wrapper.get('[data-command-id="settings.shortcuts"] .ch-icon').classes()).toContain('ch-icon-command')
     expect(wrapper.get('[data-command-id="search.replace"] .ch-icon').classes()).toContain('ch-icon-search')
     expect(wrapper.get('[data-command-id="application.fullscreen"] .ch-icon').classes()).toContain('ch-icon-fullscreen')
@@ -1014,11 +1012,11 @@ describe('desktop workspace shell', () => {
     await source.setValue('Alpha\nBravo')
     textarea.setSelectionRange(0, 11)
     await source.trigger('select')
-    await wrapper.get(`[data-command-id="${commandId}"]`).trigger('click')
+    await clickVisibleMenuCommand(wrapper, 'list', commandId)
     await flushPromises()
 
     expect(textarea.value).toBe(expected)
-    expect(wrapper.get(`[data-command-id="${commandId}"]`).attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get(`[data-command-id="${commandId}"]`).attributes('aria-checked')).toBe('true')
     wrapper.unmount()
   })
 
@@ -1091,7 +1089,7 @@ describe('desktop workspace shell', () => {
       textarea.setSelectionRange(5, 5)
       await source.trigger('select')
       const open = async () => {
-        await wrapper.get('[data-toolbar-menu="panel"] .toolbar-menu__trigger').trigger('click')
+        await wrapper.get(`[data-toolbar-menu="${commandId === 'layout.tabs' ? 'panel' : 'mermaid'}"] .toolbar-menu__trigger`).trigger('click')
         await wrapper.get(`[data-command-id="${commandId}"]`).trigger('click')
         await flushPromises()
         return wrapper.get(`[data-picker-command="${commandId}"]`)
@@ -1128,7 +1126,7 @@ describe('desktop workspace shell', () => {
     textarea.setSelectionRange(5, 5)
     await source.trigger('select')
     const open = async () => {
-      await wrapper.get('[data-command-id="layout.timeline"]').trigger('click')
+      await clickVisibleMenuCommand(wrapper, 'mermaid', 'layout.timeline')
       await flushPromises()
       return wrapper.get('[data-picker-command="layout.timeline"]')
     }
@@ -1510,7 +1508,7 @@ describe('desktop workspace shell', () => {
     wrapper.unmount()
   })
 
-  it('routes explicit mode controls and the toolbar preview toggle through the same coordinated activation path', async () => {
+  it('keeps preview available through mode controls without a duplicate toolbar toggle', async () => {
     const wrapper = mount(App, { attachTo: document.body })
     await activateSourceMode(wrapper)
     const exactMarkdown = '# Coordinated modes\n\nPending source is flushed.'
@@ -1521,26 +1519,23 @@ describe('desktop workspace shell', () => {
       'Preview',
     ])
 
-    const previewToggle = wrapper.get('[data-testid="toolbar-preview-toggle"]')
-    expect(previewToggle.attributes('data-command-alias')).toBe('mode.preview')
-    expect(previewToggle.attributes('aria-pressed')).toBe('false')
-    await previewToggle.trigger('click')
+    expect(wrapper.find('[data-testid="toolbar-preview-toggle"]').exists()).toBe(false)
+    await wrapper.get('[data-command-id="mode.preview"]').trigger('click')
     await flushPromises()
     expect(wrapper.get('.content-surface').attributes('data-mode')).toBe('preview')
     expect(wrapper.get('.visual-surface h1').text()).toBe('Coordinated modes')
-    expect(previewToggle.attributes('aria-pressed')).toBe('true')
 
-    await previewToggle.trigger('click')
+    await wrapper.get('[data-command-id="mode.source"]').trigger('click')
     await flushPromises()
     expect(wrapper.get('.content-surface').attributes('data-mode')).toBe('source')
     expect(wrapper.get('#markdown-source').element).toHaveProperty('value', exactMarkdown)
 
     await wrapper.get('[data-command-id="mode.visual"]').trigger('click')
     await flushPromises()
-    await previewToggle.trigger('click')
+    await wrapper.get('[data-command-id="mode.preview"]').trigger('click')
     await flushPromises()
     expect(wrapper.get('.content-surface').attributes('data-mode')).toBe('preview')
-    await previewToggle.trigger('click')
+    await wrapper.get('[data-command-id="mode.visual"]').trigger('click')
     await flushPromises()
     expect(wrapper.get('.content-surface').attributes('data-mode')).toBe('visual')
     wrapper.unmount()
@@ -1615,7 +1610,7 @@ describe('desktop workspace shell', () => {
     await chooseLanguage('language.zh')
     expect(wrapper.get('[data-command-id="search.replace"]').text()).toContain('搜索')
     expect(wrapper.findAll('.mode-control button').map((button) => button.text())).toEqual(['源码', '可视化', '预览'])
-    expect(wrapper.get('[data-testid="toolbar-preview-toggle"]').text()).toContain('预览')
+    expect(wrapper.get('[data-command-id="mode.preview"]').text()).toContain('预览')
     await wrapper.get('[data-toolbar-menu="language"] .toolbar-menu__trigger').trigger('click')
     expect(wrapper.get('[data-command-id="language.zh"]').attributes('aria-checked')).toBe('true')
     await wrapper.get('[data-command-id="language.ru"]').trigger('click')
@@ -1663,6 +1658,37 @@ describe('desktop workspace shell', () => {
     expect(dialog.get('[data-statistic="words"]').text()).toBe('5')
     expect((source.element as HTMLTextAreaElement).value).toBe(`${exactMarkdown} again`)
     await dialog.get('.primary-action').trigger('click')
+    wrapper.unmount()
+  })
+
+  it('shows live body counts alongside source words and excludes references across editor modes', async () => {
+    seedArticleAutosave('welcome', '', new Date())
+    const wrapper = mount(App, { attachTo: document.body })
+    await activateSourceMode(wrapper, 'zh')
+    const source = wrapper.get('#markdown-source')
+    const citation = referenceMarkdown({ id: 'count-test', number: 1, text: 'Author. Long reference title.' })
+    const markdown = `中文 **hello** ${citation}`
+    await source.setValue(markdown)
+    await flushPromises()
+    const counter = () => wrapper.get('[data-testid="body-word-count"]')
+    expect(counter().text()).toBe('正文 3 字')
+    expect(counter().attributes('title')).toContain('不计参考文献')
+    expect(wrapper.get('.workspace-controls__meta').text()).toContain('个词')
+    for (const mode of ['visual', 'preview', 'source']) {
+      await wrapper.get(`[data-command-id="mode.${mode}"]`).trigger('click')
+      await flushPromises()
+      expect(counter().text()).toBe('正文 3 字')
+    }
+    expect((wrapper.get('#markdown-source').element as HTMLTextAreaElement).value).toBe(markdown)
+    const persisted = JSON.parse(window.localStorage.getItem('w-editor:v1:document:welcome')!)
+    expect(persisted.autosave.markdown).toBe(markdown)
+    expect(persisted.autosave.revision).toBe(2)
+    await wrapper.get('#markdown-source').setValue(`${markdown} 新增`)
+    expect(counter().text()).toBe('正文 5 字')
+    await chooseVisibleLanguage(wrapper, 'en')
+    expect(counter().text()).toBe('Body: 5')
+    await chooseVisibleLanguage(wrapper, 'ru')
+    expect(counter().text()).toBe('Текст: 5')
     wrapper.unmount()
   })
 
@@ -1717,7 +1743,7 @@ describe('desktop workspace shell', () => {
     }
   })
 
-  it('exports safe standalone HTML and Word files from one settled Tiptap presentation per request and exposes failures', async () => {
+  it('exports safe standalone HTML files from one settled Tiptap presentation per request and exposes failures', async () => {
     const originalCreateObjectURL = Object.getOwnPropertyDescriptor(URL, 'createObjectURL')
     const originalRevokeObjectURL = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL')
     const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:rendered-export')
@@ -1732,7 +1758,7 @@ describe('desktop workspace shell', () => {
     const wrapper = mount(App, { attachTo: document.body, props: { previewRenderer: { render } } })
     await activateSourceMode(wrapper)
 
-    const invokeExport = async (commandId: 'export.html' | 'export.word') => {
+    const invokeExport = async (commandId: 'export.html') => {
       await wrapper.get('[data-toolbar-menu="export"] .toolbar-menu__trigger').trigger('click')
       await wrapper.get(`[data-command-id="${commandId}"]`).trigger('click')
       await flushPromises()
@@ -1744,28 +1770,23 @@ describe('desktop workspace shell', () => {
       const envelopeBefore = window.localStorage.getItem('w-editor:v1:document:welcome')
 
       await invokeExport('export.html')
-      await invokeExport('export.word')
+      expect(wrapper.find('[data-command-id="export.word"]').exists()).toBe(false)
 
       expect(render).not.toHaveBeenCalled()
-      expect(createObjectURL).toHaveBeenCalledTimes(2)
-      const [htmlBlob, wordBlob] = createObjectURL.mock.calls.map(([blob]) => blob)
+      expect(createObjectURL).toHaveBeenCalledTimes(1)
+      const [htmlBlob] = createObjectURL.mock.calls.map(([blob]) => blob)
       expect(htmlBlob).toBeInstanceOf(Blob)
-      expect(wordBlob).toBeInstanceOf(Blob)
       const html = await htmlBlob?.text()
-      const word = await wordBlob?.text()
       expect(html).toContain('<!doctype html>')
       expect(html).toContain('class="w-editor-export tiptap ProseMirror rendered-document-content"')
       expect(html).toContain('Rendered export')
       expect(html).toContain('unsafe')
-      expect([...new Uint8Array(await (wordBlob as Blob).arrayBuffer()).slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
-      expect(word?.startsWith('<!doctype html>')).toBe(true)
-      expect(word).toContain('xmlns:w="urn:schemas-microsoft-com:office:word"')
-      for (const exported of [html, word]) {
+      for (const exported of [html]) {
         const parsed = new DOMParser().parseFromString(exported ?? '', 'text/html')
         expect(parsed.querySelector('main script, main [onclick], main a[href^="javascript:"]')).toBeNull()
       }
-      expect(click).toHaveBeenCalledTimes(2)
-      expect(revokeObjectURL).toHaveBeenCalledTimes(2)
+      expect(click).toHaveBeenCalledTimes(1)
+      expect(revokeObjectURL).toHaveBeenCalledTimes(1)
       expect((wrapper.get('#markdown-source').element as HTMLTextAreaElement).value).toBe(exactMarkdown)
       expect(window.localStorage.getItem('w-editor:v1:document:welcome')).toBe(envelopeBefore)
       expect(wrapper.get('[aria-label="Workspace status"]').text()).toContain('Autosave pending')

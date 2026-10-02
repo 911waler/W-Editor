@@ -129,8 +129,8 @@ async function selectAllVisualBlocks(page: Page): Promise<void> {
 async function structureCommand(page: Page, commandId: string): Promise<Locator> {
   const menuId = commandId.startsWith('align.')
     ? 'alignment'
-    : commandId === 'layout.timeline' ? null : 'panel'
-  if (menuId !== null) await page.locator(`[data-toolbar-menu="${menuId}"] .toolbar-menu__trigger`).click()
+    : commandId === 'layout.timeline' || commandId === 'layout.accordion' ? 'mermaid' : 'panel'
+  await page.locator(`[data-toolbar-menu="${menuId}"] .toolbar-menu__trigger`).click()
   return page.locator(`[data-command-id="${commandId}"]`)
 }
 

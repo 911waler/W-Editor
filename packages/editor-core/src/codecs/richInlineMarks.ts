@@ -21,7 +21,18 @@ interface RecognizedRichMark {
   readonly value: string
 }
 
-const COLOR_PATTERN = '(?:#[0-9a-zA-Z]{3,6}|[a-z]{3,20})'
+const RGB_CHANNEL = '(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[0-9]{1,2})'
+const RGB_PATTERN = `rgb\\([ \t]*${RGB_CHANNEL}[ \t]*,[ \t]*${RGB_CHANNEL}[ \t]*,[ \t]*${RGB_CHANNEL}[ \t]*\\)`
+const COLOR_PATTERN = `(?:#[0-9a-zA-Z]{3,6}|${RGB_PATTERN}|[a-z]{3,20})`
+
+const RGB_COLOR = new RegExp(`^${RGB_PATTERN}$`, 'u')
+
+// Browser HTML paste exposes computed colors as RGB, whereas Cherry expects hex.
+// Keep this conversion shared by new serialization and legacy-source projection.
+function canonicalColor(value: string): string {
+  if (!RGB_COLOR.test(value)) return value
+  return `#${(value.match(/[0-9]+/gu) ?? []).map((channel) => Number(channel).toString(16).padStart(2, '0')).join('')}`
+}
 
 export const RICH_INLINE_MARK_SPECS: readonly RichInlineMarkSpec[] = Object.freeze([
   Object.freeze({
@@ -142,8 +153,8 @@ export function richInlineMarkAtSelection(
 
 export function formatRichInlineMark(commandId: RichInlineMarkCommandId, body: string, value: string): string {
   switch (commandId) {
-    case 'text.background': return `!!!${value} ${body}!!!`
-    case 'text.color': return `!!${value} ${body}!!`
+    case 'text.background': return `!!!${canonicalColor(value)} ${body}!!!`
+    case 'text.color': return `!!${canonicalColor(value)} ${body}!!`
     case 'text.ruby': return `{ ${body} | ${value} }`
     case 'text.size': return `!${value} ${body}!`
   }
@@ -258,7 +269,7 @@ export function normalizeRichInlineMarkdownForCherry(markdown: string): string {
 export function richMarkJSON(spec: RichInlineMarkSpec, value: string): NonNullable<JSONContent['marks']>[number] {
   if (spec.commandId === 'text.ruby') return Object.freeze({ attrs: { annotation: value }, type: 'ruby' })
   if (spec.commandId === 'text.size') return Object.freeze({ attrs: { fontSize: `${value}px` }, type: 'textStyle' })
-  return Object.freeze({ attrs: { color: value }, type: spec.mark.type })
+  return Object.freeze({ attrs: { color: canonicalColor(value) }, type: spec.mark.type })
 }
 
 function codecMatch(source: string, offset: number, spec: RichInlineMarkSpec): CodecMatch | null {

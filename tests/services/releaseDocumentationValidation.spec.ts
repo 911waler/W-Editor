@@ -29,6 +29,7 @@ const referenceManifest = JSON.parse(
 const systemBrowserSmokeReport = JSON.parse(read('tests/fixtures/acceptance/system-browser-smoke.json')) as unknown
 const agentHandsOnTrialReport = JSON.parse(read('tests/fixtures/acceptance/agent-hands-on-trial.json')) as unknown
 
+const archivedCommands = (JSON.parse(read('tests/fixtures/manifests/archived-acceptance-commands.json')) as { commands: { ids: readonly string[] } }).commands.ids
 const commandIds = [...featureManifest.commands.ids]
 const requirementTitles = featureManifest.acceptanceRequirements.items.map(({ title }) => title)
 const requirementFamilyIds = [...featureManifest.requirementFamilies.ids]
@@ -47,7 +48,7 @@ describe('release documentation mutation validation', () => {
     expect(validateReferenceBaselineManifest(referenceManifest)).toEqual([])
     expect(validateSystemBrowserSmokeReport(systemBrowserSmokeReport)).toEqual([])
     expect(
-      validateAgentHandsOnTrialReport(agentHandsOnTrialReport, requirementFamilyIds, commandIds),
+      validateAgentHandsOnTrialReport(agentHandsOnTrialReport, requirementFamilyIds, archivedCommands),
     ).toEqual([])
     expect(
       validateAcceptanceChecklist(acceptanceChecklist, requirementTitles, commandIds),

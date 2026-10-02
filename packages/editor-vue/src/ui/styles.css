@@ -87,6 +87,8 @@
 .line-spacing-menu__check { width: 1rem; color: currentcolor; font-weight: 800; text-align: center; }
 .line-spacing-trigger__icon { font-size: 17px; line-height: 1; }
 .tool-button { min-width: 38px; height: 38px; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 0; padding: 0 12px; border: 0; border-radius: 6px; color: #3f4a56; font-size: 14px; line-height: 1; white-space: nowrap; }
+.tool-button__chevron { margin-inline-start: 4px; font-size: 10px; }
+[data-toolbar-menu="text-style"] .tool-button__text { font-size: 20px; }
 .toolbar-region .tool-button__label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .toolbar-region .primary-action { min-width: 38px; height: 38px; min-height: 38px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: #3f4a56; font-size: 14px; line-height: 1; }
 .toolbar-region .primary-action:hover { background: #f1f3f5; }
@@ -161,7 +163,9 @@
 .mode-control button { padding: .42rem .72rem; color: #64736c; font-size: .72rem; font-weight: 650; }
 .mode-control button[aria-pressed="true"] { background: #fff; color: #185d45; box-shadow: 0 1px 4px rgb(35 54 45 / 15%); }
 .mode-control button:disabled { cursor: wait; }
-.workspace-controls__meta { display: flex; gap: .45rem; color: #76847d; font-size: .72rem; }
+.workspace-controls__meta { display: flex; flex-wrap: wrap; gap: .45rem; min-width: 0; color: #76847d; font-size: .72rem; }
+.workspace-controls__meta > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-controls__meta > span { white-space: nowrap; }
 .workspace-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem 1rem; border-bottom: 1px solid #e5b8ac; background: #fff1ed; color: #7d2d1e; }
 .workspace-error strong { font-size: .72rem; letter-spacing: .04em; }
 .workspace-error p { margin: .15rem 0 0; font-size: .76rem; }
@@ -1090,3 +1094,12 @@
 .lifecycle-decision-panel .dialog-panel__actions button { flex: 0 0 auto; white-space: nowrap; }
 .lifecycle-option-help { padding-left: 1.3rem; line-height: 1.6; }
 .lifecycle-option-help li + li { margin-top: .4rem; }
+
+.w-reference { font-size: .8em; vertical-align: super; cursor: pointer; text-decoration: none; padding-inline: 1px; }
+.w-reference-list { margin: 24px 0; padding: 16px; border-top: 1px solid #a0aaa5; overflow-wrap: anywhere; }
+.w-reference-list h2 { font-size: 1.1em; }
+.w-reference-list p { margin: 8px 0; scroll-margin: 24px; }
+
+.visual-surface .ProseMirror:has(+ .w-reference-list:not([hidden])) { min-height: 0; }
+.reference-toolbar-button { margin: 4px 8px; padding: 6px 12px; border: 1px solid var(--app-border, #c7d1cb); border-radius: 6px; background: var(--app-surface, #fff); color: inherit; cursor: pointer; }
+.reference-toolbar-button:disabled { cursor: default; opacity: .5; }

@@ -220,14 +220,12 @@ test('Quote is available from the text-style toolbar menu with a matching compac
   await expectAuthority(page, '> Alpha')
 })
 
-test('font size, color, timeline, accordion, formula, and shortcut controls close their own overlays on the second click', async ({ page }) => {
+test('font size, color, formula, and shortcut controls close their own overlays on the second click', async ({ page }) => {
   await openReadyApp(page)
   const initial = await authority(page)
   const cases = [
     { overlay: '[data-picker-command="text.size"]', trigger: '[data-command-id="text.size"]' },
     { overlay: '[data-picker-command="text.color"]', trigger: '[data-toolbar-menu="color"] .toolbar-menu__trigger' },
-    { overlay: '[data-picker-command="layout.timeline"]', trigger: '[data-command-id="layout.timeline"]' },
-    { overlay: '[data-picker-command="layout.accordion"]', trigger: '[data-command-id="layout.accordion"]' },
     { overlay: '[data-picker-command="insert.formula"]', trigger: '[data-command-alias="insert.formula"]' },
     { overlay: '[data-testid="shortcut-settings"]', trigger: '[data-command-id="settings.shortcuts"]' },
   ] as const
@@ -252,10 +250,12 @@ for (const current of [
     const editor = await openVisualMarkdown(page, 'Before\n\nAlpha\n\nAfter')
     await editor.locator(':scope > p', { hasText: 'Alpha' }).click()
     await page.keyboard.press('End')
+    await page.locator('[data-toolbar-menu="list"] .toolbar-menu__trigger').click()
     await page.locator(`[data-command-id="${current.commandId}"]`).click()
     await expectAuthority(page, current.applied)
     await editor.locator(current.paragraph).click()
     await page.keyboard.press('End')
+    await page.locator('[data-toolbar-menu="list"] .toolbar-menu__trigger').click()
     await page.locator(`[data-command-id="${current.commandId}"]`).click()
 
     await expectAuthority(page, 'Before\n\nAlpha\n\nAfter')

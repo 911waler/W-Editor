@@ -124,7 +124,7 @@ describe('UAT-DTR-021 Desktop shell information architecture', () => {
     expect(library.find('[data-testid="reset-document"]').exists()).toBe(false)
     expect(library.find('[data-testid="restore-pre-mode-switch"]').exists()).toBe(false)
     expect(library.find('[data-testid="restore-pre-destructive-replace"]').exists()).toBe(false)
-    const toolbar = wrapper.get('.toolbar-region')
+    const toolbar = wrapper.get('.toolbar-region[role="toolbar"]')
     const settingsSlot = toolbar.get('[data-testid="desktop-settings-toolbar-slot"]')
     const settingsEntry = toolbar.get('[data-testid="desktop-settings-entry"]')
     expect(settingsEntry.element.tagName).toBe('BUTTON')
@@ -238,7 +238,7 @@ describe('UAT-DTR-024 Desktop daily Library and toolbar Settings boundary', () =
       expect(library.find(selector).exists()).toBe(false)
     }
 
-    const toolbar = wrapper.get('.toolbar-region')
+    const toolbar = wrapper.get('.toolbar-region[role="toolbar"]')
     const exportMenu = toolbar.get('[data-toolbar-menu="export"]')
     const settingsSlot = toolbar.get('[data-testid="desktop-settings-toolbar-slot"]')
     const settingsEntry = toolbar.get('[data-testid="desktop-settings-entry"]')

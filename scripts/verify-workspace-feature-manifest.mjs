@@ -48,7 +48,7 @@ requireValue(manifest.modes?.map(({ id }) => id).join(',') === 'source,visual,pr
 requireValue(manifest.locales?.map(({ id }) => id).join(',') === 'en,zh,ru', 'Feature manifest locale inventory changed.')
 requireValue(manifest.themes?.length === 8 && manifest.themes.filter(({ default: isDefault }) => isDefault === true).length === 1, 'Feature manifest theme inventory is incomplete.')
 requireValue(manifest.lineSpacing?.length === 4, 'Feature manifest line-spacing inventory is incomplete.')
-requireValue(manifest.exports?.length === 5, 'Feature manifest export inventory is incomplete.')
+requireValue(manifest.exports?.map(({ id }) => id).join(',') === 'export.markdown,export.html,export.pdf,export.screenshot', 'Feature manifest must contain exactly Markdown, HTML, PDF, and screenshot exports.')
 requireValue(manifest.drawio?.vendorFileCount === 352, 'Feature manifest draw.io vendor inventory changed.')
 requireValue(manifest.history?.editableModes?.join(',') === 'source,visual', 'Feature manifest history boundary changed.')
 

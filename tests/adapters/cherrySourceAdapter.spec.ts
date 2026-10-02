@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
+import { EditorView } from '@codemirror/view'
 
-import { CherrySourceAdapter, isCherrySourceHistoryShortcutEvent } from '../../src/adapters/cherrySourceAdapter'
+import { CherrySourceAdapter, isCherrySourceHistoryShortcutEvent, sourceChangeMayAffectReferences } from '../../src/adapters/cherrySourceAdapter'
 import { DocumentSession } from '../../src/core/documentSession'
 
 function mount(markdown = '# Source\n\ntext'): {
@@ -289,6 +290,82 @@ describe('CherrySourceAdapter', () => {
       expect(adapter.undo()).toBe(false)
       expect(adapter.redo()).toBe(true)
       expect(session.snapshot()).toEqual({ documentId: 'article', markdown: 'checkpoint source', revision: 3 })
+    } finally {
+      adapter.destroy()
+      host.remove()
+      vi.clearAllTimers()
+    }
+  })
+})
+
+
+describe('source reference capture', () => {
+  it('filters ordinary changes but detects reference lines and scope delimiters', () => {
+    expect(sourceChangeMayAffectReferences('hello\n[1](#wref-r~Paper)', 'hello!\n[1](#wref-r~Paper)', 5, 5, 6)).toBe(false)
+    expect(sourceChangeMayAffectReferences('[1](#wref-r~Paper)', '[1](#wref-r~New)', 13, 18, 16)).toBe(true)
+    expect(sourceChangeMayAffectReferences('text', '`text', 0, 0, 1)).toBe(true)
+    expect(sourceChangeMayAffectReferences('text', '$text', 0, 0, 1)).toBe(true)
+    expect(sourceChangeMayAffectReferences('text', '<!--text', 0, 0, 4)).toBe(true)
+  })
+
+  it('captures native deletion and undo while the sidebar is absent', () => {
+    const citation = '[1](#wref-ref~Paper)'
+    const { adapter, host, session } = mount(`intro\r\n${citation}\r\n`)
+    const events: CustomEvent[] = []
+    const listener = (event: Event): void => { events.push(event as CustomEvent) }
+    document.body.addEventListener('w-reference-source-change', listener)
+    try {
+      const view = EditorView.findFromDOM(host.querySelector('.cm-editor')!)!
+      view.dispatch({ changes: { from: 6, to: 6 + citation.length, insert: '' } })
+      adapter.flush()
+      expect(session.snapshot().markdown).toBe('intro\r\n\r\n')
+      expect(events).toHaveLength(1)
+      expect(events[0]?.detail).toEqual({ documentId: 'article', previous: [{ id: 'ref', number: 1, text: 'Paper' }], references: [] })
+      expect(adapter.undo()).toBe(true)
+      expect(events.at(-1)?.detail.references).toEqual([{ id: 'ref', number: 1, text: 'Paper' }])
+    } finally {
+      document.body.removeEventListener('w-reference-source-change', listener)
+      adapter.destroy()
+      host.remove()
+      vi.clearAllTimers()
+    }
+  })
+
+  it('captures the normal Cherry afterChange callback before an explicit flush', async () => {
+    const citation = '[1](#wref-ref~Paper)'
+    const { adapter, host, session } = mount(citation)
+    const listener = vi.fn()
+    host.addEventListener('w-reference-source-change', listener)
+    try {
+      const view = EditorView.findFromDOM(host.querySelector('.cm-editor')!)!
+      view.dispatch({ changes: { from: 0, to: citation.length, insert: '' } })
+      await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(1))
+      expect(session.snapshot().markdown).toBe('')
+      expect(adapter.flush()).toBeNull()
+    } finally {
+      adapter.destroy()
+      host.remove()
+      vi.clearAllTimers()
+    }
+  })
+
+  it('flushes composition capture once and stays quiet for ordinary typing', () => {
+    const citation = '[1](#wref-ref~Paper)'
+    const { adapter, host, session } = mount(`intro\n${citation}`)
+    const listener = vi.fn()
+    host.addEventListener('w-reference-source-change', listener)
+    try {
+      const view = EditorView.findFromDOM(host.querySelector('.cm-editor')!)!
+      view.dispatch({ changes: { from: 1, insert: 'x' } })
+      adapter.flush()
+      expect(listener).not.toHaveBeenCalled()
+      view.contentDOM.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }))
+      view.dispatch({ changes: { from: 7, to: 7 + citation.length, insert: '' } })
+      expect(session.snapshot().markdown).toContain('#wref')
+      view.contentDOM.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }))
+      expect(listener).toHaveBeenCalledTimes(1)
+      expect(session.snapshot().markdown).not.toContain('#wref')
+      expect(adapter.flush()).toBeNull()
     } finally {
       adapter.destroy()
       host.remove()

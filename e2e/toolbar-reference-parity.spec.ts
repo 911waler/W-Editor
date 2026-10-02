@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 
-import { createToolbarCommandDescriptors } from '../src/services'
+import { createToolbarCommandDescriptors } from '../src/services/toolbarCommands'
 import { openReadyApp } from './fixtures/app'
 import { expect, test } from './fixtures/test'
 
@@ -8,15 +8,16 @@ const MENU_COMMANDS = Object.freeze({
   'text-style': Object.freeze(['text.strike', 'text.underline', 'text.subscript', 'text.superscript', 'text.ruby', 'block.quote']),
   color: Object.freeze(['text.color', 'text.background']),
   alignment: Object.freeze(['align.left', 'align.center', 'align.right', 'align.justify']),
+  list: Object.freeze(['list.ordered', 'list.unordered', 'list.task']),
   mermaid: Object.freeze([
+    'layout.accordion',
+    'layout.timeline',
     'mermaid.flowchart',
     'mermaid.sequence',
     'mermaid.state',
     'mermaid.class',
     'mermaid.pie',
     'mermaid.gantt',
-  ]),
-  chart: Object.freeze([
     'chart.line',
     'chart.bar',
     'chart.radar',
@@ -29,7 +30,6 @@ const MENU_COMMANDS = Object.freeze({
   export: Object.freeze([
     'export.markdown',
     'export.html',
-    'export.word',
     'export.pdf',
     'export.screenshot',
   ]),
@@ -49,6 +49,7 @@ const MENU_COMMANDS = Object.freeze({
     'insert.pdf',
     'insert.word',
     'insert.file',
+    'insert.reference',
   ]),
   language: Object.freeze(['language.zh', 'language.en', 'language.ru']),
   panel: Object.freeze([
@@ -68,11 +69,6 @@ const DIRECT_COMMANDS = Object.freeze([
   'text.italic',
   'text.size',
   'insert.drawio',
-  'list.ordered',
-  'list.unordered',
-  'list.task',
-  'layout.timeline',
-  'layout.accordion',
   'history.undo',
   'history.redo',
   'document.manual-save',
@@ -95,25 +91,20 @@ const TOP_LEVEL_ORDER = Object.freeze([
   'separator.text',
   'insert.drawio',
   'separator.drawing',
-  'list.ordered',
-  'list.unordered',
-  'list.task',
+  'menu.list',
   'menu.panel',
-  'layout.timeline',
   'menu.alignment',
-  'layout.accordion',
   'separator.structure',
   'insert.formula.alias',
+  'references',
   'menu.insert',
   'menu.mermaid',
-  'menu.chart',
   'separator.history',
   'history.undo',
   'history.redo',
   'separator.reference-utilities',
   'settings.shortcuts',
   'search.replace',
-  'mode.preview.alias',
   'document.manual-save',
   'spacer',
   'line-spacing',
@@ -154,7 +145,7 @@ async function expectOverlayAnchored(trigger: Locator, overlay: Locator): Promis
   expect(overlayBox?.x ?? -1).toBeGreaterThanOrEqual(0)
 }
 
-test('UA-007 renders all 80 commands once in the frozen top-level order and menu ownership', async ({ page }) => {
+test('UA-007 renders all 80 commands once in the compact top-level order and menu ownership', async ({ page }) => {
   expect(routedIds).toHaveLength(80)
   expect(new Set(routedIds).size).toBe(80)
   expect([...routedIds].sort()).toEqual([...registryIds].sort())
@@ -230,7 +221,8 @@ test('UA-007 toolbar keyboard, state, focus, and a moved command outcome remain 
   await expect(strike).toBeDisabled()
   await expect(page.locator('[data-command-id="search.replace"]')).toBeEnabled()
   await expect(page.locator('[data-command-id="document.manual-save"]')).toBeEnabled()
-  await expect(page.getByTestId('toolbar-preview-toggle')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('toolbar-preview-toggle')).toHaveCount(0)
+  await expect(page.locator('.workspace-controls [data-command-id="mode.preview"]')).toHaveAttribute('aria-pressed', 'true')
 })
 
 test('UA-007 official Formula alias and Insert table route preserve picker anchoring and focus', async ({ page }) => {
@@ -258,7 +250,7 @@ for (const viewport of [
   Object.freeze({ height: 1000, label: 'desktop', width: 1692 }),
   Object.freeze({ height: 900, label: 'narrow', width: 768 }),
 ] as const) {
-  test(`UA-007 ${viewport.label} toolbar screenshot uses the frozen Cherry row and responsive geometry`, async ({ page }) => {
+  test(`UA-007 ${viewport.label} toolbar screenshot uses the compact toolbar row and responsive geometry`, async ({ page }) => {
     await page.setViewportSize({ height: viewport.height, width: viewport.width })
     await openReadyApp(page)
     await page.addStyleTag({

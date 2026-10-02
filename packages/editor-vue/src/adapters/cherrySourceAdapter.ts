@@ -9,6 +9,8 @@ import {
   type DocumentSnapshot,
   type PatchPlan,
   ProjectionRevisionGate,
+  scanReferences,
+  type DocumentReference,
 } from '@w-editor/editor-core'
 import type { AppearanceTheme } from '../services/appearanceTheme'
 import { createRandomId } from '../services/randomId'
@@ -112,7 +114,25 @@ function sourceOffsetToViewOffset(source: string, target: number): number {
   return viewOffset
 }
 
-function preserveAuthorityLineEndings(authority: string, nextView: string): string {
+/** Only changed lines and syntax delimiters need reference rescanning. */
+export function sourceChangeMayAffectReferences(previous: string, next: string, from: number, previousTo: number, nextTo: number): boolean {
+  const removed = previous.slice(from, previousTo)
+  const inserted = next.slice(from, nextTo)
+  // These delimiters may change whether references elsewhere are code/comment text.
+  if (/[`$~\\<>]/u.test(removed) || /[`$~\\<>]/u.test(inserted)) return true
+  const changedLines = (source: string, to: number): string => {
+    const start = source.lastIndexOf('\n', Math.max(0, from - 1)) + 1
+    const end = source.indexOf('\n', to)
+    return source.slice(start, end < 0 ? source.length : end)
+  }
+  return changedLines(previous, previousTo).includes('#wref') || changedLines(next, nextTo).includes('#wref')
+}
+
+function preserveAuthorityLineEndings(
+  authority: string,
+  nextView: string,
+  onChangedSpan?: (previous: string, next: string, from: number, previousTo: number, nextTo: number) => void,
+): string {
   const previousView = normalizeForCherry(authority)
   if (previousView === nextView) return authority
 
@@ -128,6 +148,7 @@ function preserveAuthorityLineEndings(authority: string, nextView: string): stri
   ) {
     suffix += 1
   }
+  onChangedSpan?.(previousView, nextView, prefix, previousView.length - suffix, nextView.length - suffix)
   if (prefix === 0 && suffix === 1) return nextView
   const sourceFrom = viewOffsetToSourceOffset(authority, prefix)
   const sourceTo = viewOffsetToSourceOffset(authority, previousView.length - suffix)
@@ -156,6 +177,7 @@ export interface ReplaceSourceSelectionCommand {
 }
 
 export class CherrySourceAdapter {
+  readonly #host: HTMLElement
   readonly #cherry: Cherry
   readonly #compositionEnd: () => void
   readonly #compositionStart: () => void
@@ -172,6 +194,7 @@ export class CherrySourceAdapter {
   readonly #pendingReflections = new Map<string, number>()
 
   constructor(options: CherrySourceAdapterOptions) {
+    this.#host = options.host
     this.#session = options.session
     this.#onAcknowledgement = options.onAcknowledgement
     this.#onCompositionChange = options.onCompositionChange
@@ -269,13 +292,18 @@ export class CherrySourceAdapter {
   }
 
   flush(): CommitAcknowledgement | null {
-    const markdown = this.value()
-    if (markdown === this.#session.snapshot().markdown) return null
+    const current = this.#session.snapshot()
+    let referenceRelevant = false
+    const markdown = preserveAuthorityLineEndings(current.markdown, this.#rawValue(), (...span) => {
+      referenceRelevant = sourceChangeMayAffectReferences(...span)
+    })
+    if (markdown === current.markdown) return null
     const acknowledgement = this.#session.commitSource({
       markdown,
       origin: 'cherry-source',
       transactionId: `cherry-source:${createRandomId()}`,
     })
+    if (referenceRelevant && acknowledgement.changed) this.#emitReferenceChange(current, markdown)
     this.#onAcknowledgement?.(acknowledgement)
     return acknowledgement
   }
@@ -461,14 +489,26 @@ export class CherrySourceAdapter {
     }
     if (this.#composing) return
     const current = this.#session.snapshot()
-    const markdown = preserveAuthorityLineEndings(current.markdown, reflected)
+    let referenceRelevant = false
+    const markdown = preserveAuthorityLineEndings(current.markdown, reflected, (...span) => {
+      referenceRelevant = sourceChangeMayAffectReferences(...span)
+    })
     if (markdown === current.markdown) return
     const acknowledgement = this.#session.commitSource({
       markdown,
       origin: 'cherry-source',
       transactionId: `cherry-source:${createRandomId()}`,
     })
+    if (referenceRelevant && acknowledgement.changed) this.#emitReferenceChange(current, markdown)
     this.#onAcknowledgement?.(acknowledgement)
+  }
+
+  #emitReferenceChange(previous: DocumentSnapshot, markdown: string): void {
+    const references = (source: string): DocumentReference[] => scanReferences(source).map(({ from: _from, to: _to, ...reference }) => reference)
+    this.#host.dispatchEvent(new CustomEvent('w-reference-source-change', {
+      bubbles: true,
+      detail: { documentId: previous.documentId, previous: references(previous.markdown), references: references(markdown) },
+    }))
   }
 
   #hydrate(snapshot: DocumentSnapshot): void {
