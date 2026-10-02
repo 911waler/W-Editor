@@ -161,7 +161,9 @@
 .mode-control button { padding: .42rem .72rem; color: #64736c; font-size: .72rem; font-weight: 650; }
 .mode-control button[aria-pressed="true"] { background: #fff; color: #185d45; box-shadow: 0 1px 4px rgb(35 54 45 / 15%); }
 .mode-control button:disabled { cursor: wait; }
-.workspace-controls__meta { display: flex; gap: .45rem; color: #76847d; font-size: .72rem; }
+.workspace-controls__meta { display: flex; flex-wrap: wrap; gap: .45rem; min-width: 0; color: #76847d; font-size: .72rem; }
+.workspace-controls__meta > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-controls__meta > span { white-space: nowrap; }
 .workspace-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem 1rem; border-bottom: 1px solid #e5b8ac; background: #fff1ed; color: #7d2d1e; }
 .workspace-error strong { font-size: .72rem; letter-spacing: .04em; }
 .workspace-error p { margin: .15rem 0 0; font-size: .76rem; }

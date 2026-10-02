@@ -90,6 +90,7 @@ import {
   createUiLocalizationStore,
   materializeRenderedExportDocument,
   calculateDocumentStatistics,
+  calculateBodyWordCount,
   findShortcutConflict,
   createAlignmentCommandPlan,
   createColumnLayoutCommandPlan,
@@ -1049,6 +1050,7 @@ const lifecycleOperation = ref(false)
 const lifecycleTrigger = ref<HTMLElement | null>(null)
 const activeEditorCommandIds = ref<ReadonlySet<string>>(new Set())
 const liveDocumentStatistics = computed(() => calculateDocumentStatistics(workspace.value.activeDocument))
+const liveBodyWordCount = computed(() => calculateBodyWordCount(workspace.value.activeDocument))
 
 function lifecycleTriggerFrom(event: Event | HTMLElement | null): HTMLElement | null {
   if (event instanceof HTMLElement) return event
@@ -5876,6 +5878,11 @@ defineExpose({
           </div>
           <div class="workspace-controls__meta">
             <span>{{ activeArticleTitle }}</span><span aria-hidden="true">·</span><span>{{ t('workspace.words', { count: liveDocumentStatistics.words }) }}</span>
+            <span aria-hidden="true">·</span>
+            <span
+              data-testid="body-word-count"
+              :title="t('workspace.bodyWordsHelp')"
+            >{{ t('workspace.bodyWords', { count: liveBodyWordCount }) }}</span>
           </div>
         </div>
 

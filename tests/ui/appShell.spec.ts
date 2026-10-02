@@ -10,6 +10,7 @@ import {
   formatRichInlineMark,
   mermaidStarterSource,
   panelStarterSource,
+  referenceMarkdown,
   timelineStarterSource,
   type RichInlineMarkCommandId,
 } from '../../src/codecs'
@@ -1663,6 +1664,37 @@ describe('desktop workspace shell', () => {
     expect(dialog.get('[data-statistic="words"]').text()).toBe('5')
     expect((source.element as HTMLTextAreaElement).value).toBe(`${exactMarkdown} again`)
     await dialog.get('.primary-action').trigger('click')
+    wrapper.unmount()
+  })
+
+  it('shows live body counts alongside source words and excludes references across editor modes', async () => {
+    seedArticleAutosave('welcome', '', new Date())
+    const wrapper = mount(App, { attachTo: document.body })
+    await activateSourceMode(wrapper, 'zh')
+    const source = wrapper.get('#markdown-source')
+    const citation = referenceMarkdown({ id: 'count-test', number: 1, text: 'Author. Long reference title.' })
+    const markdown = `中文 **hello** ${citation}`
+    await source.setValue(markdown)
+    await flushPromises()
+    const counter = () => wrapper.get('[data-testid="body-word-count"]')
+    expect(counter().text()).toBe('正文 3 字')
+    expect(counter().attributes('title')).toContain('不计参考文献')
+    expect(wrapper.get('.workspace-controls__meta').text()).toContain('个词')
+    for (const mode of ['visual', 'preview', 'source']) {
+      await wrapper.get(`[data-command-id="mode.${mode}"]`).trigger('click')
+      await flushPromises()
+      expect(counter().text()).toBe('正文 3 字')
+    }
+    expect((wrapper.get('#markdown-source').element as HTMLTextAreaElement).value).toBe(markdown)
+    const persisted = JSON.parse(window.localStorage.getItem('w-editor:v1:document:welcome')!)
+    expect(persisted.autosave.markdown).toBe(markdown)
+    expect(persisted.autosave.revision).toBe(2)
+    await wrapper.get('#markdown-source').setValue(`${markdown} 新增`)
+    expect(counter().text()).toBe('正文 5 字')
+    await chooseVisibleLanguage(wrapper, 'en')
+    expect(counter().text()).toBe('Body: 5')
+    await chooseVisibleLanguage(wrapper, 'ru')
+    expect(counter().text()).toBe('Текст: 5')
     wrapper.unmount()
   })
 
