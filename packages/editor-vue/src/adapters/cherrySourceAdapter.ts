@@ -32,11 +32,15 @@ export function dispatchCherrySourceHistoryShortcut(
   const apple = /Mac|iPhone|iPad/u.test(navigator.platform)
   const linux = /Linux/u.test(navigator.platform)
   const redoWithShiftZ = direction === 'redo' && (apple || linux)
-  const key = direction === 'undo' || redoWithShiftZ ? 'z' : 'y'
+  // Match a real shifted key: CodeMirror uses both the character and legacy
+  // keyCode when resolving modified shortcuts. Lowercase z can invoke undo.
+  const key = direction === 'undo' ? 'z' : redoWithShiftZ ? 'Z' : 'y'
+  const zKey = key.toLowerCase() === 'z'
   const event = new KeyboardEvent('keydown', {
     bubbles: true,
     cancelable: true,
-    code: key === 'z' ? 'KeyZ' : 'KeyY',
+    code: zKey ? 'KeyZ' : 'KeyY',
+    keyCode: zKey ? 90 : 89,
     ctrlKey: !apple,
     key,
     metaKey: apple,
@@ -287,6 +291,16 @@ export class CherrySourceAdapter {
     })
   }
 
+  setDropSelection(left: number, top: number): boolean {
+    const view = this.#view()
+    if (view.state.readOnly || view.contentDOM.getAttribute('contenteditable') === 'false'
+      || !Number.isFinite(left) || !Number.isFinite(top)) return false
+    const position = view.posAtCoords({ x: left, y: top })
+    if (position === null) return false
+    view.dispatch({ selection: { anchor: position, head: position } })
+    return true
+  }
+
   isComposing(): boolean {
     return this.#composing
   }
@@ -504,7 +518,11 @@ export class CherrySourceAdapter {
   }
 
   #emitReferenceChange(previous: DocumentSnapshot, markdown: string): void {
-    const references = (source: string): DocumentReference[] => scanReferences(source).map(({ from: _from, to: _to, ...reference }) => reference)
+    const references = (source: string): DocumentReference[] => scanReferences(source).map(({ from, to, ...reference }) => {
+      void from
+      void to
+      return reference
+    })
     this.#host.dispatchEvent(new CustomEvent('w-reference-source-change', {
       bubbles: true,
       detail: { documentId: previous.documentId, previous: references(previous.markdown), references: references(markdown) },

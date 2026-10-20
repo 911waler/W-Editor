@@ -1,16 +1,17 @@
 import { referenceFromAttributes } from './referenceNode'
 import { referenceRegistry, parseReferenceStyle, referenceMarkdown, type DocumentReference, type ReferenceStyle } from '@w-editor/editor-core'
-import { parseInlineImageAt } from '@w-editor/editor-core'
+import { parseInlineImageAt, type ImageLayoutSettings } from '@w-editor/editor-core'
 import { imageAttributes, imageMarkdown } from './imageNode'
 import { Editor, getSchema, type JSONContent } from '@tiptap/core'
 import { joinBackward, joinForward, selectNodeBackward, selectNodeForward } from '@tiptap/pm/commands'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
-import { Fragment, type Node as ProseMirrorNode, type Schema } from '@tiptap/pm/model'
+import { Fragment, Slice, type Node as ProseMirrorNode, type Schema } from '@tiptap/pm/model'
 import { NodeSelection, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { findWrapping } from '@tiptap/pm/transform'
 
 import {
   inlineMarkSpec,
+  formulaReferenceCandidates,
   parseBlockFormulaAt,
   parseInlineFormulaAt,
   richInlineMarkSpec,
@@ -138,6 +139,7 @@ export interface VisualSemanticBlockInput {
   readonly diagramType?: string
   readonly editorId?: string
   readonly identity?: string
+  readonly imageLayout?: ImageLayoutSettings
   readonly items?: readonly unknown[]
   readonly kind: string
   readonly language?: string
@@ -173,6 +175,7 @@ export interface VisualSemanticBlockSelection {
   readonly diagramType?: string
   readonly formulaContent?: string
   readonly formulaMode?: FormulaMode
+  readonly height?: number | null
   readonly kind: string
   readonly language?: string
   readonly layoutKind: string | null
@@ -187,6 +190,7 @@ export interface VisualSemanticBlockSelection {
   readonly title?: string
   readonly url?: string
   readonly variant?: string
+  readonly width?: number | null
   readonly xml?: string
 }
 
@@ -619,12 +623,15 @@ export class TiptapVisualAdapter {
     return this.#projection
   }
 
-  acknowledgeSynchronization(update: { readonly map: ProjectionMap; readonly snapshot: DocumentSnapshot }): void {
+  acknowledgeSynchronization(update: { readonly map?: ProjectionMap; readonly snapshot: DocumentSnapshot }): void {
     this.#assertAlive()
-    if (update.map.revision !== update.snapshot.revision) {
+    const map = update.map ?? (this.#projection.source === update.snapshot.markdown
+      ? Object.freeze({ ...this.#projection.map, revision: update.snapshot.revision })
+      : this.#project(update.snapshot).map)
+    if (map.revision !== update.snapshot.revision) {
       throw new InvalidTiptapVisualProjectionError('Acknowledged projection-map revision does not match the document snapshot.')
     }
-    if (update.map.documentLength !== update.snapshot.markdown.length) {
+    if (map.documentLength !== update.snapshot.markdown.length) {
       throw new InvalidTiptapVisualProjectionError('Acknowledged projection-map length does not match the document snapshot.')
     }
     const currentProjectionIds = new Set<string>()
@@ -633,15 +640,15 @@ export class TiptapVisualAdapter {
       if (id !== null) currentProjectionIds.add(id)
       return true
     })
-    if (currentProjectionIds.size !== update.map.entries.length) {
-      if (!this.#reconcileMissingProjectionIds(update.snapshot, update.map)) {
+    if (currentProjectionIds.size !== map.entries.length) {
+      if (!this.#reconcileMissingProjectionIds(update.snapshot, map)) {
         this.#hydrate(update.snapshot, false)
         return
       }
     }
-    this.#projection = remapAcknowledgedProjection(this.#editor.state.doc, update.map, update.snapshot)
+    this.#projection = remapAcknowledgedProjection(this.#editor.state.doc, map, update.snapshot)
     if (this.#promoteNestedProjectionIds()) {
-      this.#projection = remapAcknowledgedProjection(this.#editor.state.doc, update.map, update.snapshot)
+      this.#projection = remapAcknowledgedProjection(this.#editor.state.doc, map, update.snapshot)
     }
   }
 
@@ -700,6 +707,17 @@ export class TiptapVisualAdapter {
     this.#editor.view.dispatch(this.#editor.state.tr.setSelection(
       TextSelection.between(doc.resolve(anchor), doc.resolve(head)),
     ))
+  }
+
+  setDropSelection(left: number, top: number): boolean {
+    this.#assertAlive()
+    if (!this.#editor.isEditable || !Number.isFinite(left) || !Number.isFinite(top)) return false
+    const position = this.#editor.view.posAtCoords({ left, top })
+    if (position === null) return false
+    const selection = TextSelection.near(this.#editor.state.doc.resolve(position.pos))
+    if (!(selection instanceof TextSelection) || !selection.empty) return false
+    this.#editor.view.dispatch(this.#editor.state.tr.setSelection(selection))
+    return true
   }
 
   navigateHeading(anchor: string): boolean {
@@ -1057,7 +1075,9 @@ export class TiptapVisualAdapter {
     // Keep the projection identity through planning so the serializer treats the
     // original and its new sibling as one split family. The post-transaction
     // identity cleanup detaches the inserted sibling after the patch is planned.
-    const clone = located.node.copy(located.node.content)
+    const clone = located.node.type.name === 'formulaBlock'
+      ? located.node.type.create({ ...located.node.attrs, formulaId: null }, located.node.content, located.node.marks)
+      : located.node.copy(located.node.content)
     const insertAt = located.position + located.node.nodeSize
     const transaction = this.#editor.state.tr.insert(insertAt, clone)
     transaction.setSelection(Selection.near(transaction.doc.resolve(insertAt + 1)))
@@ -1329,6 +1349,27 @@ export class TiptapVisualAdapter {
     return this.selectedFormula()?.source ?? null
   }
 
+  applyFormulaReference(targetFrom: number): VisualCommandResult {
+    this.#assertAlive()
+    if (!this.#editor.isEditable) return { active: false, changed: false }
+    const candidates = formulaReferenceCandidates(this.#session.snapshot().markdown)
+    const candidate = candidates.find(item => item.from === targetFrom)
+    if (!candidate || candidate.formulaId && candidates.filter(item => item.formulaId === candidate.formulaId).length !== 1) return { active: false, changed: false }
+    const entry = this.#projection.map.entries.find(item => item.sourceSpan.from === targetFrom && item.codecId === 'formula')
+    const target = entry ? findProjectionNode(this.#editor.state.doc, entry.projectionId) : null
+    if (!target || target.node.type.name !== 'formulaBlock') return { active: false, changed: false }
+    const selection = this.#editor.state.selection
+    if (selection.from < target.position + target.node.nodeSize && selection.to > target.position) return { active: false, changed: false }
+    const targetId = candidate.formulaId ?? createRandomId()
+    const reference = this.#editor.schema.nodes['formulaReference']?.create({ targetId })
+    if (!reference) return { active: false, changed: false }
+    const transaction = this.#editor.state.tr
+    if (!candidate.formulaId) transaction.setNodeMarkup(target.position, undefined, { ...target.node.attrs, formulaId: targetId })
+    transaction.replaceSelectionWith(reference)
+    this.#editor.view.dispatch(closeHistory(transaction))
+    return { active: true, changed: true }
+  }
+
   applyReference(reference: DocumentReference): VisualCommandResult {
     this.#assertAlive()
     referenceMarkdown(reference)
@@ -1406,47 +1447,59 @@ export class TiptapVisualAdapter {
           : null
       : null
     if (selectedMode === mode && selection instanceof NodeSelection) {
-      const transaction = this.#editor.state.tr.setNodeMarkup(selection.from, undefined, {
+      const attributes = {
         ...selection.node.attrs,
         content: formulaContent,
         formulaMode: mode,
         localError: null,
         source: serializeFormula(mode, formulaContent),
-      })
-      transaction.setSelection(NodeSelection.create(transaction.doc, selection.from))
-      this.#editor.view.dispatch(closeHistory(transaction))
-    } else if (mode === 'inline') {
-      const node = this.#editor.schema.nodes['inlineFormula']?.create({
-        content: formulaContent,
-        formulaMode: 'inline',
-        localError: null,
-        source: serializeFormula('inline', formulaContent),
-      })
-      if (node === undefined) return Object.freeze({ active: false, changed: false })
-      const transaction = this.#editor.state.tr.replaceSelectionWith(node)
+      }
+      if (selection.node.hasMarkup(selection.node.type, attributes, selection.node.marks)) {
+        return Object.freeze({ active: true, changed: false })
+      }
+      const transaction = this.#editor.state.tr.setNodeMarkup(selection.from, undefined, attributes)
       transaction.setSelection(NodeSelection.create(transaction.doc, selection.from))
       this.#editor.view.dispatch(closeHistory(transaction))
     } else {
-      const replacesEmptyTextBlock = selection instanceof TextSelection
-        && selection.empty
-        && selection.$head.depth > 0
-        && selection.$head.parent.isTextblock
-        && selection.$head.parent.content.size === 0
-      const insertPosition = replacesEmptyTextBlock
-        ? selection.$head.before(1)
-        : selection.$head.depth > 0
-        ? selection.$head.before(1) + selection.$head.node(1).nodeSize
-        : this.#editor.state.doc.content.size
-      const node = this.#editor.schema.nodes['formulaBlock']?.create({
+      const node = this.#editor.schema.nodes[mode === 'inline' ? 'inlineFormula' : 'formulaBlock']?.create({
         content: formulaContent,
-        formulaMode: 'block',
+        formulaMode: mode,
         localError: null,
+        source: serializeFormula(mode, formulaContent),
       })
       if (node === undefined) return Object.freeze({ active: false, changed: false })
-      const transaction = replacesEmptyTextBlock
-        ? this.#editor.state.tr.replaceWith(insertPosition, selection.$head.after(1), node)
-        : this.#editor.state.tr.insert(insertPosition, node)
-      transaction.setSelection(NodeSelection.create(transaction.doc, insertPosition))
+      let from = selection.from
+      let to = selection.to
+      let transaction: Transaction
+      if (mode === 'block' && selectedMode === null) {
+        const replacesEmptyTextBlock = selection instanceof TextSelection
+          && selection.empty
+          && selection.$head.depth > 0
+          && selection.$head.parent.isTextblock
+          && selection.$head.parent.content.size === 0
+        from = replacesEmptyTextBlock
+          ? selection.$head.before(1)
+          : selection.$head.depth > 0
+          ? selection.$head.before(1) + selection.$head.node(1).nodeSize
+          : this.#editor.state.doc.content.size
+        to = replacesEmptyTextBlock ? selection.$head.after(1) : from
+        transaction = this.#editor.state.tr.replaceWith(from, to, node)
+      } else {
+        transaction = this.#editor.state.tr.replaceSelectionWith(node)
+      }
+      // Fitting may wrap an inline node or split a paragraph around a block.
+      // Only search the inserted range so identical neighboring formulas stay untouched.
+      const insertedFrom = transaction.mapping.map(from, -1)
+      const insertedTo = transaction.mapping.map(to, 1)
+      let formulaPosition: number | null = null
+      transaction.doc.nodesBetween(insertedFrom, insertedTo, (candidate, position) => {
+        if (formulaPosition !== null) return false
+        if (candidate.type !== node.type || candidate.attrs['content'] !== formulaContent) return true
+        formulaPosition = position
+        return false
+      })
+      if (formulaPosition === null) return Object.freeze({ active: false, changed: false })
+      transaction.setSelection(NodeSelection.create(transaction.doc, formulaPosition))
       this.#editor.view.dispatch(closeHistory(transaction))
     }
     return Object.freeze({
@@ -1681,6 +1734,34 @@ export class TiptapVisualAdapter {
     })
   }
 
+  insertImages(sources: readonly string[]): VisualCommandResult {
+    this.#assertAlive()
+    const nodeType = this.#editor.schema.nodes['inlineImage']
+    if (!this.#editor.isEditable || sources.length === 0 || nodeType === undefined) {
+      return Object.freeze({ active: false, changed: false })
+    }
+    const nodes: ProseMirrorNode[] = []
+    for (const source of sources) {
+      const parsed = parseInlineImageAt(source, 0)
+      if (parsed === null || parsed.sourceSpan.to !== source.length) {
+        return Object.freeze({ active: false, changed: false })
+      }
+      nodes.push(nodeType.create({
+        name: parsed.name,
+        url: parsed.url,
+        width: parsed.width,
+        height: parsed.height,
+        source: parsed.source,
+      }))
+    }
+    const transaction = this.#editor.state.tr.replaceSelection(new Slice(Fragment.fromArray(nodes), 0, 0))
+    if (!transaction.docChanged) return Object.freeze({ active: false, changed: false })
+    transaction.setSelection(TextSelection.near(transaction.doc.resolve(transaction.selection.to)))
+    this.#editor.view.dispatch(closeHistory(transaction))
+    this.#editor.view.dispatch(closeHistory(this.#editor.state.tr).setMeta('addToHistory', false))
+    return Object.freeze({ active: true, changed: true })
+  }
+
   #applyInlineImage(input: VisualSemanticBlockInput): VisualCommandResult {
     if (!this.#editor.isEditable) return Object.freeze({ active: false, changed: false })
     const parsed = parseInlineImageAt(input.source, 0)
@@ -1689,8 +1770,8 @@ export class TiptapVisualAdapter {
     const selected = selection instanceof NodeSelection && selection.node.type.name === 'inlineImage' ? selection.node : null
     const attributes = {
       name: parsed.name, url: parsed.url,
-      width: parsed.width ?? selected?.attrs['width'] ?? null,
-      height: parsed.height ?? selected?.attrs['height'] ?? null,
+      width: input.imageLayout === undefined ? parsed.width ?? selected?.attrs['width'] ?? null : input.imageLayout.width,
+      height: input.imageLayout === undefined ? parsed.height ?? selected?.attrs['height'] ?? null : input.imageLayout.height,
       source: selected === null ? parsed.source : String(selected.attrs['source'] ?? ''),
     }
     attributes.source = imageMarkdown(attributes)
@@ -1700,13 +1781,41 @@ export class TiptapVisualAdapter {
     const transaction = selected === null
       ? this.#editor.state.tr.replaceSelectionWith(node)
       : this.#editor.state.tr.setNodeMarkup(selection.from, undefined, attributes)
-    if (selected === null) {
+    if (selected !== null) {
+      transaction.setSelection(NodeSelection.create(transaction.doc, selection.from))
+    } else {
       const pos = transaction.selection.from - node.nodeSize
       if (pos >= 0 && transaction.doc.nodeAt(pos)?.type.name === 'inlineImage') {
         transaction.setSelection(NodeSelection.create(transaction.doc, pos))
       }
     }
+    if (input.imageLayout?.alignment !== undefined && this.canApplyAlignment()) {
+      const alignment = input.imageLayout.alignment
+      const currentSelection = transaction.selection
+      const alignmentDepth = this.#alignmentAncestorDepth(currentSelection.$head)
+      if (alignmentDepth !== null) {
+        const wrapper = currentSelection.$head.node(alignmentDepth)
+        if (wrapper.attrs['alignment'] !== alignment) {
+          const wrapperPosition = currentSelection.$head.before(alignmentDepth)
+          let childPosition = wrapperPosition + 1
+          for (let index = 0; index < wrapper.childCount; index += 1) {
+            const child = wrapper.child(index)
+            transaction.setNodeMarkup(childPosition, undefined, { ...child.attrs, textAlign: alignment })
+            childPosition += child.nodeSize
+          }
+          transaction.setNodeMarkup(wrapperPosition, undefined, { ...wrapper.attrs, alignment })
+        }
+      } else if (alignment !== 'left') {
+        const range = currentSelection.$from.blockRange(currentSelection.$to)
+        const type = this.#editor.schema.nodes['alignmentBlock']
+        if (range !== null && type !== undefined) {
+          const wrapping = findWrapping(range, type, { alignment })
+          if (wrapping !== null) transaction.wrap(range, wrapping)
+        }
+      }
+    }
     this.#editor.view.dispatch(closeHistory(transaction))
+    this.#editor.view.dispatch(closeHistory(this.#editor.state.tr).setMeta('addToHistory', false))
     return Object.freeze({ active: true, changed: JSON.stringify(before) !== JSON.stringify(this.#editor.state.doc.toJSON()) })
   }
 
@@ -2135,6 +2244,8 @@ export class TiptapVisualAdapter {
       markdown,
       revision: this.#projection.revision,
     })
+    const local = this.#projectChangedOrdinaryBlock(plan, optimisticSnapshot)
+    if (local !== null && this.#adoptOptimisticProjection(markdown, local, true)) return plan
     const projected = this.#project(optimisticSnapshot)
     assertProjection(optimisticSnapshot, projected)
     const ids = topLevelProjectionIds(this.#editor.state.doc)
@@ -2149,6 +2260,72 @@ export class TiptapVisualAdapter {
       }
     })()
     return this.#recoverOptimisticProjection(plan, preserveCheckedPatch)
+  }
+
+  // Only a single, complete, ordinary source block is independent enough to parse
+  // locally. Splits, joins, semantic blocks and document-level syntax use the
+  // existing full projection/recovery path. Validate the assembled result against
+  // the actual Tiptap document before trusting any shifted source offsets.
+  #projectChangedOrdinaryBlock(
+    plan: NonNullable<ReturnType<TiptapTransactionPatchPlanner['plan']>>,
+    snapshot: DocumentSnapshot,
+  ): TiptapVisualProjection | null {
+    if (plan.patches.length !== 1) return null
+    const patch = plan.patches[0]!
+    const index = this.#projection.map.entries.findIndex(entry => (
+      entry.sourceSpan.from === patch.from && entry.sourceSpan.to === patch.to
+      && (entry.codecId === 'paragraph' || entry.codecId === 'heading')
+    ))
+    const previous = this.#projection.map.entries[index]
+    // Empty projected placeholders may need a separator inserted before their
+    // first text (for example an imported reference-style marker at EOF).
+    // Let full projection/recovery establish that source boundary first.
+    if (previous === undefined || previous.originalSource.trim().length === 0) return null
+    // Find the changed source interval, rather than rejecting a prose paragraph
+    // merely because it contains an unchanged self-contained reference or formula.
+    let from = 0
+    while (from < patch.expected.length && from < patch.replacement.length && patch.expected[from] === patch.replacement[from]) from++
+    let oldTo = patch.expected.length
+    let newTo = patch.replacement.length
+    while (oldTo > from && newTo > from && patch.expected[oldTo - 1] === patch.replacement[newTo - 1]) { oldTo--; newTo-- }
+    const changed = patch.expected.slice(from, oldTo) + patch.replacement.slice(from, newTo)
+    if (/[\r\n<>[\]`$*_#{}|\\]/u.test(changed) || patch.replacement.trim().length === 0) return null
+    // Editing an atom's payload, a link target, or an explicit heading anchor can
+    // change semantic/global state. Ordinary text outside these ranges stays local.
+    for (const match of patch.expected.matchAll(/\[[^\]\r\n]*\]\([^)\r\n]*\)|<[^>\r\n]*>|\$[^$\r\n]*\$|\{#[^}]*\}/gu)) {
+      const start = match.index
+      const end = start + match[0].length
+      if (from < end && oldTo > start) return null
+    }
+    const local = this.#project(Object.freeze({ ...snapshot, markdown: patch.replacement }))
+    const replacement = local.map.entries[0]
+    if (local.map.entries.length !== 1 || replacement === undefined
+      || replacement.codecId !== previous.codecId || replacement.sourceSpan.from !== 0
+      || replacement.sourceSpan.to !== patch.replacement.length) return null
+    const delta = patch.replacement.length - (patch.to - patch.from)
+    const entries = this.#projection.map.entries.map((entry, entryIndex) => {
+      const selected = entryIndex === index ? replacement : entry
+      const shift = entryIndex === index ? patch.from : entryIndex > index ? delta : 0
+      if (shift === 0 && entryIndex !== index) return entry
+      return Object.freeze({
+        ...selected,
+        sourceSpan: Object.freeze({ from: selected.sourceSpan.from + shift, to: selected.sourceSpan.to + shift }),
+        safePatchUnit: Object.freeze({
+          ...selected.safePatchUnit,
+          sourceSpan: Object.freeze({ from: selected.safePatchUnit.sourceSpan.from + shift, to: selected.safePatchUnit.sourceSpan.to + shift }),
+        }),
+      })
+    })
+    const content = [...(this.#projection.content.content ?? [])]
+    const node = local.content.content?.[0]
+    if (content.length !== entries.length || node === undefined) return null
+    content[index] = node
+    return Object.freeze({
+      content: { ...this.#projection.content, content },
+      map: Object.freeze({ documentLength: snapshot.markdown.length, entries: Object.freeze(entries), revision: snapshot.revision }),
+      revision: snapshot.revision,
+      source: snapshot.markdown,
+    })
   }
 
   #adoptOptimisticProjection(markdown: string, projected: TiptapVisualProjection, verifyVisualShape = false): boolean {

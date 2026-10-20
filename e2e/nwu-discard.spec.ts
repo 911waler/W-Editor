@@ -7,7 +7,11 @@ test('NWU discards restored and edited drafts to canonical text without a manual
   await page.route('**/api/blog-editor/**',async route=>{
     const path=new URL(route.request().url()).pathname
     let body:unknown
-    if(path.endsWith('/save')) {
+    if(path.endsWith('/reference-library')) {
+      body={revision:0,entries:[],deletedIds:[],highWater:0}
+    } else if(path.endsWith('/reference-notes')) {
+      body={notes:{}}
+    } else if(path.endsWith('/save')) {
       const input=route.request().postDataJSON() as {markdown:string;saveKind:string}
       saves.push(input); draft=input.markdown; body={serverRevision:'r1'}
     } else if(path.includes('/state/')) {

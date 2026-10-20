@@ -1,12 +1,15 @@
-import { parseBlockFormulaAt, parseFencedCodeAt, parseInlineFormulaAt, rawFencedCodeCandidateAt } from '@w-editor/editor-core'
+import { parseBlockFormulaAt, serializeFormula, parseFencedCodeAt, parseInlineFormulaAt, rawFencedCodeCandidateAt } from '@w-editor/editor-core'
+export interface PreparedFormulaSources extends ReadonlyMap<string, string> { readonly formulaIds?: ReadonlyMap<string, string> }
+
 import { createRandomId } from './randomId'
 
 /** Protect multiline inline TeX from Cherry's single-line math rule and Markdown hooks. */
 export function prepareCherryFormulas(markdown: string, ownerDocument: Document): Readonly<{
   markdown: string
-  sources: ReadonlyMap<string, string>
+  sources: PreparedFormulaSources
 }> {
-  const sources = new Map<string, string>()
+  const formulaIds = new Map<string, string>()
+  const sources = Object.assign(new Map<string, string>(), { formulaIds })
   const prefix = `wEditorFormula${createRandomId(ownerDocument.defaultView?.crypto).replace(/[^a-z0-9]/giu, '')}`
   let prepared = ''
   for (let offset = 0; offset < markdown.length;) {
@@ -22,7 +25,12 @@ export function prepareCherryFormulas(markdown: string, ownerDocument: Document)
       const block = parseBlockFormulaAt(markdown, offset)
       const to = fenced?.sourceSpan.to ?? block?.to
       if (to !== undefined) {
-        prepared += markdown.slice(offset, to)
+        if (block?.formulaId) {
+          const token = `${prefix}B${sources.size}`
+          sources.set(token, block.content)
+          formulaIds.set(token, block.formulaId)
+          prepared += serializeFormula('block', token)
+        } else prepared += markdown.slice(offset, to)
         offset = to
         continue
       }

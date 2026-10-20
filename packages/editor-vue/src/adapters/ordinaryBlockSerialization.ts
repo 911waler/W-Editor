@@ -1,7 +1,7 @@
 import { referenceFromAttributes } from './referenceNode'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
-import { INLINE_MARK_SPECS, serializeDocumentReferenceStyle, parseReferenceStyle, referenceMarkdown, serializeFencedCode, serializeFormula, type ProjectionMapEntry } from '@w-editor/editor-core'
+import { formulaReferenceMarkdown, INLINE_MARK_SPECS, serializeDocumentReferenceStyle, parseReferenceStyle, referenceMarkdown, serializeFencedCode, serializeFormula, type ProjectionMapEntry } from '@w-editor/editor-core'
 import { imageMarkdown } from './imageNode'
 import { formatRichInlineMark } from '@w-editor/editor-core'
 import { InvalidTiptapPatchSerializationError, type TiptapPatchSerializationInput } from './tiptapPatchPlanner'
@@ -36,19 +36,26 @@ function serializeInline(node: ProseMirrorNode): string {
       source += imageMarkdown(child.attrs)
       return
     }
-    if (child.type.name === 'inlineFormula') {
-      source += serializeFormula('inline', String(child.attrs['content'] ?? ''))
+    if (child.type.name === 'formulaReference') {
+      source += formulaReferenceMarkdown(String(child.attrs['targetId']))
       return
     }
-    if (child.type.name === 'hardBreak') {
-      source += '  \n'
+    if (child.type.name === 'inlineFormula') {
+      source += serializeFormula('inline', String(child.attrs['content'] ?? ''))
       return
     }
     if (child.type.name === 'rawInline') {
       source += String(child.attrs['source'] ?? '')
       return
     }
-    let value = child.isText ? child.text ?? '' : child.textContent
+    // A trailing Markdown newline is discarded, and consecutive ones become
+    // paragraph separators. An inline tag also stays inside headings/tables.
+    const hardBreak = child.type.name === 'hardBreak'
+    let value = hardBreak ? '<br>' : child.isText ? child.text ?? '' : child.textContent
+    if (!hardBreak && !child.marks.some((mark) => mark.type.name === 'code')) {
+      value = value.replace(/(\\*)<br[ \t]*\/?>/giu, (tag: string, slashes: string) =>
+        '\\'.repeat(slashes.length * 2 + 1) + tag.slice(slashes.length))
+    }
     const textStyle = child.marks.find((mark) => mark.type.name === 'textStyle')
     const highlight = child.marks.find((mark) => mark.type.name === 'highlight')
     const color = textStyle?.attrs['color']
@@ -71,6 +78,9 @@ function serializeInline(node: ProseMirrorNode): string {
       } else if (mark.type.name === 'ruby') {
         value = formatRichInlineMark('text.ruby', value, String(mark.attrs['annotation'] ?? ''))
       }
+    }
+    if (hardBreak && value.startsWith('<br>')) {
+      source = source.replace(/\\+$/u, (slashes) => slashes + slashes)
     }
     source += value
   })
@@ -169,7 +179,7 @@ function serializeNode(node: ProseMirrorNode): string {
   if (node.type.name === 'codeBlock') {
     return serializeFencedCode(String(node.attrs['language'] ?? ''), node.textContent)
   }
-  if (node.type.name === 'formulaBlock') return serializeFormula('block', String(node.attrs['content'] ?? ''))
+  if (node.type.name === 'formulaBlock') return serializeFormula('block', String(node.attrs['content'] ?? ''), node.attrs['formulaId'] as string | null)
   if (node.type.name === 'tocBlock') return '[[toc]]'
   if (node.type.name === 'semanticBlock' && node.attrs['kind'] === 'table-of-contents') return '[[toc]]'
   if (node.type.name === 'semanticBlock' && node.attrs['kind'] === 'formula') return String(node.attrs['source'] ?? '')

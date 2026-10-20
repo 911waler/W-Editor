@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createTiptapPresentation } from '../../packages/editor-vue/src/rendering/tiptapPresentation'
+import { drawioSource } from '../../src/codecs'
 
 afterEach(() => {
   document.body.replaceChildren()
@@ -21,6 +22,42 @@ function mountFixture(path: string) {
 }
 
 describe('canonical Tiptap presentation coverage', () => {
+  it.each(['reader', 'author-preview'] as const)('derives formula numbers in %s after a snapshot reorder', profile => {
+    const host = document.createElement('div'); document.body.append(host)
+    const markdown = '$inline$\n\n$$\na\n$$\n\n$$\nb\n$$'
+    const instance = createTiptapPresentation(host, { profile, snapshot: { documentId: 'presentation-numbers', revision: 0, markdown } })
+    const numbers = () => [...host.querySelectorAll('.formula-node--block')].map(node => ({
+      source: node.querySelector('annotation')?.textContent,
+      number: node.querySelector('.formula-node__number')?.textContent,
+    }))
+    try {
+      expect(numbers()).toEqual([{ source: 'a', number: '(1)' }, { source: 'b', number: '(2)' }])
+      instance.setSnapshot({ documentId: 'presentation-numbers', revision: 1, markdown: '$$\nb\n$$\n\n$inline$\n\n$$\na\n$$' })
+      expect(numbers()).toEqual([{ source: 'b', number: '(1)' }, { source: 'a', number: '(2)' }])
+      expect(host.querySelector('.formula-node--inline .formula-node__number')).toBeNull()
+      expect(instance.snapshot().markdown).not.toContain('formula-number')
+    } finally { instance.destroy() }
+  })
+
+  it.each(['reader', 'author-preview'] as const)('renders draw.io without a card or visible title in %s', (profile) => {
+    const host = document.createElement('div'); document.body.append(host)
+    const markdown = drawioSource('Synthetic architecture', '/diagram.png', '<mxfile><diagram id="frame-test"/></mxfile>')
+    const errors = vi.fn()
+    const instance = createTiptapPresentation(host, { profile, onError: errors, snapshot: {
+      documentId: 'frameless-presentation', revision: 0, markdown,
+    } })
+    try {
+      const diagram = host.querySelector<HTMLImageElement>('img[src="/diagram.png"]')!
+      expect(diagram).not.toBeNull()
+      expect(diagram.closest('.complex-node')).toBeNull()
+      expect(host.querySelector('header, figcaption, [data-semantic-edit]')).toBeNull()
+      expect(diagram.alt).toBe('Synthetic architecture')
+      diagram.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+      diagram.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      expect(instance.snapshot().markdown).toBe(markdown)
+      expect(errors).not.toHaveBeenCalled()
+    } finally { instance.destroy() }
+  })
   it.each(['id', 'name'])('navigates body TOC to a manual HTML anchor with %s', (attribute) => {
     const container = document.createElement('div'); document.body.append(container)
     const unrelated = document.createElement('a'); unrelated.id = 'g06'; document.body.prepend(unrelated)

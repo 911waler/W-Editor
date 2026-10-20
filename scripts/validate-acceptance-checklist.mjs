@@ -16,7 +16,7 @@ if (
   requirementTitles.length !== featureManifest.acceptanceRequirements.count
   || commandIds.length !== featureManifest.commands.count
   || requirementTitles.length !== 74
-  || commandIds.length !== 80
+  || commandIds.length !== 81
 ) {
   throw new Error(`Unexpected source inventory: ${requirementTitles.length} requirements, ${commandIds.length} commands`)
 }

@@ -1062,7 +1062,7 @@ describe('desktop workspace shell', () => {
       return wrapper.get('[data-picker-command="insert.formula"]')
     }
     let dialog = await open()
-    expect((dialog.get('input[value="block"]').element as HTMLInputElement).checked).toBe(true)
+    expect((dialog.get('input[value="inline"]').element as HTMLInputElement).checked).toBe(true)
     await dialog.get('.dialog-panel__actions button').trigger('click')
     await flushPromises()
     expect(textarea.value).toBe('Alpha')
@@ -1448,6 +1448,11 @@ describe('desktop workspace shell', () => {
     }
     let picker = await openPicker()
     expect(picker.attributes('role')).toBe('dialog')
+    if (commandId === 'text.size') {
+      expect(document.activeElement).toBe(picker.get('input[type="radio"][value="18"]').element)
+      await picker.get('input[type="radio"][value="24"]').setValue()
+      expect(textarea.value).toBe('Keep token tail')
+    }
     if (commandId === 'text.color' || commandId === 'text.background') {
       await picker.trigger('keydown', { key: 'Escape' })
     } else {
@@ -1457,7 +1462,11 @@ describe('desktop workspace shell', () => {
     expect(textarea.value).toBe('Keep token tail')
 
     picker = await openPicker()
-    await picker.get('#rich-picker-value').setValue(value)
+    if (commandId === 'text.size') {
+      await picker.get(`input[type="radio"][value="${value}"]`).setValue()
+    } else {
+      await picker.get('#rich-picker-value').setValue(value)
+    }
     if (commandId !== 'text.color' && commandId !== 'text.background') {
       await picker.get('.dialog-panel__actions .primary-action').trigger('click')
     }
@@ -1652,7 +1661,7 @@ describe('desktop workspace shell', () => {
     await dialog.get('.primary-action').trigger('click')
 
     await source.setValue(`${exactMarkdown} again`)
-    expect(wrapper.get('.workspace-controls__meta').text()).toContain('5 words')
+    expect(wrapper.get('[data-testid="source-character-count"]').text()).toContain('source characters')
     dialog = await openStatistics()
     expect(dialog.get('[data-statistic="revision"]').text()).toBe('2')
     expect(dialog.get('[data-statistic="words"]').text()).toBe('5')
@@ -1661,7 +1670,7 @@ describe('desktop workspace shell', () => {
     wrapper.unmount()
   })
 
-  it('shows live body counts alongside source words and excludes references across editor modes', async () => {
+  it('keeps saved body counts alongside source characters across edits and editor modes', async () => {
     seedArticleAutosave('welcome', '', new Date())
     const wrapper = mount(App, { attachTo: document.body })
     await activateSourceMode(wrapper, 'zh')
@@ -1671,24 +1680,26 @@ describe('desktop workspace shell', () => {
     await source.setValue(markdown)
     await flushPromises()
     const counter = () => wrapper.get('[data-testid="body-word-count"]')
-    expect(counter().text()).toBe('正文 3 字')
+    expect(counter().text()).toBe('正文 0 词')
     expect(counter().attributes('title')).toContain('不计参考文献')
-    expect(wrapper.get('.workspace-controls__meta').text()).toContain('个词')
+    expect(wrapper.get('.workspace-controls__meta').text()).toContain('个源码字符')
+    await wrapper.get('[data-command-id="document.manual-save"]').trigger('click')
+    await flushPromises()
     for (const mode of ['visual', 'preview', 'source']) {
       await wrapper.get(`[data-command-id="mode.${mode}"]`).trigger('click')
       await flushPromises()
-      expect(counter().text()).toBe('正文 3 字')
+      expect(counter().text()).toBe('正文 3 词')
     }
     expect((wrapper.get('#markdown-source').element as HTMLTextAreaElement).value).toBe(markdown)
     const persisted = JSON.parse(window.localStorage.getItem('w-editor:v1:document:welcome')!)
     expect(persisted.autosave.markdown).toBe(markdown)
     expect(persisted.autosave.revision).toBe(2)
     await wrapper.get('#markdown-source').setValue(`${markdown} 新增`)
-    expect(counter().text()).toBe('正文 5 字')
+    expect(counter().text()).toBe('正文 3 词')
     await chooseVisibleLanguage(wrapper, 'en')
-    expect(counter().text()).toBe('Body: 5')
+    expect(counter().text()).toBe('Body: 3')
     await chooseVisibleLanguage(wrapper, 'ru')
-    expect(counter().text()).toBe('Текст: 5')
+    expect(counter().text()).toBe('Текст: 3')
     wrapper.unmount()
   })
 

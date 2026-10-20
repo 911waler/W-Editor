@@ -2,6 +2,7 @@
 
 | Issue | Record |
 | --- | --- |
+| Deployed editor improvements missing from GitHub source | [2026-10-21: Deployed editor sync](2026-10-21-deployed-editor-sync.md) |
 | Crowded toolbar menus and duplicate host save/preview controls | [2026-10-02: Compact toolbar](2026-10-02-toolbar-compact.md) |
 | Saved workspace mode overrides the Visual entry default | [2026-10-02: Visual entry](2026-10-02-visual-entry.md) |
 | Source words include citation metadata; add a separate prose count | [2026-10-02: Body word count](2026-10-02-body-word-count.md) |

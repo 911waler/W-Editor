@@ -68,3 +68,21 @@ describe('Visual block actions', () => {
     expect(host.querySelectorAll(selector)).toHaveLength(2)
   })
 })
+
+it('duplicates a referenced formula without inheriting its target identity', () => {
+  const markdown = '$$\na=b\n$$\n<!-- w-editor-formula-id: stable -->\n\n[公式](#wformula-stable)'
+  const { adapter, failures, host, plans } = mount(markdown)
+  const block = host.querySelector<HTMLElement>('.formula-node--block')!
+  expect(adapter.duplicateDomBlock(block).changed).toBe(true)
+  expect(failures).toEqual([])
+  const blocks = host.querySelectorAll<HTMLElement>('.formula-node--block')
+  expect(blocks).toHaveLength(2)
+  expect(blocks[0]?.dataset['formulaId']).toBe('stable')
+  expect(blocks[1]?.dataset['formulaId']).toBeUndefined()
+  expect(host.querySelector('[data-formula-reference-target]')?.getAttribute('href')).toBe('#wformula-stable')
+  const session = new DocumentSession({ documentId: 'block-actions', markdown })
+  session.commitPatchPlan(plans[0]!)
+  expect(session.snapshot().markdown).toBe('$$\na=b\n$$\n<!-- w-editor-formula-id: stable -->\n\n$$\na=b\n$$\n\n[公式](#wformula-stable)')
+  expect(adapter.undo()).toBe(true)
+  expect(host.querySelectorAll('.formula-node--block')).toHaveLength(1)
+})

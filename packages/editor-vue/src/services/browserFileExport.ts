@@ -1,3 +1,4 @@
+import { formulaReferenceCandidates } from '@w-editor/editor-core'
 import { ensureReferenceStyles, areReferenceStylesReady } from './citationFormatting'
 import { buildReferenceList } from '../adapters/referenceNode'
 import { scanReferences } from '@w-editor/editor-core'
@@ -77,6 +78,15 @@ pre { overflow-wrap: anywhere; white-space: pre-wrap; }
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #cfd5df; padding: 6px 10px; text-align: start; }
 blockquote { border-inline-start: 4px solid #cfd5df; margin-inline: 0; padding-inline-start: 16px; }
+/* Matching hidden and visible labels reserve equal side tracks around centered math. */
+:is(.formula-node--block, .Cherry-Math)[data-formula-number] { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: center; column-gap: .65rem; min-width: 0; max-width: 100%; box-sizing: border-box; margin: 1rem 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+:is(.formula-node--block, .Cherry-Math)[data-formula-number]::before { content: "(" attr(data-formula-number) ")"; grid-column: 1; grid-row: 1; visibility: hidden; white-space: nowrap; font: inherit; font-variant-numeric: tabular-nums; pointer-events: none; }
+:is(.formula-node--block, .Cherry-Math)[data-formula-number] > .formula-node__number { grid-row: 1; white-space: nowrap; font: inherit; font-variant-numeric: tabular-nums; color: inherit; pointer-events: none; -webkit-user-select: none; user-select: none; }
+:is(.formula-node--block, .Cherry-Math)[data-formula-number] > :not(.formula-node__number):not(.formula-node__error) { grid-column: 2; grid-row: 1; min-width: 0; max-width: 100%; margin: 0; padding-block: .25rem; overflow-x: auto; overflow-y: hidden; text-align: center; }
+:is(.formula-node--block, .Cherry-Math)[data-formula-number] > .formula-node__number { grid-column: 3; align-self: center; }
+:is(.formula-node--block, .Cherry-Math)[data-formula-number] .katex-display > .katex { display: block; width: max-content; min-width: 100%; }
+.formula-node--block[data-formula-number] > .formula-node__error { grid-column: 2; grid-row: 2; min-width: 0; overflow-wrap: anywhere; }
+:is(.formula-node--block, .Cherry-Math)[data-formula-number] .katex :is(.tag, .eqn-num) { display: none !important; }
 @media print { .w-editor-export { max-width: none; padding: 0; } }
 `.trim()
 
@@ -115,7 +125,7 @@ export function renderSafeExportDocument(
     throw new BrowserFileExportError('The Cherry renderer returned a different document revision.')
   }
   return Object.freeze({
-    bodyHtml: sanitizeCherryHtmlWithSafeFormulas(result.html),
+    bodyHtml: sanitizeCherryHtmlWithSafeFormulas(result.html, document, new Map(), formulaReferenceCandidates(snapshot.markdown)),
     documentId: snapshot.documentId,
     ...(presentation === undefined ? {} : { lineHeight: presentation.lineHeight, theme: presentation.theme }),
     presentationEngine: 'cherry',
@@ -155,7 +165,7 @@ export function renderSafeTiptapExportDocument(
   const elements = [clone, ...clone.querySelectorAll<HTMLElement>('*')]
   for (const element of elements) {
     element.classList.remove('ProseMirror-selectednode')
-    if (element.dataset['selected'] === 'true') element.dataset['selected'] = 'false'
+    if (element.getAttribute('data-selected') === 'true') element.setAttribute('data-selected', 'false')
     for (const attribute of [...element.attributes]) {
       if (/^on/iu.test(attribute.name)) element.removeAttribute(attribute.name)
     }

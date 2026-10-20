@@ -1,5 +1,5 @@
 import type { DocumentSnapshot, PatchPlan } from '../core'
-import { serializeFormula, type FormulaMode } from '../codecs'
+import { parseBlockFormulaAt, serializeFormula, type FormulaMode } from '../codecs'
 
 export interface FormulaCommandPlan {
   readonly plan: PatchPlan
@@ -21,8 +21,9 @@ export function createFormulaCommandPlan(
   const from = Math.min(selection.from, selection.to)
   const to = Math.max(selection.from, selection.to)
   if (from < 0 || to > snapshot.markdown.length) throw new RangeError('Formula selection is outside the current Markdown snapshot.')
-  const source = formulaSource(content, mode)
   const selected = snapshot.markdown.slice(from, to)
+  const previous = parseBlockFormulaAt(selected, 0)
+  const source = serializeFormula(mode, content, mode === 'block' && previous?.to === selected.length ? previous.formulaId : null)
   let patchFrom: number
   let patchTo: number
   let replacement: string
@@ -30,7 +31,7 @@ export function createFormulaCommandPlan(
     patchFrom = from
     patchTo = to
     replacement = source
-  } else if (/^\$\$\r?\n[\s\S]+\r?\n\$\$$/u.test(selected)) {
+  } else if (previous !== null && previous.to === selected.length) {
     patchFrom = from
     patchTo = to
     replacement = source

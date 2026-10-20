@@ -72,7 +72,7 @@ async function selectVisualTextRange(
 async function applyFontSize(page: Page, value: string): Promise<void> {
   await page.locator('[data-command-id="text.size"]').click()
   const picker = page.locator('[data-picker-command="text.size"]')
-  await picker.getByRole('listbox', { name: 'Font size' }).selectOption(value)
+  await picker.getByRole('radio', { name: `${value} px` }).check()
   await picker.locator('.primary-action').click()
 }
 

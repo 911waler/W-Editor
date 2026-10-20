@@ -83,7 +83,7 @@ describe('toolbar command and component parity matrix', () => {
     for (const fragment of requiredToolbarContractFragments) expect(parity).toContain(fragment)
   })
 
-  it('maps all 80 commands and every named component to complete parity dimensions', () => {
+  it('maps all 81 commands and every named component to complete parity dimensions', () => {
     expect(existsSync(parityPath), `${parityPath} must exist`).toBe(true)
 
     const inventory = readFileSync(inventoryPath, 'utf8')
@@ -96,7 +96,7 @@ describe('toolbar command and component parity matrix', () => {
     const componentIds = rowIds(componentSection, 'component.')
     const headers = frozenParity.split(/\r?\n/u).filter((line) => /^\| (Stable ID|Component ID) \|/u.test(line))
 
-    expect(inventoryIds).toHaveLength(80)
+    expect(inventoryIds).toHaveLength(81)
     expect(parityCommandIds).toEqual(inventoryIds)
     expect(new Set(componentIds).size).toBe(componentIds.length)
     expect(componentIds).toEqual(expect.arrayContaining([...requiredComponentIds]))

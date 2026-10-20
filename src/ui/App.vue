@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import UserPickerDialog from './UserPickerDialog.vue'
 import AnnouncementSettingsDialog from './AnnouncementSettingsDialog.vue'
 import type { PublicationInput, PublicationSettings } from '../nwu/publication'
 import NwuReader from './NwuReader.vue'
 import PlaygroundApp from '../../apps/playground/src/PlaygroundApp.vue'
+import HistoryRestoreDialog from '../../apps/playground/src/HistoryRestoreDialog.vue'
+import type { DocumentHistorySnapshot } from '../../packages/editor-vue/src/services/documentHistory'
+import { scanReferences } from '../../packages/editor-core/src/codecs/references'
+import { emptyReferenceLibrary, type LibraryEntry } from '../../packages/editor-vue/src/services/referenceEditorServices'
 import { NwuAdapter, type NwuBootstrap, type Metadata } from '../nwu/adapter'
 import { editorDocumentUrl } from '../nwu/navigation'
 import type { ArticleDefinition } from '../../apps/playground/src/services/articleCatalog'
@@ -13,6 +17,16 @@ defineOptions({inheritAttrs:false})
 
 const element = document.querySelector<HTMLScriptElement>('script#nwu-editor-bootstrap[type="application/json"]')
 const config: NwuBootstrap | null = element ? JSON.parse(element.textContent ?? '{}') as NwuBootstrap : null
+// The site header owns light/dark mode; keep the mounted document intact when
+// its root attribute changes, including preferences received from another tab.
+const readHostTheme = () => document.documentElement.dataset['theme'] === 'dark' ? 'dark' : 'default'
+const hostTheme = ref<'dark' | 'default'>(readHostTheme())
+const themeObserver = config ? new MutationObserver(() => { hostTheme.value = readHostTheme() }) : null
+onMounted(() => {
+  themeObserver?.observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']})
+  hostTheme.value = readHostTheme()
+})
+onBeforeUnmount(() => themeObserver?.disconnect())
 const tutorialMode = config?.documentKind === 'tutorial'
 const announcementMode = config?.documentKind === 'announcement'
 const initiallyOpenPublication = new URLSearchParams(window.location.search).has('publication')
@@ -210,20 +224,71 @@ async function saveMetadata() {
   catch(error) { message.value=error instanceof Error ? error.message : '保存失败。' }
   finally {busy.value=false}
 }
-async function recover() {
-  if(!adapter || busy.value) return
-  const value=adapter.recovery(activeId.value)
-  if(!value) return
-  busy.value=true
-  try {
-    const title=announcementMode ? `${value.metadata.title}（恢复草稿副本）` : `${value.metadata.title}（私有恢复副本）`
-    const article=await adapter.create({title,markdown:value.markdown})
-    if(editor.value) await editor.value.openHostArticle(article,'imported')
-    else { navigateIdentity(article.documentId); window.location.reload() }
-    message.value=announcementMode ? '已创建公告草稿副本，原公告仍保留在服务器。' : '已创建私有恢复副本，原笔记仍保留在服务器。'
-  } catch(error) {message.value=error instanceof Error ? error.message : '恢复失败。'}
-  finally {busy.value=false}
+const historyOpen = ref(false)
+const historyDocumentId = ref('')
+const historyRecovery = shallowRef<DocumentHistorySnapshot | null>(null)
+const historyError = ref('')
+watch(activeId, () => { historyOpen.value = false })
+function recover(): void {
+  if (!adapter || busy.value || tutorialMode) return
+  historyDocumentId.value = adapter.id(activeId.value)
+  const value = adapter.recovery(activeId.value)
+  historyRecovery.value = value ? { id: 'local-recovery', title: value.metadata.title, markdown: value.markdown, savedAt: value.savedAt ?? null, kind: 'recovery' } : null
+  historyError.value = ''
+  historyOpen.value = true
 }
+async function restoreHistory(value: DocumentHistorySnapshot): Promise<void> {
+  if (!adapter || busy.value || adapter.id(activeId.value) !== historyDocumentId.value) return
+  const sourceDocumentId = historyDocumentId.value
+  busy.value = true
+  historyError.value = ''
+  let createdCopy: ArticleDefinition | null = null
+  try {
+    // Recheck history authorization at the action boundary, not just when preview opened.
+    const selected = value.kind === 'recovery' ? value : await adapter.historyServices.get(sourceDocumentId, value.id)
+    if (adapter.id(activeId.value) !== sourceDocumentId) throw new Error('文档已切换，请重新选择历史版本。')
+    await editor.value?.flushForLifecycle()
+    const services = adapter.referenceServices
+    const sourceLibrary = services.loadLibrary && services.saveLibrary
+      ? await services.loadLibrary(sourceDocumentId) : emptyReferenceLibrary()
+    const sourceNotes = await services.loadNotes(sourceDocumentId)
+    if (adapter.id(activeId.value) !== sourceDocumentId) throw new Error('文档已切换，请重新选择历史版本。')
+    const entries = new Map<string, LibraryEntry>(sourceLibrary.entries.map(entry => [entry.id, entry]))
+    const historicalReferences = scanReferences(selected.markdown)
+    // Historical citations retain their stable IDs and exact historical payloads.
+    for (const reference of historicalReferences) entries.set(reference.id, {
+      id: reference.id, text: reference.text,
+      ...(reference.metadata === undefined ? {} : { metadata: reference.metadata }),
+      ...(reference.style === undefined ? {} : { style: reference.style }),
+    })
+    const title = `${selected.title || '未命名'}（${announcementMode ? '恢复草稿副本' : '私有恢复副本'}）`
+    const article = await adapter.create({ title, markdown: selected.markdown })
+    createdCopy = article
+    historyOpen.value = false
+    let copyError = ''
+    try {
+      if (services.loadLibrary && services.saveLibrary) await services.saveLibrary(article.documentId, {
+        revision: 0, entries: [...entries.values()],
+        deletedIds: sourceLibrary.deletedIds.filter(id => !entries.has(id)),
+        highWater: Math.max(sourceLibrary.highWater, ...historicalReferences.map(reference => reference.number)),
+      })
+      for (const id of entries.keys()) {
+        const note = sourceNotes[id]
+        if (note?.text) await services.saveNote(article.documentId, id, { text: note.text, revision: 0 })
+      }
+    } catch (error) { copyError = error instanceof Error ? error.message : '资料保存失败。' }
+    if (editor.value) await editor.value.openHostArticle(article, 'imported')
+    else { navigateIdentity(article.documentId); window.location.reload() }
+    message.value = announcementMode ? '已创建未发布公告草稿副本，原公告保留。' : '已创建私有恢复副本，原笔记保留。'
+    if (copyError) message.value += `参考文献或备注未能完整复制：${copyError}。源文档资料保留，请核对并补齐副本中的资料。`
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : '恢复失败。'
+    historyError.value = createdCopy ? `副本已创建（${createdCopy.documentId}），但未能打开：${detail}。请从目录打开该副本，源文档资料保留。` : detail
+    message.value = historyError.value
+  }
+  finally { busy.value = false }
+}
+
 </script>
 
 <template>
@@ -234,12 +299,14 @@ async function recover() {
   <NwuReader
     v-else-if="config.readonly"
     :config="config"
+    :host-theme="hostTheme"
   />
   <PlaygroundApp
     v-else-if="articles"
     ref="editor"
     :article-catalog="articles"
     v-bind="{...$attrs,...adapterProps}"
+    :host-theme="hostTheme"
     :on-workspace-state-change="stateChanged"
   >
     <template #document-actions>
@@ -297,10 +364,11 @@ async function recover() {
         发布
       </button>
       <button
-        v-if="recoveryAvailable && !tutorialMode"
+        v-if="!tutorialMode"
         class="tool-button"
         type="button"
         :disabled="busy"
+        data-testid="open-history-restore"
         @click="recover"
       >
         {{ announcementMode ? '恢复为公告草稿' : '恢复为副本' }}
@@ -323,74 +391,129 @@ async function recover() {
         @click.self="metadataOpen=false"
       >
         <form
-          class="dialog-panel"
+          class="dialog-panel note-properties"
           aria-label="笔记属性"
           role="dialog"
           aria-modal="true"
           @submit.prevent="saveMetadata"
         >
-          <h2>笔记属性</h2>
-          <label>标题<input
-            v-model="metadata.title"
-            required
-            maxlength="200"
-          /></label>
-          <label>分类<select
-            v-model="metadata.category"
-            required
-          ><option
-            v-for="key in categoryKeys"
-            :key="key"
-            :value="key"
-          >{{ config.categories?.[key] ?? '其他' }}</option></select></label>
-          <label>可见性<select
-            v-model="metadata.visibility"
-            :disabled="!canManageAccess"
-          ><option value="private">私有（作者及授权编辑者）</option><option value="public">公开</option><option value="selected">指定用户</option></select></label>
-          <label v-if="metadata.visibility==='selected'">允许查看的用户（每行一个用户名）<textarea
-            v-model="allowed"
-            :disabled="!canManageAccess"
-          ></textarea></label>
-          <button
-            v-if="metadata.visibility==='selected' && config.isAdmin && canManageAccess"
-            type="button"
-            :disabled="pickerBusy || busy"
-            @click="openUserPicker('view')"
-          >
-            选择可查看用户
-          </button>
-          <div
-            v-if="canManageAccess"
-            class="grant-settings"
-          >
-            <p>允许编辑的用户：已选 {{ metadata.editorUserIds?.length ?? 0 }} 人</p>
+          <header class="note-properties__header">
+            <h2>笔记属性</h2>
             <button
               type="button"
-              :disabled="pickerBusy || busy"
-              @click="openUserPicker('edit')"
+              class="note-properties__close"
+              aria-label="关闭笔记属性"
+              @click="metadataOpen=false"
             >
-              选择可编辑用户
+              ×
             </button>
-            <p>编辑者可查看和修改内容，不能删除文章、更改可见性或转授权。</p>
+          </header>
+          <div class="note-properties__body">
+            <div class="note-properties__fields">
+              <label class="note-properties__field">标题<input
+                v-model="metadata.title"
+                required
+                maxlength="200"
+              /></label>
+              <div class="note-properties__field-row">
+                <label class="note-properties__field">分类<select
+                  v-model="metadata.category"
+                  required
+                ><option
+                  v-for="key in categoryKeys"
+                  :key="key"
+                  :value="key"
+                >{{ config.categories?.[key] ?? '其他' }}</option></select></label>
+                <label class="note-properties__field">可见性<select
+                  v-model="metadata.visibility"
+                  :disabled="!canManageAccess"
+                ><option value="private">私有（作者及授权编辑者）</option><option value="public">公开</option><option value="selected">指定用户</option><option value="group">仅课题组内部查看</option></select></label>
+              </div>
+            </div>
+            <div class="note-properties__permissions">
+              <p
+                v-if="metadata.visibility==='group'"
+                class="note-properties__hint"
+              >
+                课题组成员、作者和已授权编辑者可查看，其他外部成员不可查看。
+              </p>
+              <div
+                v-if="metadata.visibility==='selected'"
+                class="note-properties__permission"
+              >
+                <div class="note-properties__permission-heading">
+                  <label for="note-properties-viewers">允许查看的用户</label>
+                  <button
+                    v-if="config.isAdmin && canManageAccess"
+                    type="button"
+                    :disabled="pickerBusy || busy"
+                    @click="openUserPicker('view')"
+                  >
+                    选择可查看用户
+                  </button>
+                </div>
+                <textarea
+                  id="note-properties-viewers"
+                  v-model="allowed"
+                  rows="3"
+                  aria-describedby="note-properties-viewers-hint"
+                  :disabled="!canManageAccess"
+                ></textarea>
+                <p
+                  id="note-properties-viewers-hint"
+                  class="note-properties__hint"
+                >
+                  每行填写一个用户名。
+                </p>
+              </div>
+              <div
+                v-if="canManageAccess"
+                class="note-properties__permission grant-settings"
+              >
+                <div class="note-properties__permission-heading">
+                  <p>允许编辑的用户：已选 {{ metadata.editorUserIds?.length ?? 0 }} 人</p>
+                  <button
+                    type="button"
+                    :disabled="pickerBusy || busy"
+                    @click="openUserPicker('edit')"
+                  >
+                    选择可编辑用户
+                  </button>
+                </div>
+                <p class="note-properties__hint">
+                  编辑者可查看和修改内容，不能删除文章、更改可见性或转授权。
+                </p>
+              </div>
+              <p
+                v-else
+                class="note-properties__hint"
+              >
+                你可以编辑内容；可见性和授权由作者或管理员管理。
+              </p>
+            </div>
+            <p
+              class="note-properties__status"
+              :class="{'note-properties__status--empty': !message}"
+              role="status"
+            >
+              {{ message }}
+            </p>
           </div>
-          <p v-else>
-            你可以编辑内容；可见性和授权由作者或管理员管理。
-          </p>
-          <p role="status">
-            {{ message }}
-          </p>
-          <button
-            type="button"
-            @click="metadataOpen=false"
-          >
-            取消
-          </button>
-          <button
-            type="submit"
-            :disabled="busy"
-          >
-            保存并发布
-          </button>
+          <footer class="note-properties__footer dialog-panel__actions">
+            <button
+              type="button"
+              @click="metadataOpen=false"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              class="primary-action"
+              :disabled="busy"
+            >
+              保存并发布
+            </button>
+          </footer>
         </form>
       </div>
       <UserPickerDialog
@@ -422,6 +545,17 @@ async function recover() {
       :href="returnUrl"
     >{{ announcementMode ? '返回公告管理' : tutorialMode ? '返回教程' : '返回笔记列表' }}</a>
   </main>
+  <HistoryRestoreDialog
+    v-if="historyOpen && adapter"
+    :key="historyDocumentId"
+    :document-id="historyDocumentId"
+    :services="adapter.historyServices"
+    :recovery="historyRecovery"
+    :busy="busy"
+    :error="historyError"
+    @close="historyOpen = false"
+    @restore="restoreHistory"
+  />
 </template>
 
 <style>
@@ -437,4 +571,52 @@ async function recover() {
 
 <style>
 .announcement-editor .announcement-import-button { margin-left: auto; }
+</style>
+
+<style>
+.workspace-shell .dialog-panel.note-properties {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--app-border-strong, #c3d8ce);
+  border-radius: 12px;
+  box-shadow: none;
+  font: 14px/1.5 system-ui, sans-serif;
+}
+.note-properties__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px 16px; flex-shrink: 0; }
+.note-properties .note-properties__header h2 { margin: 0; font: 650 20px/1.4 system-ui, sans-serif; }
+.note-properties__body { display: flex; flex-direction: column; gap: 24px; min-height: 0; padding: 0 24px 24px; overflow-y: auto; }
+.note-properties__fields { display: flex; flex-direction: column; gap: 16px; }
+.note-properties__field-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.note-properties .note-properties__field { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0; font-size: 14px; line-height: 1.5; font-weight: 600; }
+.dialog-panel.note-properties :is(input, select, textarea) { box-sizing: border-box; min-width: 0; min-height: 44px; padding: 10px 12px; font: 400 14px/1.5 system-ui, sans-serif; }
+.dialog-panel.note-properties textarea { min-height: 96px; max-height: 240px; resize: vertical; }
+.note-properties__permissions { display: flex; flex-direction: column; gap: 20px; padding-top: 24px; border-top: 1px solid var(--app-border, #d4e0d9); }
+.note-properties__permission { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.note-properties__permission-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.note-properties .note-properties__permission-heading :is(label, p) { margin: 0; font-size: 14px; font-weight: 600; }
+.note-properties .note-properties__hint { margin: 0; color: var(--app-text-secondary, #40574d); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.dialog-panel.note-properties button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--app-border-strong, #c3d8ce); border-radius: 8px; background: var(--app-surface, #fff); color: var(--app-text, #17211d); font: 500 14px/1.5 system-ui, sans-serif; cursor: pointer; }
+.dialog-panel.note-properties button:hover { background: var(--app-hover, #edf5f1); }
+.dialog-panel.note-properties button:focus-visible { outline: 2px solid var(--app-focus, #176b4d); outline-offset: 2px; }
+.dialog-panel.note-properties button:disabled { opacity: .6; cursor: wait; }
+.dialog-panel.note-properties .note-properties__close { width: 44px; padding: 0; border: 0; background: transparent; color: var(--app-text-secondary, #40574d); font-size: 24px; font-weight: 400; }
+.note-properties .note-properties__close:hover { background: var(--app-hover, #edf5f1); }
+.note-properties .note-properties__footer { flex-shrink: 0; gap: 12px; margin: 0; padding: 16px 24px; border-top: 1px solid var(--app-border, #d4e0d9); background: var(--app-surface-muted, #f2f6f4); }
+.note-properties__footer button { min-width: 96px; }
+.dialog-panel.note-properties .note-properties__footer .primary-action { border-color: #176b4d; background: #176b4d; color: #fff; }
+.dialog-panel.note-properties .note-properties__footer .primary-action:hover { border-color: #145b43; background: #145b43; }
+.note-properties__status { margin: 0; padding: 12px; border-radius: 8px; background: var(--app-surface-muted, #f2f6f4); color: var(--app-text, #17211d); overflow-wrap: anywhere; }
+.note-properties__status--empty { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+@media (max-width: 520px) {
+  .note-properties__header { padding: 16px; }
+  .note-properties__body { padding: 0 16px 16px; }
+  .note-properties__field-row { grid-template-columns: minmax(0, 1fr); }
+  .note-properties .note-properties__footer { padding: 16px; }
+  .dialog-panel.note-properties .note-properties__footer button { flex: 1; min-width: 0; }
+}
 </style>

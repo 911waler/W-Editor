@@ -26,6 +26,7 @@ import {
   parseAttachmentAt,
   parseDrawioAt,
   type AlignmentCommandId,
+  type ImageLayoutSettings,
   type ColumnLayoutKind,
   type FormulaMode,
   type MermaidDiagramType,
@@ -402,8 +403,7 @@ function rebuildFromAuthority(): void {
 }
 const synchronization = new VisualSynchronizationService({
   onAcknowledgement: ({ snapshot }) => {
-    const projection = visualProjector(snapshot)
-    adapter?.acknowledgeSynchronization({ map: projection.map, snapshot })
+    adapter?.acknowledgeSynchronization({ snapshot })
   },
   session: props.session,
   state: props.state,
@@ -482,6 +482,9 @@ onBeforeUnmount(() => {
 })
 
 defineExpose({
+  insertImages: (sources: readonly string[]) => adapter?.insertImages(sources)
+    ?? Object.freeze({ active: false, changed: false }),
+  setDropSelection: (left: number, top: number) => adapter?.setDropSelection(left, top) ?? false,
   applyBlockquote: () => adapter?.applyBlockquote() ?? Object.freeze({ active: false, changed: false }),
   applyRawSource: (source: string) => adapter?.applyRawSource(source)
     ?? Object.freeze({ active: false, changed: false }),
@@ -502,6 +505,8 @@ defineExpose({
   removeReference: (id: string) => adapter?.removeReference(id) ?? { active: false, changed: false },
   setReferenceStyle: (style: ReferenceStyle) => adapter?.setReferenceStyle(style) ?? { active: false, changed: false },
   applyReference: (reference: DocumentReference) => adapter?.applyReference(reference) ?? { active: false, changed: false },
+  applyFormulaReference: (targetFrom: number) => adapter?.applyFormulaReference(targetFrom)
+    ?? Object.freeze({ active: false, changed: false }),
   applyFormula: (mode: FormulaMode, content: string) => adapter?.applyFormula(mode, content)
     ?? Object.freeze({ active: false, changed: false }),
   applyCodeBlock: (language: string, code: string) => adapter?.applyCodeBlock(language, code)
@@ -537,7 +542,7 @@ defineExpose({
       source,
     }) ?? Object.freeze({ active: false, changed: false })
   },
-  applyMedia: (source: string, fallbackKind: MediaKind | null = null) => {
+  applyMedia: (source: string, fallbackKind: MediaKind | null = null, imageLayout?: ImageLayoutSettings) => {
     const parsed = parseMediaAt(source, 0)
     if (parsed === null || parsed.sourceSpan.to !== source.length || (fallbackKind !== null && parsed.kind !== fallbackKind)) {
       return Object.freeze({ active: false, changed: false })
@@ -551,6 +556,7 @@ defineExpose({
       name: parsed.name,
       source,
       url: parsed.url,
+      ...(imageLayout === undefined ? {} : { imageLayout }),
     }) ?? Object.freeze({ active: false, changed: false })
   },
   applyAttachment: (source: string, fallbackKind: AttachmentKind | null = null) => {

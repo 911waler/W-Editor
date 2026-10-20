@@ -3,6 +3,7 @@ import type { JSONContent } from '@tiptap/core'
 import type { Codec, CodecMatch, ProjectionNode, SafePatchUnit, ValidationResult } from './contracts'
 import { parseReferenceAt } from './references'
 import { parseInlineImageAt } from './images'
+import { parseFormulaReferenceAt } from './formulaReferences'
 import { parseInlineFormulaAt } from './formulas'
 import { recognizeRichInlineMark, richMarkJSON } from './richInlineMarks'
 import { recognizeSimpleInline, simpleInlineMarkJSON } from './simpleInlineSyntax'
@@ -122,7 +123,24 @@ function parseRange(source: string, inheritedMarks: readonly JSONMark[] = []): J
     plain = ''
   }
   while (offset < source.length) {
+    // Only unescape backslashes adjacent to a supported break tag. An odd
+    // count escapes the tag; an even count leaves a real break after the text.
+    const breakEscape = source[offset] === '\\' ? /^(\\+)(?=<br[ \t]*\/?>)/iu.exec(source.slice(offset)) : null
+    if (breakEscape !== null) {
+      const count = breakEscape[0].length
+      plain += '\\'.repeat(Math.floor(count / 2))
+      offset += count
+      if (count % 2 === 1) { plain += '<'; offset += 1 }
+      continue
+    }
     if (source[offset] === '\\' && source[offset + 1] === '[') { plain += source.slice(offset, offset + 2); offset += 2; continue }
+    const formulaReference = inheritedMarks.some(mark => mark.type === 'link') ? null : parseFormulaReferenceAt(source, offset)
+    if (formulaReference) {
+      flushPlain()
+      content.push({ type: 'formulaReference', attrs: { targetId: formulaReference.targetId } })
+      offset = formulaReference.to
+      continue
+    }
     const reference = inheritedMarks.some(mark => mark.type === 'link') ? null : parseReferenceAt(source, offset)
     if (reference) {
       flushPlain()
@@ -155,7 +173,16 @@ function parseRange(source: string, inheritedMarks: readonly JSONMark[] = []): J
       continue
     }
     const simpleMatch = recognizeSimpleInline(source, offset)
-    if (simpleMatch !== null && simpleMatch.spec.commandId !== 'insert.hard-break') {
+    if (simpleMatch?.spec.commandId === 'insert.hard-break') {
+      flushPlain()
+      content.push(Object.freeze({
+        type: 'hardBreak',
+        ...(inheritedMarks.length === 0 ? {} : { marks: [...inheritedMarks] }),
+      }))
+      offset = simpleMatch.to
+      continue
+    }
+    if (simpleMatch !== null) {
       flushPlain()
       const nested = parseRange(
         simpleMatch.body,

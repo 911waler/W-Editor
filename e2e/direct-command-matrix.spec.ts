@@ -258,6 +258,12 @@ async function invokeCommand(page: Page, command: CommandCase): Promise<void> {
   if (command.picker === undefined) return
   const dialog = page.locator(`[data-picker-command="${command.id}"]`)
   await expect(dialog).toBeVisible()
+  if (command.id === 'text.size') {
+    await dialog.getByRole('radio', { name: `${command.picker.value} px` }).check()
+    await dialog.locator('.primary-action').click()
+    await expect(dialog).toHaveCount(0)
+    return
+  }
   const input = command.picker.kind === 'rich'
     ? dialog.locator('#rich-picker-value')
     : command.picker.kind === 'link'

@@ -39,6 +39,10 @@ export default [
     },
   },
   {
+    files: ['examples/nwu-host/site-assets/*.js', 'frontend/webvpn-compat/*.js'],
+    languageOptions: { globals: globals.browser },
+  },
+  {
     files: ['*.config.{js,ts}', 'scripts/**/*.{js,mjs,ts}'],
     languageOptions: {
       globals: globals.node,

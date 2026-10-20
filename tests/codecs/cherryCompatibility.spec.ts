@@ -40,4 +40,24 @@ describe('Cherry render-only Markdown compatibility', () => {
     expect(host.querySelectorAll('em')).toHaveLength(2)
     expect(host.textContent).toBe('粗体在前斜体在后斜体在前粗体在后')
   })
+
+  it('leaves formula source, ordinary backslashes and existing HTML entities unchanged', () => {
+    const markdown = [
+      String.raw`Path C:\work\file and literal &lt;br&gt; and &#92; and \*text\*.`,
+      '',
+      String.raw`$x\<br>y\\<br>z$`,
+      '',
+      '$$',
+      String.raw`x\<br>y\\<br>z`,
+      '$$',
+    ].join('\n')
+
+    expect(normalizeMarkdownForCherry(markdown)).toBe(markdown)
+  })
+
+  it('leaves break escapes inside unterminated fenced code unchanged', () => {
+    const markdown = ['```md', String.raw`left\<br>middle\\<br>right`].join('\n')
+
+    expect(normalizeMarkdownForCherry(markdown)).toBe(markdown)
+  })
 })

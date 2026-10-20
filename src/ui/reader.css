@@ -20,6 +20,14 @@
 .nwu-reader-content { flex: 1; min-height: 0; overflow: auto; }
 .nwu-reader-content .tiptap-reader-presentation { overflow: visible; min-height: 100%; }
 .nwu-reader-content :is(h1,h2,h3,h4,h5,h6) { scroll-margin-top: 20px; }
+/* Display-only contrast corrections; authored Markdown and inline styles stay intact. */
+.nwu-reader-shell:is([data-theme="dark"], [data-theme="abyss"]) [data-theme-color-fallback="neutral"] { color: #f1f3f5 !important; }
+.nwu-reader-shell:is([data-theme="dark"], [data-theme="abyss"]) [data-theme-color-fallback="link"] { color: #a9dbff !important; }
+.nwu-reader-shell:is([data-theme="dark"], [data-theme="abyss"]) [data-theme-color-fallback="success"] { color: #a6f1c8 !important; }
+.nwu-reader-shell:is([data-theme="dark"], [data-theme="abyss"]) [data-theme-color-fallback="warning"] { color: #f7d18d !important; }
+.nwu-reader-shell:is([data-theme="dark"], [data-theme="abyss"]) [data-theme-color-fallback="danger"] { color: #ffb9b4 !important; }
+.nwu-reader-shell:is([data-theme="dark"], [data-theme="abyss"]) [data-theme-color-fallback="dark"] { color: #000 !important; }
+.nwu-reader-shell:is([data-theme="dark"], [data-theme="abyss"]) [data-theme-color-fallback="light"] { color: #fff !important; }
 .nwu-reader-shell :is(a,button,select,summary):focus-visible { outline: 2px solid #278558; outline-offset: 2px; }
 @media (max-width:700px) { .workspace-shell.nwu-reader-shell.w-editor-instance { grid-template-columns: min(220px,48vw) minmax(0,1fr); } .nwu-reader-actions { padding: 10px; } .nwu-reader-options { gap: 6px; } }
 

@@ -77,9 +77,9 @@ test('Task 21.7 size and color pickers expose anchored keyboard/list and named-s
   await page.locator('[data-command-id="text.size"]').click()
   const sizePicker = page.locator('[data-picker-command="text.size"]')
   await expect(sizePicker).toHaveClass(/rich-text-picker/)
-  const sizes = sizePicker.getByRole('listbox', { name: 'Font size' })
-  await expect(sizes.getByRole('option')).toHaveCount(6)
-  await sizes.selectOption('24')
+  const sizes = sizePicker.getByRole('group', { name: 'Font size' })
+  await expect(sizes.getByRole('radio')).toHaveCount(6)
+  await sizes.getByRole('radio', { name: '24 px' }).check()
   await sizePicker.getByRole('button', { name: 'Apply' }).click()
   await expectMarkdown(page, '!24 Alpha!')
 

@@ -2,10 +2,11 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 
 import App from '../../src/ui/App.vue'
+import { MockUploadAdapter } from '../../src/adapters'
 
 describe('application media integration', () => {
-  it('inserts, persists, reloads, previews, falls back, and edits URL-only media through visible UI', async () => {
-    const first = mount(App, { attachTo: document.body })
+  it('uploads, persists, reloads, previews, falls back, and replaces images through visible UI', async () => {
+    const first = mount(App, { attachTo: document.body, props: { uploadAdapter: new MockUploadAdapter() } })
     await first.get('[data-command-id="mode.source"]').trigger('click')
     await flushPromises()
     const source = first.get('#markdown-source')
@@ -24,11 +25,19 @@ describe('application media integration', () => {
     expect(source.element).toHaveProperty('value', '')
 
     dialog = await openImage()
+    expect(dialog.find('#media-url-image').exists()).toBe(false)
+    const input = dialog.get<HTMLInputElement>('#media-file-image')
+    Object.defineProperty(input.element, 'files', {
+      configurable: true,
+      value: [new File(['png'], 'hero.png', { type: 'image/png' })],
+    })
+    await input.trigger('change')
+    await vi.waitFor(() => expect(dialog.find('[data-upload-result="ready"]').exists()).toBe(true))
     await dialog.get('#media-name-image').setValue('Hero image')
-    await dialog.get('#media-url-image').setValue('https://assets.example.test/hero.png')
     await dialog.get('.primary-action').trigger('click')
     await flushPromises()
-    const inserted = '![Hero image](https://assets.example.test/hero.png)'
+    const url = 'https://fixtures.w-editor.test/uploads/image/asset-001'
+    const inserted = `![Hero image](${url})`
     expect(source.element).toHaveProperty('value', inserted)
 
     await vi.advanceTimersByTimeAsync(1_000)
@@ -45,7 +54,7 @@ describe('application media integration', () => {
     expect(node.attributes('data-media-kind')).toBe('image')
     await node.get('.semantic-preview__media-element').trigger('error')
     expect(node.attributes('data-preview-state')).toBe('error')
-    expect(node.get('[data-media-fallback="image"]').text()).toContain('https://assets.example.test/hero.png')
+    expect(node.get('[data-media-fallback="image"]').text()).toContain(url)
 
     await node.get('img[src]').trigger('click')
     await node.get('[data-semantic-edit="media-editor"]').trigger('click')
@@ -53,14 +62,13 @@ describe('application media integration', () => {
     dialog = first.get('[data-editor-command="insert.image"]')
     expect(dialog.get<HTMLInputElement>('#media-name-image').element.value).toBe('Hero image')
     await dialog.get('#media-name-image').setValue('Updated hero')
-    await dialog.get('#media-url-image').setValue('https://assets.example.test/updated.png')
     await dialog.get('.primary-action').trigger('click')
     await vi.advanceTimersByTimeAsync(250)
     await flushPromises()
 
     await first.get('[data-command-id="mode.preview"]').trigger('click')
     await flushPromises()
-    expect(first.get('.preview-rendered-content img').attributes('src')).toBe('https://assets.example.test/updated.png')
+    expect(first.get('.preview-rendered-content img').attributes('src')).toBe(url)
     await vi.advanceTimersByTimeAsync(1_000)
     await flushPromises()
     first.unmount()
@@ -70,7 +78,7 @@ describe('application media integration', () => {
     await flushPromises()
     expect(restored.get('#markdown-source').element).toHaveProperty(
       'value',
-      '![Updated hero](https://assets.example.test/updated.png)',
+      `![Updated hero](${url})`,
     )
     restored.unmount()
   })

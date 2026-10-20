@@ -121,29 +121,37 @@ describe('announcement adapter contract', () => {
 })
 
 describe('announcement editor mode', () => {
-  it('shows announcement actions without blog metadata, public visibility, or the document sidebar', async () => {
+  it('shows announcement actions and restores a selected recovery draft as an unpublished copy without changing the original', async () => {
     const paths: string[] = []
+    const requests: Array<{ path: string; method: string; body: Record<string, unknown> }> = []
+    const recoveryMarkdown = '# Recovered maintenance'
+    const restoredEnvelope = {
+      document: { documentId: 'announcement:43', markdown: recoveryMarkdown, revision: 1, serverRevision: '1' },
+      metadata: { ...publishedEnvelope.metadata, title: 'Maintenance（恢复草稿副本）', state: 'draft' },
+    }
     window.history.replaceState(null, '', '/admin/announcements/42/edit')
     vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
-      const path = new URL(String(input)).pathname
+      const path = decodeURIComponent(new URL(String(input)).pathname)
+      const method = init?.method ?? 'GET'
+      const body = typeof init?.body === 'string' ? JSON.parse(init.body) as Record<string, unknown> : {}
       paths.push(path)
+      requests.push({ path, method, body })
       if (path.endsWith('/reference-library')) return new Response(JSON.stringify({ revision: 0, entries: [], deletedIds: [], highWater: 0 }))
       if (path.endsWith('/reference-notes')) return new Response(JSON.stringify({ notes: {} }))
-      if (path.endsWith('/publication')) return new Response(JSON.stringify({serverRevision:'3', state:'published',title:'Maintenance',level:'normal',sendEmail:false,scheduledFor:'',reminderEndsAt:'',recipientCount:0,missingCount:0,mailLabel:'停用'}))
+      if (path.endsWith('/history')) return new Response(JSON.stringify({ versions: [], nextCursor: null }))
+      if (path.endsWith('/publication')) return new Response(JSON.stringify({serverRevision:path.includes('announcement:43')?'1':'3', state:path.includes('announcement:43')?'draft':'published',title:'Maintenance',level:'normal',sendEmail:false,scheduledFor:'',reminderEndsAt:'',recipientCount:0,missingCount:0,mailLabel:'停用'}))
+      if (path.includes('/state/announcement:43')) return new Response(JSON.stringify({}))
       if (path.includes('/state/')) return new Response(JSON.stringify({ draft: {
         documentId: 'announcement:42',
         userId: '7',
-        markdown: '# Recovered maintenance',
+        markdown: recoveryMarkdown,
         baseServerRevision: '2',
         localRevision: 4,
+        updatedAt: '2026-09-30T03:04:05Z',
         metadata: publishedEnvelope.metadata,
       } }))
-      if (path === '/api/announcement-editor/documents' && init?.method === 'POST') {
-        return new Response(JSON.stringify({
-          ...publishedEnvelope,
-          document: { ...publishedEnvelope.document, documentId: 'announcement:43' },
-          metadata: { ...publishedEnvelope.metadata, state: 'draft' },
-        }))
+      if ((path === '/api/announcement-editor/documents' && method === 'POST') || path.endsWith('/documents/announcement:43')) {
+        return new Response(JSON.stringify(restoredEnvelope))
       }
       return new Response(JSON.stringify(publishedEnvelope))
     })
@@ -170,13 +178,28 @@ describe('announcement editor mode', () => {
     expect(wrapper.findAll('[data-testid="import-markdown-input"]')).toHaveLength(1)
     expect(paths).not.toContain('/api/announcement-editor/documents')
 
-    const recoveryButton = wrapper.findAll('button').find(button => button.text().includes('恢复为公告草稿'))
-    if (!recoveryButton) throw new Error('Expected announcement recovery action')
-    await recoveryButton.trigger('click')
+    await wrapper.get('[data-testid="open-history-restore"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="history-restore-dialog"]').exists()).toBe(true)
+    expect(wrapper.get('main').attributes('data-document-id')).toBe('announcement:42')
+    expect(wrapper.get('[data-testid="history-restore-confirm"]').attributes('disabled')).toBeDefined()
+    expect(requests.filter(request => request.method === 'POST')).toEqual([])
+    await wrapper.get('[data-testid="history-recovery"]').trigger('click')
+    expect(wrapper.get('[data-testid="history-preview"]').text()).toBe(recoveryMarkdown)
+    expect(requests.filter(request => request.method === 'POST')).toEqual([])
+    await wrapper.get('[data-testid="history-restore-confirm"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('main').attributes('data-document-id')).toBe('announcement:43')
     expect(wrapper.get('[data-testid="announcement-manual-save"]').text()).toBe('保存草稿')
+    expect(wrapper.find('[data-testid="history-restore-dialog"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Recovered maintenance')
+    expect(requests.filter(request => request.method === 'POST')).toEqual([{
+      path: '/api/announcement-editor/documents',
+      method: 'POST',
+      body: { title: 'Maintenance（恢复草稿副本）', markdown: recoveryMarkdown },
+    }])
+    expect(requests.filter(request => request.method !== 'GET' && request.path.startsWith('/api/announcement-editor/documents/announcement:42'))).toEqual([])
 
     wrapper.unmount()
   }, 20_000)

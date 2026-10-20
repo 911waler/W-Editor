@@ -41,7 +41,7 @@ const commandIds = [
   'panel.danger', 'panel.success', 'align.left', 'align.center', 'align.right', 'align.justify', 'layout.two-column',
   'layout.multi-column', 'layout.tabs', 'layout.accordion', 'layout.timeline', 'insert.image', 'insert.audio',
   'insert.video', 'insert.link', 'insert.horizontal-rule', 'insert.hard-break', 'insert.code-block', 'insert.inline-code',
-  'insert.formula', 'insert.toc', 'insert.table', 'insert.pdf', 'insert.word', 'insert.file', 'insert.drawio', 'insert.reference',
+  'insert.formula', 'insert.formula-reference', 'insert.toc', 'insert.table', 'insert.pdf', 'insert.word', 'insert.file', 'insert.drawio', 'insert.reference',
   'mermaid.flowchart', 'mermaid.sequence', 'mermaid.state', 'mermaid.class', 'mermaid.pie', 'mermaid.gantt',
   'chart.line', 'chart.bar', 'chart.radar', 'chart.map', 'chart.heatmap', 'chart.scatter', 'chart.pie', 'chart.sankey',
   'history.undo', 'history.redo', 'document.manual-save', 'search.replace', 'settings.shortcuts', 'mode.source',
@@ -79,7 +79,7 @@ describe('dual-target feature manifest', () => {
 
     expect(manifest.schemaVersion).toBe(1)
     expect(manifest.sourceInputs.every((path) => existsSync(path))).toBe(true)
-    expect(manifest.commands.count).toBe(80)
+    expect(manifest.commands.count).toBe(81)
     expect(manifest.commands.ids).toEqual(commandIds)
     expect(manifest.commands.ids).toEqual(markdownInventoryIds('docs/toolbar-command-matrix.md'))
     expect(manifest.components.count).toBe(41)

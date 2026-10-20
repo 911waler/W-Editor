@@ -3,6 +3,10 @@ export interface ImageDimensions {
   readonly height: number | null
 }
 
+export interface ImageLayoutSettings extends ImageDimensions {
+  readonly alignment?: 'left' | 'center' | 'right'
+}
+
 export interface InlineImageModel extends ImageDimensions {
   readonly name: string
   readonly url: string

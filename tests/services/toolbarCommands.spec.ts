@@ -7,8 +7,8 @@ describe('toolbar command descriptors', () => {
   it('describes the complete visible inventory with presentation and verification metadata', () => {
     const registry = new CommandRegistry(createToolbarCommandDescriptors())
 
-    expect(registry.list()).toHaveLength(80)
-    expect(new Set(registry.list().map((command) => command.id)).size).toBe(80)
+    expect(registry.list()).toHaveLength(81)
+    expect(new Set(registry.list().map((command) => command.id)).size).toBe(81)
     for (const command of registry.list()) {
       expect(command.icon.length).toBeGreaterThan(0)
       expect(command.labels.en.length).toBeGreaterThan(0)
@@ -56,6 +56,7 @@ describe('toolbar command descriptors', () => {
     expect(byId.has('export.word')).toBe(false)
     expect(byId.has('insert.word')).toBe(true)
     expect(byId.get('insert.reference')).toMatchObject({ icon: 'Ref', surface: { menuId: 'insert' } })
+    expect(byId.get('insert.formula-reference')).toMatchObject({ labels: { zh: '公式引用', en: 'Equation reference', ru: 'Ссылка на формулу' }, surface: { menuId: 'insert' } })
     expect(byId.get('insert.table')?.surface.menuId).toBe('insert')
     for (const commandId of ['list.ordered', 'list.unordered', 'list.task']) {
       expect(byId.get(commandId)?.surface).toMatchObject({ control: 'menu-item', menuId: 'list' })

@@ -9,18 +9,20 @@ import { createUiLocalizationStore, translateUi, type UiLocale, type UiMessageKe
 import { BrowserFileExporter, createMarkdownExport, createTiptapRenderedExportDocument, materializeRenderedExportDocument, createHtmlDerivedExportArtifacts, type ExportArtifact } from '../../packages/editor-vue/src/services/browserFileExport'
 import { BrowserRenderedExportAdapter } from '../../packages/editor-vue/src/services/browserRenderedExport'
 import type { NwuBootstrap } from '../nwu/adapter'
-import { numberOutline, activeOutlineIndex } from '../../packages/editor-vue/src/services/outlinePresentation'
+import { numberOutline, activeOutlineIndex, visibleOutlineItems } from '../../packages/editor-vue/src/services/outlinePresentation'
 import { installReaderHeadingReturns, readerScrollBehavior } from '../nwu/readerNavigation'
 import './reader.css'
 
-const props = defineProps<{config: NwuBootstrap}>()
+const props = defineProps<{config: NwuBootstrap; hostTheme?: AppearanceTheme}>()
 const published = computed(() => props.config.readerDocument)
 function preference(key: string): string | null { try { return localStorage.getItem(`nwu-reader:${key}`) } catch { return null } }
 const initialTheme = preference('theme')
-const theme = ref<AppearanceTheme>(isAppearanceTheme(initialTheme) ? initialTheme : 'default')
+const theme = ref<AppearanceTheme>(props.hostTheme ?? (isAppearanceTheme(initialTheme) ? initialTheme : 'default'))
+watch(() => props.hostTheme, value => { if (value !== undefined) theme.value = value })
 const initialLocale = preference('locale')
 const locale = ref<UiLocale>(initialLocale === 'en' || initialLocale === 'ru' ? initialLocale : 'zh')
-watch([theme, locale], () => { try { localStorage.setItem('nwu-reader:theme',theme.value); localStorage.setItem('nwu-reader:locale',locale.value) } catch { /* Session-only preferences remain usable. */ } })
+watch(locale, () => { try { localStorage.setItem('nwu-reader:locale',locale.value) } catch { /* Session-only preferences remain usable. */ } })
+function persistTheme() { try { localStorage.setItem('nwu-reader:theme',theme.value) } catch { /* Session-only preferences remain usable. */ } }
 const words = computed(() => ({
   zh: {top:'回到顶部', returnToc:'返回正文目录对应条目', skin:'皮肤', language:'语言', export:'导出', edit:'编辑', back:'笔记列表', empty:'本文暂无标题目录', failed:'操作失败，请重试。', image:'长图', loading:'正在导出…', sidebar:'切换侧栏', ready:'已导出', omitted:'部分跨域图片未包含在导出文件中'},
   en: {top:'Back to top', returnToc:'Return to the body table of contents', skin:'Skin', language:'Language', export:'Export', edit:'Edit', back:'Notes', empty:'No headings in this note', failed:'The operation failed. Please retry.', image:'Long image', loading:'Exporting…', sidebar:'Toggle sidebar', ready:'Exported', omitted:'Some cross-origin images were omitted'},
@@ -63,7 +65,20 @@ watch(() => published.value?.documentId, () => {
 const content = ref<HTMLElement|null>(null)
 const presentation = ref<InstanceType<typeof TiptapReaderPresentation>|null>(null)
 const headings = shallowRef<HTMLElement[]>([])
+let headingsRefresh = 0
 const outline = computed(() => numberOutline(headings.value.map(heading => ({heading, level:Number(heading.tagName.slice(1))}))))
+const collapsedOutlineIndices = ref<ReadonlySet<number>>(new Set())
+const visibleOutline = computed(() => visibleOutlineItems(outline.value, collapsedOutlineIndices.value))
+function toggleOutline(index: number) {
+  const next = new Set(collapsedOutlineIndices.value)
+  if (next.has(index)) next.delete(index)
+  else next.add(index)
+  collapsedOutlineIndices.value = next
+}
+watch([
+  () => published.value?.documentId,
+  () => JSON.stringify(outline.value.map(item => [item.level, item.heading.textContent])),
+], () => { collapsedOutlineIndices.value = new Set() })
 const activeHeading = ref(0)
 const showBackTop = ref(false)
 let removeHeadingReturns: (() => void) | undefined
@@ -86,6 +101,7 @@ function updateOutline() {
 }
 function scheduleOutline() { updateBackTop(); if (!outlineFrame) outlineFrame = requestAnimationFrame(updateOutline) }
 onBeforeUnmount(() => {
+  headingsRefresh += 1
   cancelAnimationFrame(outlineFrame)
   removeHeadingReturns?.()
   contentResize?.disconnect()
@@ -94,6 +110,17 @@ const message = ref('')
 const busy = ref(false)
 const exportMenu = ref<HTMLDetailsElement|null>(null)
 function closeExport() { if(exportMenu.value) { exportMenu.value.open=false; exportMenu.value.querySelector('summary')?.focus() } }
+async function refreshHeadings() {
+  const refresh = ++headingsRefresh
+  await nextTick()
+  if (refresh !== headingsRefresh) return
+  try {
+    await presentation.value?.settle()
+    if (refresh !== headingsRefresh) return
+    headings.value = [...content.value?.querySelectorAll<HTMLElement>('.ProseMirror h1,.ProseMirror h2,.ProseMirror h3,.ProseMirror h4,.ProseMirror h5,.ProseMirror h6') ?? []]
+  } catch { if (refresh === headingsRefresh) message.value=words.value.failed }
+}
+watch(() => [published.value?.documentId, published.value?.markdown], refreshHeadings, { flush: 'post' })
 onMounted(async () => {
   await nextTick()
   if (content.value) {
@@ -102,10 +129,7 @@ onMounted(async () => {
     contentResize.observe(content.value)
     updateBackTop()
   }
-  try {
-    await presentation.value?.settle()
-    headings.value = [...content.value?.querySelectorAll<HTMLElement>('.ProseMirror h1,.ProseMirror h2,.ProseMirror h3,.ProseMirror h4,.ProseMirror h5,.ProseMirror h6') ?? []]
-  } catch { message.value=words.value.failed }
+  await refreshHeadings()
 })
 function jump(heading: HTMLElement) {
   const scroller=content.value
@@ -259,23 +283,45 @@ async function download(format: 'markdown'|'html'|'pdf'|'image') {
             class="article-outline__list"
           >
             <li
-              v-for="(item,index) in outline"
-              :key="index"
+              v-for="(item,index) in visibleOutline"
+              :key="item.outlineIndex"
+              class="article-outline__row"
+              :data-outline-level="item.level"
               :data-outline-depth="item.depth"
-              :style="{'--outline-depth':item.depth}"
+              :data-outline-indent="item.indentDepth"
+              :style="{'--outline-depth':item.indentDepth}"
             >
               <span
-                v-for="guideDepth in item.depth"
+                v-for="guideDepth in item.indentDepth"
                 :key="guideDepth"
                 class="article-outline__guide"
-                :class="{'article-outline__guide--end': (outline[index + 1]?.depth ?? 0) < guideDepth}"
+                :class="{'article-outline__guide--end': (visibleOutline[index + 1]?.indentDepth ?? 0) < guideDepth}"
                 :style="{'--guide-depth':guideDepth}"
                 aria-hidden="true"
               ></span>
               <button
+                v-if="item.hasChildren"
+                class="article-outline__toggle"
+                type="button"
+                :aria-expanded="!item.collapsed"
+                :aria-label="translateUi(locale, item.collapsed ? 'workspace.expandOutline' : 'workspace.collapseOutline', {title: item.heading.textContent ?? ''})"
+                :title="translateUi(locale, item.collapsed ? 'workspace.expandOutline' : 'workspace.collapseOutline', {title: item.heading.textContent ?? ''})"
+                @click.stop="toggleOutline(item.outlineIndex)"
+              >
+                <span
+                  class="article-outline__chevron"
+                  aria-hidden="true"
+                ></span>
+              </button>
+              <span
+                v-else
+                class="article-outline__toggle-spacer"
+                aria-hidden="true"
+              ></span>
+              <button
                 class="article-outline__item"
-                :class="{'article-outline__item--active':activeHeading===index}"
-                :aria-current="activeHeading===index?'location':undefined"
+                :class="{'article-outline__item--active':activeHeading===item.outlineIndex}"
+                :aria-current="activeHeading===item.outlineIndex?'location':undefined"
                 type="button"
                 @click="jump(item.heading)"
               >
@@ -317,6 +363,7 @@ async function download(format: 'markdown'|'html'|'pdf'|'image') {
           <label>{{ words.skin }}<select
             v-model="theme"
             :aria-label="words.skin"
+            @change="persistTheme"
           ><option
             v-for="value in APPEARANCE_THEME_IDS"
             :key="value"

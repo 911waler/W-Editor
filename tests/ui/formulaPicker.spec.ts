@@ -8,6 +8,7 @@ describe('FormulaPicker localization', () => {
     const wrapper = mount(FormulaPicker, {
       props: { error: null, locale: 'zh', mode: 'inline', modelValue: 'E=mc^2' },
     })
+    await wrapper.get('[data-formula-section="quick-tools"]').trigger('click')
 
     expect(wrapper.get('[role="dialog"]').text()).toContain('公式')
     expect(wrapper.text()).toContain('行内公式')
