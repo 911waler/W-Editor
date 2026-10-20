@@ -1,3 +1,4 @@
+import type { DocumentHistoryServices, DocumentHistoryPage, DocumentHistorySnapshot } from '../../packages/editor-vue/src/services/documentHistory'
 import type { ReferenceMetadata } from '../../packages/editor-core/src'
 import type { ReferenceEditorServices, ReferenceNote, ReferenceLibrary } from '../../packages/editor-vue/src/services/referenceEditorServices'
 import { createRandomId } from '../../packages/editor-vue/src/services/randomId'
@@ -30,7 +31,7 @@ interface Envelope {
   document: {documentId: string; markdown: string; revision: number; serverRevision: string}
   metadata: Metadata
 }
-interface Draft {documentId: string; markdown: string; revision: number; baseServerRevision: string; metadata: Metadata}
+interface Draft {savedAt?: string; documentId: string; markdown: string; revision: number; baseServerRevision: string; metadata: Metadata}
 type SaveInput = {documentId: string; markdown: string; revision: number}
 type SaveKind = 'autosave-draft' | 'manual-save' | 'publish'
 
@@ -75,6 +76,10 @@ export class NwuAdapter {
     this.storage.seedDocument(envelope.document.documentId,envelope.document.markdown)
     return {documentId:envelope.document.documentId,initialMarkdown:envelope.document.markdown,title:envelope.metadata.title,group:this.config.categories?.[envelope.metadata.category] ?? this.config.categories?.['other'] ?? '其他'}
   }
+  readonly historyServices: DocumentHistoryServices = {
+    list: (documentId, cursor, signal) => this.json<DocumentHistoryPage>(`/documents/${encodeURIComponent(this.id(documentId))}/history${cursor === undefined ? '' : `?cursor=${encodeURIComponent(cursor)}`}`, undefined, 'GET', signal),
+    get: (documentId, versionId, signal) => this.json<DocumentHistorySnapshot>(`/documents/${encodeURIComponent(this.id(documentId))}/history/${encodeURIComponent(versionId)}`, undefined, 'GET', signal),
+  }
   readonly referenceServices: ReferenceEditorServices = {
     loadLibrary: documentId => this.json<ReferenceLibrary>(`/documents/${encodeURIComponent(this.id(documentId))}/reference-library`),
     saveLibrary: (documentId, input) => this.json<ReferenceLibrary>(`/documents/${encodeURIComponent(this.id(documentId))}/reference-library`,
@@ -115,7 +120,7 @@ export class NwuAdapter {
     if(retained?.markdown===envelope.document.markdown && sameMetadata(retained.metadata,envelope.metadata)) {
       this.backing.removeItem(this.recoveryPrefix+'divergent:'+canonical)
     }
-    const state = await this.json<{workspace?:{userId:string;documentId:string;workspace:unknown}|null;draft?: {documentId:string;userId:string;markdown:string;baseServerRevision:string;metadata:Metadata;localRevision?:number}|null}>(`/state/${encodeURIComponent(canonical)}`)
+    const state = await this.json<{workspace?:{userId:string;documentId:string;workspace:unknown}|null;draft?: {documentId:string;userId:string;markdown:string;baseServerRevision:string;metadata:Metadata;localRevision?:number;updatedAt?:string}|null}>(`/state/${encodeURIComponent(canonical)}`)
     const draft=state.draft
     if(draft && draft.documentId===canonical && String(draft.userId)===String(this.config.userId) && draft.baseServerRevision===envelope.document.serverRevision) {
       envelope.document.markdown=draft.markdown
@@ -123,7 +128,7 @@ export class NwuAdapter {
     } else if(draft && draft.documentId===canonical && String(draft.userId)===String(this.config.userId)
       && (draft.markdown!==envelope.document.markdown || !sameMetadata(draft.metadata,envelope.metadata))) {
       const key=this.recoveryPrefix+'divergent:'+canonical
-      if(this.backing.getItem(key)===null) this.backing.setItem(key,JSON.stringify({documentId:canonical,markdown:draft.markdown,revision:draft.localRevision ?? 0,baseServerRevision:draft.baseServerRevision,metadata:draft.metadata ?? envelope.metadata}))
+      if(this.backing.getItem(key)===null) this.backing.setItem(key,JSON.stringify({documentId:canonical,markdown:draft.markdown,revision:draft.localRevision ?? 0,baseServerRevision:draft.baseServerRevision,metadata:draft.metadata ?? envelope.metadata,...(draft.updatedAt ? {savedAt:draft.updatedAt} : {})}))
     }
     this.accept(envelope)
     if(id!==canonical) this.storage.seedDocument(id,envelope.document.markdown)
@@ -158,7 +163,7 @@ export class NwuAdapter {
       // images can exceed the browser's localStorage quota even though the
       // server-facing Markdown will only contain short protected URLs.
       const markdown=await this.durableMarkdown(input.markdown)
-      const recovery: Draft={...input,documentId:id,markdown,baseServerRevision:envelope.document.serverRevision,metadata:envelope.metadata}
+      const recovery: Draft={...input,savedAt:new Date().toISOString(),documentId:id,markdown,baseServerRevision:envelope.document.serverRevision,metadata:envelope.metadata}
       this.backing.setItem(this.recoveryPrefix+id,JSON.stringify(recovery))
       const protectedKey=this.recoveryPrefix+'divergent:'+id
       const previous=this.recovery(id)

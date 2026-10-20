@@ -66,7 +66,7 @@ for (const asset of ASSET_CASES) {
     const initialName = `Initial ${asset.kind}`
     const updatedName = `Updated ${asset.kind}`
     const initialUrl = `http://127.0.0.1:4173/${asset.fixture}?state=initial`
-    const updatedUrl = `http://127.0.0.1:4173/${asset.fixture}?state=updated`
+    const updatedUrl = asset.kind === 'image' ? initialUrl : `http://127.0.0.1:4173/${asset.fixture}?state=updated`
     const initial = assetSource(asset, initialName, initialUrl)
     const updated = assetSource(asset, updatedName, updatedUrl)
     await openReadyApp(page)
@@ -79,13 +79,18 @@ for (const asset of ASSET_CASES) {
     await expect(dialog).toHaveCount(0)
     await expectAuthorityMarkdown(page, '')
 
-    await openInsertCommand(page, commandId)
-    dialog = page.locator(`[data-editor-command="${commandId}"]`)
-    await dialog.locator(`#media-name-${asset.kind}`).fill(initialName)
-    await dialog.locator(`#media-url-${asset.kind}`).fill(initialUrl)
-    await dialog.locator('.dialog-panel__actions .primary-action').click()
-    await expect(dialog).toHaveCount(0)
-    await expectAuthorityMarkdown(page, initial)
+    if (asset.kind === 'image') {
+      // Images keep their resource address internal; seed an existing external image.
+      await setSourceMarkdown(page, initial)
+    } else {
+      await openInsertCommand(page, commandId)
+      dialog = page.locator(`[data-editor-command="${commandId}"]`)
+      await dialog.locator(`#media-name-${asset.kind}`).fill(initialName)
+      await dialog.locator(`#media-url-${asset.kind}`).fill(initialUrl)
+      await dialog.locator('.dialog-panel__actions .primary-action').click()
+      await expect(dialog).toHaveCount(0)
+      await expectAuthorityMarkdown(page, initial)
+    }
 
     await page.locator('[data-command-id="mode.visual"]').click()
     const node = page.locator(`[data-semantic-kind="${asset.semanticKind}"]`)
@@ -94,9 +99,10 @@ for (const asset of ASSET_CASES) {
     await node.locator(`[data-semantic-edit="${asset.semanticKind === 'media' ? 'media-editor' : 'attachment-editor'}"]`).click()
     dialog = page.locator(`[data-editor-command="${commandId}"]`)
     await expect(dialog.locator(`#media-name-${asset.kind}`)).toHaveValue(initialName)
-    await expect(dialog.locator(`#media-url-${asset.kind}`)).toHaveValue(initialUrl)
+    if (asset.kind === 'image') await expect(dialog.locator('#media-url-image')).toHaveCount(0)
+    else await expect(dialog.locator(`#media-url-${asset.kind}`)).toHaveValue(initialUrl)
     await dialog.locator(`#media-name-${asset.kind}`).fill(updatedName)
-    await dialog.locator(`#media-url-${asset.kind}`).fill(updatedUrl)
+    if (asset.kind !== 'image') await dialog.locator(`#media-url-${asset.kind}`).fill(updatedUrl)
     await dialog.locator('.dialog-panel__actions .primary-action').click()
     await expectAuthorityMarkdown(page, updated)
 
@@ -178,7 +184,7 @@ test('draw.io rejects hostile messages and supports cancel, apply, edit, preview
   await page.locator('[data-command-id="mode.visual"]').click()
   const node = page.locator('[data-semantic-kind="drawio"]')
   await expect(node.locator('img')).toHaveAttribute('src', png)
-  await node.locator('[data-semantic-edit="drawio-editor"]').click()
+  await node.locator('img').dblclick()
   editor = nestedDrawio(page)
   await expect(editor.getByTestId('fake-drawio-status')).toHaveText('Ready')
   await expect(editor.getByLabel('Fake draw.io XML')).toHaveValue(initialXml)

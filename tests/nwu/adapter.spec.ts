@@ -183,6 +183,11 @@ describe('divergent server draft recovery', () => {
   expect((await a.load('blog:1')).initialMarkdown).toBe('server')
   expect(a.recovery('blog:1')?.markdown).toBe('server divergent')
  })
+ it('preserves the actual save time when offering a divergent server draft as recovery', async () => {
+  const a=new NwuAdapter(bootstrap,transport(path=>path.includes('/state/')?{draft:{documentId:'blog:1',userId:'7',baseServerRevision:'r1',markdown:'dated server draft',metadata:envelope.metadata,localRevision:7,updatedAt:'2026-09-30T03:04:05Z'}}:envelope),localStorage)
+  await a.load('blog:1')
+  expect(a.recovery('blog:1')?.savedAt).toBe('2026-09-30T03:04:05Z')
+ })
 })
 
 describe('native fetch and promoted recovery', () => {

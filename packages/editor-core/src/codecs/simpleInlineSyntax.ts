@@ -48,13 +48,14 @@ export function recognizeSimpleInline(source: string, offset: number): Readonly<
       to: offset + code[0].length,
     })
   }
-  if (rest.startsWith('  \n')) {
+  const hardBreak = /^<br[ \t]*\/?>/iu.exec(rest)?.[0] ?? (rest.startsWith('  \n') ? '  \n' : null)
+  if (hardBreak !== null) {
     return Object.freeze({
       attrs: Object.freeze({}),
       body: '',
-      source: '  \n',
+      source: hardBreak,
       spec: SIMPLE_INLINE_SPECS[2] as SimpleInlineSpec,
-      to: offset + 3,
+      to: offset + hardBreak.length,
     })
   }
   return null

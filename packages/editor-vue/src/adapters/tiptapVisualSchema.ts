@@ -21,8 +21,10 @@ import {
   type ReferenceRegistry,
   codeLanguageOptions,
   createTocHeadingItems,
+  parseDrawioAt,
   serializeFencedCode,
   serializeFormula,
+  isFormulaId,
   type FormulaMode,
   type TocHeadingItem,
 } from '@w-editor/editor-core'
@@ -35,6 +37,8 @@ import { ReferenceNode, ReferenceBibliography } from './referenceNode'
 import { InlineImage } from './imageNode'
 import { highlightCodeTokens } from './codeSyntaxHighlighting'
 import { renderFormulaVisual } from './formulaVisualRenderer'
+import { FormulaReferenceNode } from './formulaReferenceNode'
+import { bindFormulaReferenceNavigation, renumberBlockFormulas } from '../services/formulaNumbering'
 
 function bindLocalizedNodeView(
   localization: UiLocalizationStore,
@@ -474,6 +478,11 @@ interface FormulaNodeOptions {
 function formulaAttributes(includeProjection: boolean): Attributes {
   return {
     ...(includeProjection ? projectionAttributes() : {}),
+    ...(includeProjection ? { formulaId: {
+      default: null,
+      parseHTML: (element: HTMLElement) => isFormulaId(element.getAttribute('data-formula-id')) ? element.getAttribute('data-formula-id') : null,
+      renderHTML: (attributes: Record<string, unknown>) => isFormulaId(attributes['formulaId']) ? { 'data-formula-id': attributes['formulaId'] } : {},
+    } } : {}),
     content: {
       default: '',
       parseHTML: (element) => element.getAttribute('data-formula-content')
@@ -521,6 +530,7 @@ function formulaNodeView(localization: UiLocalizationStore, onEdit: FormulaNodeO
       const dom = document.createElement(mode === 'inline' ? 'span' : 'figure')
       dom.className = `formula-node formula-node--${mode}`
       dom.dataset['formulaMode'] = mode
+      if (mode === 'block' && isFormulaId(renderNode.attrs['formulaId'])) dom.dataset['formulaId'] = renderNode.attrs['formulaId']
       dom.dataset['selected'] = 'false'
       dom.dataset['wEditorNode'] = 'formula'
       dom.setAttribute('contenteditable', 'false')
@@ -584,6 +594,9 @@ function formulaNodeView(localization: UiLocalizationStore, onEdit: FormulaNodeO
       stopEvent: (event: Event) => event.type === 'dblclick',
       update: (updatedNode: ProseMirrorNode) => {
         if (updatedNode.type !== currentNode.type) return false
+        // Decorations can refresh this NodeView without changing the document.
+        // Keep its derived number and rendered math intact in that case.
+        if (updatedNode === currentNode) return true
         const selected = dom.dataset['selected'] === 'true'
         currentNode = updatedNode
         const replacement = render(updatedNode)
@@ -632,8 +645,24 @@ export const FormulaBlock = Node.create<FormulaNodeOptions>({
   addNodeView() {
     return formulaNodeView(this.options.localization, this.options.onEdit)
   },
+  addProseMirrorPlugins() {
+    const localization = this.options.localization
+    return [new Plugin({
+    key: new PluginKey('formulaNumbering'),
+    view: (view) => {
+      renumberBlockFormulas(view.dom, localization)
+      const stopLocale = localization.subscribe(() => renumberBlockFormulas(view.dom, localization))
+      const stopNavigation = bindFormulaReferenceNavigation(view.dom)
+      return {
+        destroy: () => { stopLocale(); stopNavigation() },
+        update: (updatedView, previousState) => {
+          if (updatedView.state.doc !== previousState.doc) renumberBlockFormulas(updatedView.dom, localization)
+        },
+      }
+    },
+  })] },
   parseHTML: () => [{ tag: 'figure[data-w-editor-node="formula"][data-formula-mode="block"]' }],
-  renderText: ({ node }) => `$$\n${String(node.attrs['content'] ?? '')}\n$$`,
+  renderText: ({ node }) => `$$\n${String(node.attrs['content'] ?? '')}\n$$${isFormulaId(node.attrs['formulaId']) ? `\n<!-- w-editor-formula-id: ${node.attrs['formulaId']} -->` : ''}`,
   renderHTML: ({ HTMLAttributes, node }) => [
     'figure',
     mergeAttributes(HTMLAttributes, { 'data-formula-mode': 'block', 'data-w-editor-node': 'formula' }),
@@ -1315,6 +1344,17 @@ function installSemanticPresentationInteractions(root: HTMLElement): () => void 
   }
 }
 
+function diagramClipboardAttributes(attributes: Attributes): Attributes {
+  return Object.fromEntries(Object.entries(attributes).map(([name, attribute]) => [name, {
+    ...attribute,
+    // The validated diagram parse rule is the only source of clipboard attributes.
+    // Tiptap runs these per-attribute parsers later, so HTML fields must not override it.
+    parseHTML: (element: HTMLElement) => element.hasAttribute('data-drawio-source')
+      ? null
+      : typeof attribute.parseHTML === 'function' ? attribute.parseHTML(element) : element.getAttribute(name),
+  }]))
+}
+
 export const SemanticBlock = Node.create<SemanticBlockOptions>({
   name: 'semanticBlock',
   group: 'block',
@@ -1328,7 +1368,7 @@ export const SemanticBlock = Node.create<SemanticBlockOptions>({
     onEdit: null,
     renderMermaid: null,
   }),
-  addAttributes: () => ({
+  addAttributes: () => diagramClipboardAttributes({
     ...rawAttributes(),
     attachmentKind: {
       default: null,
@@ -1445,7 +1485,23 @@ export const SemanticBlock = Node.create<SemanticBlockOptions>({
       renderHTML: () => ({}),
     },
   }),
-  parseHTML: () => [{ tag: 'figure[data-w-editor-node="semantic-block"]' }],
+  parseHTML: () => [{
+    tag: 'figure[data-w-editor-node="semantic-block"][data-drawio-source]',
+    priority: 100,
+    getAttrs: (element) => {
+      const source = element.getAttribute('data-drawio-source') ?? ''
+      const parsed = parseDrawioAt(source, 0)
+      if (parsed === null || parsed.sourceSpan.to !== source.length) return false
+      return {
+        kind: 'drawio', editorId: 'drawio-editor', identity: `draw.io · ${parsed.name}`,
+        name: parsed.name, png: parsed.png, source: parsed.source, xml: parsed.xml,
+      }
+    },
+  }, {
+    // Legacy or incomplete diagram HTML may retain its preview as a normal image.
+    tag: 'figure[data-w-editor-node="semantic-block"]:not([data-semantic-kind="drawio"]):not([data-drawio-source])',
+  }],
+  renderText: ({ node }) => node.attrs['kind'] === 'drawio' ? String(node.attrs['source'] ?? '') : node.textContent,
   addProseMirrorPlugins() {
     const nodeTypeName = this.name
     const onEdit = this.options.onEdit
@@ -1477,7 +1533,9 @@ export const SemanticBlock = Node.create<SemanticBlockOptions>({
         if (toDOM === undefined) throw new TypeError('Semantic block is missing its DOM renderer.')
         const rendered = DOMSerializer.renderSpec(document, toDOM(renderNode)).dom
         if (!(rendered instanceof HTMLElement)) throw new TypeError('Semantic block renderer must create an HTMLElement.')
-        rendered.classList.add('complex-node', 'semantic-node-view')
+        const isDrawio = renderNode.attrs['kind'] === 'drawio'
+        rendered.classList.add('semantic-node-view')
+        if (!isDrawio) rendered.classList.add('complex-node')
         rendered.dataset['selected'] = 'false'
         rendered.setAttribute('contenteditable', 'false')
         rendered.setAttribute('aria-label', semanticIdentity(localization, renderNode))
@@ -1486,57 +1544,96 @@ export const SemanticBlock = Node.create<SemanticBlockOptions>({
         preview.className = 'semantic-node-view__preview'
         while (rendered.firstChild !== null) preview.append(rendered.firstChild)
 
-        const header = document.createElement('header')
-        header.className = 'semantic-node-view__header'
-        const identity = document.createElement('span')
-        identity.className = 'semantic-node-view__identity'
-        identity.textContent = semanticIdentity(localization, renderNode)
-        header.append(identity)
-
-        const editorId = renderNode.attrs['editorId']
-        if (typeof editorId === 'string' && editorId.length > 0) {
-          const controls = document.createElement('div')
-          controls.className = 'complex-node__controls'
-          if (renderNode.attrs['kind'] === 'code-block') {
-            const copy = document.createElement('button')
-            copy.type = 'button'
-            copy.dataset['semanticCopy'] = 'code-block'
-            copy.dataset['wEditorAction'] = 'copy-code'
-            removeEvents.push(listenNodeViewEvent(copy, 'mousedown', (event: MouseEvent) => event.preventDefault()))
-            removeEvents.push(listenNodeViewEvent(copy, 'click', (event: MouseEvent) => {
-              event.preventDefault()
-              event.stopPropagation()
-              onCopy?.(Object.freeze({
-                code: String(currentNode.attrs['code'] ?? ''),
-                language: String(currentNode.attrs['language'] ?? ''),
-                source: String(currentNode.attrs['source'] ?? ''),
-              }))
-            }))
-            controls.append(copy)
-          }
-          const openEditor = (): void => {
+        if (isDrawio) {
+          preview.tabIndex = 0
+          preview.setAttribute('aria-label', semanticIdentity(localization, renderNode))
+          preview.setAttribute('aria-keyshortcuts', 'Enter')
+          const selectDiagram = (): boolean => {
+            if (!editor.isEditable) return false
             const position = getPos()
-            if (typeof position === 'number') {
-              editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, position)))
-            }
+            if (typeof position !== 'number') return false
+            editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, position)))
+            return true
+          }
+          const openDiagram = (): void => {
+            const editorId = currentNode.attrs['editorId']
+            if (typeof editorId !== 'string' || editorId.length === 0 || !selectDiagram()) return
             onEdit?.(createSemanticNodeEditEvent(currentNode, editorId))
           }
-          const edit = document.createElement('button')
-          edit.type = 'button'
-          edit.dataset['semanticEdit'] = editorId
-          if (renderNode.attrs['kind'] === 'code-block') edit.dataset['wEditorAction'] = 'edit-code'
-          removeEvents.push(listenNodeViewEvent(edit, 'mousedown', (event: MouseEvent) => event.preventDefault()))
-          removeEvents.push(listenNodeViewEvent(edit, 'click', (event: MouseEvent) => {
+          // Updates move preview into the stable NodeView root, so its listeners move with it.
+          removeEvents.push(listenNodeViewEvent(preview, 'click', (event: MouseEvent) => {
+            if (!editor.isEditable) return
             event.preventDefault()
             event.stopPropagation()
-            openEditor()
+            selectDiagram()
           }))
-          controls.append(edit)
-          header.append(controls)
+          removeEvents.push(listenNodeViewEvent(preview, 'dblclick', (event: MouseEvent) => {
+            if (!editor.isEditable) return
+            event.preventDefault()
+            event.stopPropagation()
+            openDiagram()
+          }))
+          removeEvents.push(listenNodeViewEvent(preview, 'keydown', (event: KeyboardEvent) => {
+            if (event.key !== 'Enter' || event.repeat || !editor.isEditable) return
+            event.preventDefault()
+            event.stopPropagation()
+            openDiagram()
+          }))
+        }
+
+        if (!isDrawio) {
+          const header = document.createElement('header')
+          header.className = 'semantic-node-view__header'
+          const identity = document.createElement('span')
+          identity.className = 'semantic-node-view__identity'
+          identity.textContent = semanticIdentity(localization, renderNode)
+          header.append(identity)
+
+          const editorId = renderNode.attrs['editorId']
+          if (typeof editorId === 'string' && editorId.length > 0) {
+            const controls = document.createElement('div')
+            controls.className = 'complex-node__controls'
+            if (renderNode.attrs['kind'] === 'code-block') {
+              const copy = document.createElement('button')
+              copy.type = 'button'
+              copy.dataset['semanticCopy'] = 'code-block'
+              copy.dataset['wEditorAction'] = 'copy-code'
+              removeEvents.push(listenNodeViewEvent(copy, 'mousedown', (event: MouseEvent) => event.preventDefault()))
+              removeEvents.push(listenNodeViewEvent(copy, 'click', (event: MouseEvent) => {
+                event.preventDefault()
+                event.stopPropagation()
+                onCopy?.(Object.freeze({
+                  code: String(currentNode.attrs['code'] ?? ''),
+                  language: String(currentNode.attrs['language'] ?? ''),
+                  source: String(currentNode.attrs['source'] ?? ''),
+                }))
+              }))
+              controls.append(copy)
+            }
+            const openEditor = (): void => {
+              const position = getPos()
+              if (typeof position === 'number') {
+                editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, position)))
+              }
+              onEdit?.(createSemanticNodeEditEvent(currentNode, editorId))
+            }
+            const edit = document.createElement('button')
+            edit.type = 'button'
+            edit.dataset['semanticEdit'] = editorId
+            if (renderNode.attrs['kind'] === 'code-block') edit.dataset['wEditorAction'] = 'edit-code'
+            removeEvents.push(listenNodeViewEvent(edit, 'mousedown', (event: MouseEvent) => event.preventDefault()))
+            removeEvents.push(listenNodeViewEvent(edit, 'click', (event: MouseEvent) => {
+              event.preventDefault()
+              event.stopPropagation()
+              openEditor()
+            }))
+            controls.append(edit)
+            header.append(controls)
+          }
+          rendered.append(header)
         }
 
         const localError = renderNode.attrs['localError']
-        rendered.append(header)
         if (typeof localError === 'string' && localError.length > 0) {
           rendered.dataset['previewState'] = 'error'
           preview.hidden = true
@@ -1653,6 +1750,9 @@ export const SemanticBlock = Node.create<SemanticBlockOptions>({
         dom.setAttribute('aria-label', label)
         const identity = dom.querySelector<HTMLElement>('.semantic-node-view__identity')
         if (identity !== null) identity.textContent = label
+        if (currentNode.attrs['kind'] === 'drawio') {
+          dom.querySelector<HTMLElement>('.semantic-node-view__preview')?.setAttribute('aria-label', label)
+        }
         const copy = dom.querySelector<HTMLButtonElement>('[data-semantic-copy]')
         if (copy !== null) {
           copy.textContent = localization.t('semanticNode.copySource')
@@ -2017,8 +2117,8 @@ export const SemanticBlock = Node.create<SemanticBlockOptions>({
         mergeAttributes(HTMLAttributes, {
           class: 'semantic-preview semantic-preview--drawio',
           'data-w-editor-node': 'semantic-block',
+          'data-drawio-source': String(node.attrs['source'] ?? ''),
         }),
-        ['figcaption', { class: 'semantic-preview__title' }, name],
         ['img', {
           alt: name,
           class: 'semantic-preview__drawio-image',
@@ -2824,7 +2924,11 @@ export function createTiptapVisualExtensions(options?: Readonly<TiptapVisualExte
       underline: false,
       undoRedo: TIPTAP_VISUAL_HISTORY_CONFIG,
     }),
-    Link.configure({ openOnClick: false }),
+    Link.configure({
+      openOnClick: false,
+      // Match the original text so filenames such as ph.in stay plain text.
+      shouldAutoLink: (text) => /^https?:\/\//iu.test(text),
+    }),
     Underline,
     Subscript,
     Superscript,
@@ -2854,6 +2958,7 @@ export function createTiptapVisualExtensions(options?: Readonly<TiptapVisualExte
     ReferenceDocumentStyle,
     ReferenceNode,
     ReferenceBibliography.configure({ registry: resolvedOptions.referenceRegistry ?? null }),
+    FormulaReferenceNode,
     InlineFormula.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     FormulaBlock.configure({ localization, onEdit: resolvedOptions.onSemanticEdit ?? null }),
     TocBlock.configure({ localization }),

@@ -13,6 +13,6 @@ describe('workspace feature manifest gate', () => {
       { cwd: repositoryRoot, encoding: 'utf8' },
     )
 
-    expect(output).toContain('Workspace feature manifest passed: 80 commands, 41 components')
+    expect(output).toContain('Workspace feature manifest passed: 81 commands, 41 components')
   })
 })

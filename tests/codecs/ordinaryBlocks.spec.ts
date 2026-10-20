@@ -51,4 +51,30 @@ describe('ordinary paragraph and H1-H5 codecs', () => {
     ])
     expect(projection.map.entries.map((entry) => entry.originalSource)).toEqual(['甲', '', '丙'])
   })
+
+  it.each(['<br>', '<br/>', '<BR />'])('preserves trailing and consecutive inline breaks written as %s', (br) => {
+    const markdown = `Alpha${br}${br}\n\nBeta`
+    const projection = projectOrdinaryMarkdown({ documentId: 'hard-break', markdown, revision: 0 })
+    expect(projection.content.content).toHaveLength(2)
+    expect(projection.content.content?.[0]?.content).toEqual([
+      { type: 'text', text: 'Alpha' }, { type: 'hardBreak' }, { type: 'hardBreak' },
+    ])
+    expect(projection.content.content?.[1]?.content).toEqual([{ type: 'text', text: 'Beta' }])
+  })
+
+  it('keeps code, formulas and escaped break tags literal', () => {
+    const markdown = '`<br>` $x<br>y$ \\<br>'
+    const projection = projectOrdinaryMarkdown({ documentId: 'literal-break', markdown, revision: 0 })
+    const content = projection.content.content?.[0]?.content ?? []
+    expect(content.some(node => node.type === 'hardBreak')).toBe(false)
+    expect(content[0]).toEqual({ type: 'text', text: '<br>', marks: [{ type: 'code' }] })
+    expect(content.at(-1)?.text).toBe(' <br>')
+  })
+
+  it('retains compatibility with existing Markdown hard breaks', () => {
+    const projection = projectOrdinaryMarkdown({ documentId: 'legacy-break', markdown: 'Alpha  \nBeta', revision: 0 })
+    expect(projection.content.content?.[0]?.content).toEqual([
+      { type: 'text', text: 'Alpha' }, { type: 'hardBreak' }, { type: 'text', text: 'Beta' },
+    ])
+  })
 })

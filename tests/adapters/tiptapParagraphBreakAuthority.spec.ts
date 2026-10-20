@@ -49,6 +49,11 @@ function harness(markdown: string): Readonly<{
         service.request(patchPlan)
       }
     },
+    onTransactionFailure: ({ failure }) => service.rejectTransaction({
+      failure,
+      operationId: `paragraph-break-rejected-${++sequence}`,
+      recover: () => adapter.rebuildFromAuthority(),
+    }),
     patchPlanner: new TiptapTransactionPatchPlanner({
       createTransactionId: () => `paragraph-break-${++sequence}`,
       serialize: serializeOrdinaryTiptapPatch,
@@ -491,6 +496,120 @@ describe('Tiptap paragraph and hard-break authority convergence', () => {
     }
   })
 
+  it.each([1, 2, 3])('synchronizes %i trailing Shift+Enter breaks before further typing', async (count) => {
+    const { adapter, destroy, host, service, session, state } = harness('Alpha')
+    try {
+      adapter.setSelection({ anchor: 6, head: 6 })
+      const surface = host.querySelector('.ProseMirror')
+      if (surface === null) throw new Error('Expected the visual editor surface.')
+
+      for (let index = 0; index < count; index += 1) {
+        pressEnter(surface, true)
+        await service.flush()
+        expect(state.snapshot().status).toBe('synchronized')
+      }
+
+      const reopened = harness(session.snapshot().markdown)
+      try {
+        expect(reopened.adapter.documentJSON().content?.[0]?.content?.map(({ type }) => type))
+          .toEqual(['text', ...Array.from({ length: count }, () => 'hardBreak')])
+      } finally { reopened.destroy() }
+    } finally { destroy() }
+  })
+
+  it.each([
+    ['paragraph before another block', 'Alpha\n\nBeta', 'p'],
+    ['heading', '# Alpha', 'h1'],
+    ['bullet list', '- Alpha', 'li p'],
+    ['ordered list', '1. Alpha', 'li p'],
+    ['task list', '- [ ] Alpha', 'li p'],
+    ['blockquote', '> Alpha', 'blockquote p'],
+    ['table cell', '| Alpha | Beta |\n| --- | --- |\n| One | Two |', 'th p'],
+    ['bold text', '**Alpha**', 'p'],
+  ])('preserves blank hard-break lines in a %s through reopening and continued typing', async (_name, markdown, selector) => {
+    const { adapter, destroy, host, service, session, state } = harness(markdown)
+    try {
+      placeCaretAfter(adapter, 'a')
+      const surface = host.querySelector('.ProseMirror')!
+      pressEnter(surface, true)
+      pressEnter(surface, true)
+      await service.flush()
+      expect(state.snapshot().status).toBe('synchronized')
+      expect(host.querySelector(selector)?.querySelectorAll('br:not(.ProseMirror-trailingBreak)')).toHaveLength(2)
+      const reopened = harness(session.snapshot().markdown)
+      try {
+        expect(reopened.host.querySelector(selector)?.querySelectorAll('br:not(.ProseMirror-trailingBreak)')).toHaveLength(2)
+      } finally { reopened.destroy() }
+      adapter.insertText('Bravo')
+      await service.flush()
+      expect(state.snapshot().status).toBe('synchronized')
+      expect(host.querySelector(selector)?.textContent).toBe('AlphaBravo')
+      expect(adapter.undo()).toBe(true)
+      await service.flush()
+      expect(state.snapshot().status).toBe('synchronized')
+      expect(adapter.redo()).toBe(true)
+      await service.flush()
+      expect(state.snapshot().status).toBe('synchronized')
+      expect(host.querySelector(selector)?.textContent).toBe('AlphaBravo')
+    } finally { destroy() }
+  })
+
+  it.each(['<br>', '<BR />', '\\<br>', '\\\\<br>', '&lt;br&gt;', 'C:\\tmp'])('preserves literal typed %s alongside an actual hard break', async (text) => {
+    const { adapter, destroy, host, service, session, state } = harness('Alpha')
+    try {
+      adapter.setSelection({ anchor: 6, head: 6 })
+      for (const character of text) {
+        adapter.insertText(character)
+        await service.flush()
+        expect(state.snapshot().status).toBe('synchronized')
+      }
+      pressEnter(host.querySelector('.ProseMirror')!, true)
+      await service.flush()
+      expect(state.snapshot().status).toBe('synchronized')
+      const reopened = harness(session.snapshot().markdown)
+      try {
+        expect(reopened.adapter.text()).toBe(`Alpha${text}`)
+        expect(reopened.host.querySelectorAll('br:not(.ProseMirror-trailingBreak)')).toHaveLength(1)
+      } finally { reopened.destroy() }
+    } finally { destroy() }
+  })
+
+  it.each(['\\', '\\\\'])('preserves literal %s immediately before a hard break', async (slashes) => {
+    const { adapter, destroy, host, service, session, state } = harness(`Alpha${slashes}`)
+    try {
+      adapter.setSelection({ anchor: 6 + slashes.length, head: 6 + slashes.length })
+      pressEnter(host.querySelector('.ProseMirror')!, true)
+      await service.flush()
+      expect(state.snapshot().status).toBe('synchronized')
+      const reopened = harness(session.snapshot().markdown)
+      try {
+        expect(reopened.adapter.text()).toBe(`Alpha${slashes}`)
+        expect(reopened.host.querySelectorAll('br:not(.ProseMirror-trailingBreak)')).toHaveLength(1)
+      } finally { reopened.destroy() }
+    } finally { destroy() }
+  })
+
+  it.each([
+    ['link', '[Alpha<br>Beta](https://example.com)', 'link'],
+    ['color', '!!#ff0000 Alpha<br>Beta!!', 'textStyle'],
+  ])('preserves %s marks on hard breaks when editing and reopening', async (_name, markdown, markType) => {
+    const { adapter, destroy, host, service, session, state } = harness(markdown)
+    try {
+      adapter.setSelection({ anchor: 6, head: 6 })
+      pressEnter(host.querySelector('.ProseMirror')!, true)
+      await service.flush()
+      expect(state.snapshot().status).toBe('synchronized')
+      const reopened = harness(session.snapshot().markdown)
+      try {
+        const breaks = reopened.adapter.documentJSON().content?.[0]?.content?.filter(node => node.type === 'hardBreak')
+        expect(breaks).toHaveLength(2)
+        // Tiptap does not carry every mark onto a newly inserted break, but the
+        // existing marked break after it must retain its formatting on save.
+        expect(breaks?.[1]?.marks?.map(mark => mark.type) ?? []).toContain(markType)
+      } finally { reopened.destroy() }
+    } finally { destroy() }
+  })
+
   it('serializes Shift+Enter as one hard break without creating a second paragraph identity', async () => {
     const { adapter, destroy, host, service, session, state } = harness('Alpha')
     try {
@@ -509,7 +628,7 @@ describe('Tiptap paragraph and hard-break authority convergence', () => {
       await service.flush()
       expect(session.snapshot()).toEqual({
         documentId: 'paragraph-breaks',
-        markdown: 'Alpha  \nBravo',
+        markdown: 'Alpha<br>Bravo',
         revision: 1,
       })
       expect(state.snapshot().status).toBe('synchronized')

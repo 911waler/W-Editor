@@ -17,6 +17,31 @@ async function open(wrapper: ReturnType<typeof setup>) {
 }
 describe('reference management', () => {
   const reference = referenceMarkdown({ id: 'book', number: 7, text: 'Original book' })
+  it('keeps the sidebar open for consecutive citations at the advancing source cursor', async () => {
+    const paper = referenceMarkdown({ id: 'paper', number: 9, text: 'Original paper' })
+    const original = `Existing ${reference} and ${paper}\n\nInsert here `
+    const wrapper = setup(original)
+    try {
+      await flushPromises()
+      const source = wrapper.get<HTMLTextAreaElement>('#markdown-source').element
+      source.setSelectionRange(original.length, original.length)
+      source.dispatchEvent(new Event('select', { bubbles: true }))
+      await open(wrapper)
+      const panel = wrapper.get('[data-testid="reference-panel"]').element
+      const additions = ['book', 'paper', 'book']
+      for (const [index, id] of additions.entries()) {
+        await wrapper.findAll(`[data-reference-entry="${id}"] button`).find(button => button.text() === '再次引用')!.trigger('click')
+        await flushPromises()
+        expect(scanReferences(source.value)).toHaveLength(3 + index)
+        expect(wrapper.find('[data-testid="reference-panel"]').exists()).toBe(true)
+        expect(wrapper.get('[data-testid="reference-panel"]').element).toBe(panel)
+      }
+      expect(source.value).toBe(original + reference + paper + reference)
+      expect(scanReferences(source.value).map(entry => [entry.id, entry.number])).toEqual([
+        ['book', 7], ['paper', 9], ['book', 7], ['paper', 9], ['book', 7],
+      ])
+    } finally { wrapper.unmount() }
+  })
   it('moves the last deleted body citation into the persistent collection', async () => {
     const wrapper = setup(`Body ${reference}`)
     try {
@@ -114,7 +139,7 @@ describe('reference management', () => {
       await flushPromises()
       expect(scanReferences((wrapper.get('#markdown-source').element as HTMLTextAreaElement).value)).toHaveLength(1)
       await wrapper.get('#markdown-source').setValue('Body ')
-      await open(wrapper)
+      await flushPromises()
       expect(wrapper.findAll('.reference-panel__bullet')).toHaveLength(1)
       await wrapper.get('[data-reference-delete]').trigger('click')
       await wrapper.get('[data-testid="reference-delete-confirm"]').trigger('click')

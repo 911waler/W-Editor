@@ -49,7 +49,7 @@ describe('direct visual lists', () => {
       expect(failures).toEqual([])
       expect(plans).toHaveLength(1)
       session.commitPatchPlan(plans[0]!)
-      expect(session.snapshot().markdown).toBe(`${prefix}Alpha  \n${' '.repeat(prefix.length)}Beta`)
+      expect(session.snapshot().markdown).toBe(`${prefix}Alpha<br>Beta`)
       const projected = projectOrdinaryMarkdown(session.snapshot())
       expect(projected.content.content).toHaveLength(1)
       expect(projected.content.content?.[0]?.content?.[0]?.content?.[0]?.content).toEqual([

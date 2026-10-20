@@ -55,6 +55,14 @@ describe('release documentation mutation validation', () => {
     ).toEqual([])
   })
 
+  it('rejects a stale completion count against the current command inventory', () => {
+    expect(validateAcceptanceChecklist(
+      acceptanceChecklist.replace(`All ${commandIds.length} public command checks`, `All ${commandIds.length - 1} public command checks`),
+      requirementTitles,
+      commandIds,
+    )).toContain('Acceptance checklist completion and user-acceptance policy is incomplete')
+  })
+
   it('rejects a missing or duplicate UA row', () => {
     expect(validateUserAcceptanceMatrix(removeRow(uaMatrix, 'UA-007'))).toContain(
       'UA rows must be exactly UA-001 through UA-020 in order',
@@ -68,7 +76,7 @@ describe('release documentation mutation validation', () => {
 
   it('rejects a missing command or component parity row', () => {
     expect(validateToolbarComponentParityMatrix(removeRow(parityMatrix, 'text.italic'), commandIds)).toContain(
-      'Command parity rows must exactly match the 80-command inventory in order',
+      `Command parity rows must exactly match the ${commandIds.length}-command inventory in order`,
     )
     expect(
       validateToolbarComponentParityMatrix(

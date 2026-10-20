@@ -36,11 +36,11 @@
       "text-style",
       "color",
       "heading",
+      "list",
       "panel",
       "alignment",
       "insert",
       "mermaid",
-      "chart",
       "theme",
       "language",
       "export"
@@ -55,7 +55,7 @@
     "codeTheme"
   ],
   "commands": {
-    "count": 80,
+    "count": 81,
     "source": "docs/toolbar-command-matrix.md",
     "runtimeSource": "packages/editor-core/src/commands/toolbarCommands.ts",
     "ids": [
@@ -101,6 +101,7 @@
       "insert.code-block",
       "insert.inline-code",
       "insert.formula",
+      "insert.formula-reference",
       "insert.toc",
       "insert.table",
       "insert.pdf",
@@ -359,6 +360,7 @@
     { "id": "fenced-code-and-language-highlighting", "sourceFiles": ["packages/editor-core/src/codecs/fencedCode.ts", "packages/editor-vue/src/adapters/codeSyntaxHighlighting.ts", "tests/adapters/codeSyntaxHighlighting.spec.ts"] },
     { "id": "mermaid", "sourceFiles": ["packages/editor-core/src/codecs/mermaid.ts", "packages/editor-vue/src/adapters/mermaidPreviewRenderer.ts", "tests/fixtures/cherry/mermaid.md"] },
     { "id": "formula-inline-and-block", "sourceFiles": ["packages/editor-core/src/codecs/formulas.ts", "packages/editor-vue/src/adapters/formulaVisualRenderer.ts", "tests/services/safeKatexRenderer.spec.ts"] },
+    { "id": "formula-references", "sourceFiles": ["packages/editor-core/src/codecs/formulaReferences.ts", "packages/editor-core/src/commands/formulaReferenceCommands.ts", "packages/editor-vue/src/ui/FormulaReferencePicker.vue", "tests/ui/formulaReferenceDialogIntegration.spec.ts"] },
     { "id": "toc", "sourceFiles": ["packages/editor-core/src/codecs/toc.ts", "tests/codecs/toc.spec.ts"] },
     { "id": "media-and-attachments", "sourceFiles": ["packages/editor-core/src/codecs/media.ts", "packages/editor-core/src/codecs/attachments.ts", "packages/editor-vue/src/adapters/uploadAdapter.ts"] },
     { "id": "drawio-markdown-closure", "sourceFiles": ["packages/editor-core/src/codecs/drawio.ts", "packages/editor-vue/src/adapters/drawioAdapter.ts", "apps/playground/src/integrations/drawioBridge.ts"] },

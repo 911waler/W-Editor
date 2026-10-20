@@ -23,3 +23,5 @@ export * from './simpleInsertCommands'
 export * from './taskItemCommands'
 export * from './timelineCommands'
 export * from './toolbarCommands'
+
+export * from "./formulaReferenceCommands"

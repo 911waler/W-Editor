@@ -2,7 +2,7 @@
 
 This is the frozen public inventory for the first-round W-Editor toolbar. Stable IDs are the join key used by the command registry, localized labels, shortcuts, fixtures, unit coverage, and the production-app Playwright matrix. `S` means source mode, `V` means visual mode, and `P` means final preview. A content command is always disabled in `P`; application commands declare their own preview behavior.
 
-The reference-ownership, DOM/geometry, visual-token, selection/caret, keyboard/focus, contextual-UI, state, accessibility/responsive, Markdown/Final, and approved-exception dimensions for these same 80 stable IDs and all associated component families are frozen in `docs/toolbar-component-parity-matrix.md`.
+The reference-ownership, DOM/geometry, visual-token, selection/caret, keyboard/focus, contextual-UI, state, accessibility/responsive, Markdown/Final, and approved-exception dimensions for these same 81 stable IDs and all associated component families are frozen in `docs/toolbar-component-parity-matrix.md`.
 
 ## Text and headings
 
@@ -66,6 +66,7 @@ One `list` icon menu contains Ordered, Unordered, and Task lists in that order. 
 | `insert.code-block` | code | fenced code block | checked block insertion | static semantic preview + CodeMirror dialog | disabled | copy, apply/cancel, fence safety, undo |
 | `insert.inline-code` | inlineCode | `` `code` `` | checked selection replacement | direct inline-code mark | disabled | exact range, preview, undo |
 | `insert.formula` | formula | Cherry-compatible formula source | checked dialog replacement | direct only when lossless, otherwise semantic editor | disabled | render, apply/cancel, exact unit, undo |
+| `insert.formula-reference` | equation reference | stable block identity and canonical formula link | revision-checked picker insertion | one atomic reference/target transaction | disabled | block-only picker, cancel, source/visual apply, undo, dynamic numbering, jump |
 | `insert.toc` | toc | `[[toc]]` | checked block insertion | direct/semantic TOC node | disabled | heading-derived preview, reload, undo |
 | `insert.table` | table | GFM table with alignment row | checked block insertion | direct table/cell controls | disabled | cells, rows/columns, alignment, preview, undo |
 | `insert.pdf` | pdf | Cherry PDF attachment source with URL metadata | URL/upload dialog | typed attachment card | disabled | apply/cancel/failure, reload, export, undo |

@@ -174,8 +174,8 @@ try {
 
   const beforeCancel = appliedMarkdown
   await hover(sessionId, '[data-semantic-kind="drawio"]')
-  const editButtonFocused = await execute(sessionId, `const editButton = document.querySelector('[data-semantic-edit="drawio-editor"]'); editButton?.scrollIntoView({ block: 'center', inline: 'center' }); editButton?.focus(); return document.activeElement === editButton`)
-  if (editButtonFocused !== true) throw new Error('draw.io edit control could not receive keyboard focus.')
+  const diagramFocused = await execute(sessionId, `const diagram = document.querySelector('[data-semantic-kind="drawio"] [tabindex="0"]'); diagram?.scrollIntoView({ block: 'center', inline: 'center' }); diagram?.focus(); return document.activeElement === diagram`)
+  if (diagramFocused !== true) throw new Error('draw.io diagram could not receive keyboard focus.')
   await request(`/session/${sessionId}/actions`, 'POST', { actions: [{ type: 'key', id: 'keyboard', actions: [{ type: 'keyDown', value: '\uE007' }, { type: 'keyUp', value: '\uE007' }] }] })
   await waitFor(sessionId, `const frame = document.querySelector('[data-testid="drawio-bridge-frame"]'); const editorFrame = frame?.contentDocument?.querySelector('#drawio-editor'); return Boolean(document.querySelector('[data-editor-command="insert.drawio"]')) && Boolean(editorFrame?.contentWindow?.editorUIInstance)`, (value) => value === true, 'draw.io reopen editor')
   const reopenedGraph = await execute(sessionId, `const frame = document.querySelector('[data-testid="drawio-bridge-frame"]'); const editorFrame = frame?.contentDocument?.querySelector('#drawio-editor'); const xml = editorFrame?.contentWindow?.editorUIInstance?.editor?.getGraphXml?.(); return xml === undefined ? '' : new XMLSerializer().serializeToString(xml)`)

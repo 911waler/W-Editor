@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch, type Component, type CSSProperties } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch, type Component, type CSSProperties } from 'vue'
 import ReferencePanel from './ReferencePanel.vue'
 import ReferenceInsertDialog from './ReferenceInsertDialog.vue'
 import { getDocumentReferenceStyle, documentReferenceStylePlan, referenceRegistry, scanReferences, referenceMarkdown, updateReferencePlan, removeReferencePlan, type ReferenceStyle, type DocumentReference } from '@w-editor/editor-core'
@@ -7,8 +7,8 @@ import { ensureReferenceStyles, createReferenceLibraryController, createLocalRef
 import MarkdownImportZone from './MarkdownImportZone.vue'
 import { loadCapabilityProbe } from './testing/capabilityLoader'
 
-import { createRandomId, numberOutline, activeOutlineIndex } from '@w-editor/editor-vue/services'
-import { BrowserLocalUploadAdapter, CherryRenderAdapter, DrawioAdapter, hydrateCherryChartPreviews, isCherrySourceHistoryShortcutEvent, prepareTiptapVisualProjection, type DrawioAdapterPort, type DrawioSavePayload, type SemanticNodeCopyEvent, type TiptapVisualProjector, type UploadAdapter, type VisualRawNodeSelection, type VisualSearchMatch, type VisualSemanticBlockSelection } from '@w-editor/editor-vue/adapters'
+import { createRandomId, numberOutline, activeOutlineIndex, visibleOutlineItems } from '@w-editor/editor-vue/services'
+import { BrowserLocalUploadAdapter, CherryRenderAdapter, DrawioAdapter, hydrateCherryChartPreviews, isCherrySourceHistoryShortcutEvent, normalizeUploadedAsset, prepareTiptapVisualProjection, type DrawioAdapterPort, type DrawioSavePayload, type SemanticNodeCopyEvent, type TiptapVisualProjector, type UploadAdapter, type VisualRawNodeSelection, type VisualSearchMatch, type VisualSemanticBlockSelection } from '@w-editor/editor-vue/adapters'
 import type { CommitAcknowledgement, PatchPlan } from '@w-editor/editor-core'
 import { LOCAL_DRAWIO_EDITOR_PATH } from './integrations/drawioBridge'
 import {
@@ -29,11 +29,15 @@ import {
   attachmentSource,
   drawioSource,
   formulaAtSelection,
+  formulaReferenceCandidates,
+  createFormulaReferenceCommandPlan,
+  type FormulaReferenceCandidate,
   panelDescriptor,
   panelStarterSource,
   projectOrdinaryMarkdown,
   parseFencedCodeAt,
   parseChartTableAt,
+  parseInlineImageAt,
   timelineStarterSource,
   taskItemMarkers,
   validateColumnLayoutSource,
@@ -53,6 +57,7 @@ import {
   type DisclosureCommandId,
   type FormulaMode,
   type InlineMarkCommandId,
+  type ImageLayoutSettings,
   type MermaidDiagramType,
   type MediaKind,
   type MarkdownOutlineItem,
@@ -173,6 +178,7 @@ import {
   DetachedDraftEditorHost,
   DrawioDialog,
   FormulaPicker,
+  FormulaReferencePicker,
   MediaEditorHost,
   SourceEditorSurface,
   TiptapReaderPresentation,
@@ -183,6 +189,7 @@ import {
 const props = defineProps<{
   /** Host lifecycle policy; standalone keeps recovery-draft and export choices. */
   readonly articleSwitchPolicy?: 'draft-export' | 'save-discard'
+  readonly hostTheme?: AppearanceTheme
   readonly articleModes?: Readonly<Record<string, EditorMode>>
   readonly articleGroupLabels?: readonly string[]
   readonly articleGroupOverrides?: Readonly<Record<string, string>>
@@ -365,6 +372,16 @@ interface ArticleRuntime {
   surface: WorkspaceSurface
 }
 
+// Snapshot-only counters: content edits and autosave never invalidate this cache.
+const documentCounters = shallowRef(new Map<string, Readonly<{ characters: number; bodyWords: number }>>())
+function refreshDocumentCounters(snapshot: Readonly<{ documentId: string; markdown: string; revision: number }>): void {
+  const next = new Map(documentCounters.value)
+  next.set(snapshot.documentId, Object.freeze({
+    characters: [...snapshot.markdown].length,
+    bodyWords: calculateBodyWordCount(snapshot),
+  }))
+  documentCounters.value = next
+}
 const runtimes = new Map<string, ArticleRuntime>()
 const articleTimestampVersion = ref(0)
 let publishRuntime: (runtime: ArticleRuntime) => void = () => undefined
@@ -393,6 +410,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
         markdown: definition.initialMarkdown,
         revision: 0,
       })
+  refreshDocumentCounters(initialDocument)
   const initialMode = props.articleModes?.[definition.documentId] ?? 'visual'
   const modeSurfaces = new WorkspaceModeAdapters(
     initialDocument,
@@ -517,6 +535,7 @@ function createArticleRuntime(definition: ArticleDefinition): ArticleRuntime {
             status: Object.freeze({ lastPersistenceFailure: null }),
           })
       documentRepository.writeDocument(envelope)
+      refreshDocumentCounters({ ...checkpoint, documentId: definition.documentId })
     },
   })
   runtime = {
@@ -703,6 +722,7 @@ const sourceSurface = ref<{
   readonly setTheme: (theme: AppearanceTheme) => void
   readonly selection: () => Readonly<{ anchor: number; head: number }>
   readonly setSelection: (selection: Readonly<{ anchor: number; head: number }>) => void
+  readonly setDropSelection: (left: number, top: number) => boolean
   readonly undo: () => boolean
   readonly visibleSourceFrom: () => number | null
   readonly value: () => string
@@ -712,7 +732,9 @@ const visualSurface = ref<{
   readonly applyAttachment: (source: string, fallbackKind?: AttachmentKind | null) => { readonly active: boolean; readonly changed: boolean }
   readonly applyDrawio: (source: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyChartTable: (source: string) => { readonly active: boolean; readonly changed: boolean }
-  readonly applyMedia: (source: string, fallbackKind?: MediaKind | null) => { readonly active: boolean; readonly changed: boolean }
+  readonly applyMedia: (source: string, fallbackKind?: MediaKind | null, imageLayout?: ImageLayoutSettings) => { readonly active: boolean; readonly changed: boolean }
+  readonly insertImages: (sources: readonly string[]) => { readonly active: boolean; readonly changed: boolean }
+  readonly setDropSelection: (left: number, top: number) => boolean
   readonly applyCodeBlock: (language: string, code: string, source: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyRawSource: (source: string) => { readonly active: boolean; readonly changed: boolean }
   readonly canApplyAlignment: () => boolean
@@ -727,6 +749,7 @@ const visualSurface = ref<{
   readonly applyReference: (reference: DocumentReference) => { readonly active: boolean; readonly changed: boolean }
   readonly applyLink: (href: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyMermaid: (source: string, fallbackType?: MermaidDiagramType | null) => { readonly active: boolean; readonly changed: boolean }
+  readonly applyFormulaReference: (targetFrom: number) => { readonly active: boolean; readonly changed: boolean }
   readonly applyFormula: (mode: FormulaMode, content: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyDisclosure: (source: string) => { readonly active: boolean; readonly changed: boolean }
   readonly applyPanel: (source: string) => { readonly active: boolean; readonly changed: boolean }
@@ -821,6 +844,7 @@ const richPickerPending = ref(false)
 const richPickerStyle = ref<CSSProperties>({})
 const richPickerValue = ref('')
 const richPickerInput = ref<HTMLInputElement | HTMLSelectElement | null>(null)
+const richSizePicker = ref<HTMLFieldSetElement | null>(null)
 const richColorHue = ref(0)
 const richColorSaturation = ref(1)
 const richColorBrightness = ref(1)
@@ -828,9 +852,17 @@ const richRecentColors = ref<readonly string[]>(loadRichRecentColors())
 const linkDialogOpen = ref(false)
 const linkUrl = ref('https://example.com')
 const linkInput = ref<HTMLInputElement | null>(null)
+const formulaReferenceDialogOpen = ref(false)
+const formulaReferenceItems = shallowRef<readonly FormulaReferenceCandidate[]>([])
+const formulaReferenceError = ref<UiNotice | null>(null)
+const formulaReferenceContext = shallowRef<Readonly<{
+  editor: DedicatedEditorOpenContext
+  visualSelection: Readonly<{ anchor: number; head: number }> | null
+}> | null>(null)
+const formulaReferenceReturnFocus = ref<HTMLElement | null>(null)
 const formulaDialogOpen = ref(false)
 const formulaContent = ref('E = mc^2')
-const formulaMode = ref<FormulaMode>('block')
+const formulaMode = ref<FormulaMode>('inline')
 const formulaDraftError = ref<UiNotice | null>(null)
 const tablePickerOpen = ref(false)
 const tablePickerColumns = ref(1)
@@ -875,6 +907,10 @@ const chartTableDraftError = ref<UiNotice | null>(null)
 const mediaDialogKind = ref<MediaKind | null>(null)
 const mediaDraftName = ref('')
 const mediaDraftUrl = ref('')
+const mediaDraftImageWidth = ref<number | null>(null)
+const mediaDraftImageHeight = ref<number | null>(null)
+const mediaDraftImageAlignment = ref<'left' | 'center' | 'right' | null>('left')
+const mediaDraftImageAlignmentAvailable = ref(false)
 const attachmentDialogKind = ref<AttachmentKind | null>(null)
 const attachmentDraftName = ref('')
 const attachmentDraftUrl = ref('')
@@ -906,7 +942,10 @@ const activeCommandTrigger = ref<HTMLElement | null>(null)
 const toolbarLocale = ref<UiLocale>('zh')
 watch(toolbarLocale, (locale) => props.onLocaleChange?.(locale), { immediate: true })
 const configuredAppearanceTheme = settings.get<unknown>(PLAYGROUND_SETTINGS_KEYS.appearanceTheme)
-const appearanceTheme = ref<AppearanceTheme>(isAppearanceTheme(configuredAppearanceTheme) ? configuredAppearanceTheme : 'gray')
+const appearanceTheme = ref<AppearanceTheme>(props.hostTheme ?? (isAppearanceTheme(configuredAppearanceTheme) ? configuredAppearanceTheme : 'gray'))
+watch(() => props.hostTheme, theme => {
+  if (theme !== undefined) appearanceTheme.value = theme
+})
 const uiLocalization = createUiLocalizationStore(toolbarLocale.value)
 const t = (key: UiMessageKey, params?: UiMessageParams): string =>
   translateUi(toolbarLocale.value, key, params)
@@ -1049,8 +1088,7 @@ const lifecycleFileInput = ref<HTMLInputElement | null>(null)
 const lifecycleOperation = ref(false)
 const lifecycleTrigger = ref<HTMLElement | null>(null)
 const activeEditorCommandIds = ref<ReadonlySet<string>>(new Set())
-const liveDocumentStatistics = computed(() => calculateDocumentStatistics(workspace.value.activeDocument))
-const liveBodyWordCount = computed(() => calculateBodyWordCount(workspace.value.activeDocument))
+const activeDocumentCounters = computed(() => documentCounters.value.get(activeRuntime.value.definition.documentId)!)
 
 function lifecycleTriggerFrom(event: Event | HTMLElement | null): HTMLElement | null {
   if (event instanceof HTMLElement) return event
@@ -1428,11 +1466,13 @@ function refreshVisualCommandState(): void {
 function handleRawEdit(event: VisualRawNodeSelection): void {
   rawDialogKind.value = event.kind
   rawDraftSource.value = event.source
+  activeRuntime.value.root.setModalActivity('raw-editor')
 }
 
 function closeRawDialog(): void {
   rawDialogKind.value = null
   rawDraftSource.value = ''
+  activeRuntime.value.root.setModalActivity(null)
   void nextTick(() => visualSurface.value?.focus())
 }
 
@@ -1647,6 +1687,20 @@ async function writeExportArtifact(artifact: ExportArtifact): Promise<void> {
 }
 const activeArticleTitle = computed(() => props.articleTitles?.[activeRuntime.value.definition.documentId] ?? activeRuntime.value.definition.title)
 const articleOutline = computed(() => numberOutline(createMarkdownOutline(workspace.value.activeDocument.markdown)))
+const collapsedOutlineItems = ref<ReadonlySet<number>>(new Set())
+const visibleArticleOutline = computed(() => visibleOutlineItems(articleOutline.value, collapsedOutlineItems.value))
+// Heading positions and generated anchors are not stable identities across structural edits.
+// Keep disclosure through body edits, but reset when switching documents or changing headings.
+watch(() => JSON.stringify([
+  activeRuntime.value.definition.documentId,
+  articleOutline.value.map(item => [item.level, item.text, item.anchor]),
+]), () => { collapsedOutlineItems.value = new Set() })
+function toggleOutlineItem(index: number): void {
+  const next = new Set(collapsedOutlineItems.value)
+  if (next.has(index)) next.delete(index)
+  else next.add(index)
+  collapsedOutlineItems.value = next
+}
 watch(articleOutline, (items) => {
   if (!items.some((item) => item.anchor === activeOutlineAnchor.value)) {
     activeOutlineAnchor.value = items[0]?.anchor ?? null
@@ -1862,6 +1916,38 @@ async function clearRichColor(): Promise<void> {
   visualSurface.value?.focus()
 }
 
+function positionRichSizePicker(ensureSelectionVisible = false): void {
+  const grid = richSizePicker.value
+  const panel = grid?.closest<HTMLElement>('.rich-text-picker')
+  const trigger = activeCommandTrigger.value
+  if (grid === null || panel === undefined || panel === null || trigger === null) return
+  const bounds = panel.getBoundingClientRect()
+  const anchor = trigger.getBoundingClientRect()
+  richPickerStyle.value = Object.freeze({
+    left: `${Math.max(8, Math.min(anchor.left, window.innerWidth - bounds.width - 8))}px`,
+    position: 'fixed',
+    top: `${Math.max(8, Math.min(anchor.bottom + 4, window.innerHeight - bounds.height - 8))}px`,
+  })
+  if (!ensureSelectionVisible) return
+  const viewport = grid.parentElement
+  const selected = grid.querySelector<HTMLInputElement>('input:checked')?.closest('label')
+  if (viewport === null || selected === undefined || selected === null) return
+  const visible = viewport.getBoundingClientRect()
+  const option = selected.getBoundingClientRect()
+  if (option.top < visible.top + 4) viewport.scrollTop -= visible.top + 4 - option.top
+  else if (option.bottom > visible.bottom - 4) viewport.scrollTop += option.bottom - visible.bottom + 4
+}
+
+function focusRichPickerInput(): void {
+  if (richPickerCommand.value === 'text.size') {
+    const input = richSizePicker.value?.querySelector<HTMLInputElement>('input:checked')
+      ?? richSizePicker.value?.querySelector<HTMLInputElement>('input')
+    input?.focus({ preventScroll: true })
+  } else {
+    richPickerInput.value?.focus()
+  }
+}
+
 async function openRichPicker(commandId: RichInlineMarkCommandId): Promise<void> {
   const sourceRange = mode.value === 'source' ? sourceSelection() : null
   const sourceMatch = mode.value === 'source' && sourceSurface.value !== null
@@ -1885,7 +1971,8 @@ async function openRichPicker(commandId: RichInlineMarkCommandId): Promise<void>
   }
   activeRuntime.value.root.setModalActivity(`rich-picker:${commandId}`)
   await nextTick()
-  richPickerInput.value?.focus()
+  if (commandId === 'text.size') positionRichSizePicker(true)
+  focusRichPickerInput()
 }
 
 async function closeRichPicker(restoreFocus = true): Promise<void> {
@@ -1934,7 +2021,8 @@ async function applyRichPicker(): Promise<void> {
     richPickerError.value = uiFailureNotice(error, 'feedback.validationDetail')
     richPickerPending.value = false
     await nextTick()
-    richPickerInput.value?.focus()
+    if (commandId === 'text.size') positionRichSizePicker(true)
+    focusRichPickerInput()
   }
 }
 
@@ -2061,7 +2149,14 @@ async function openReferences(id: string | null = null): Promise<void> {
     void referenceLibrary.load(activeRuntime.value.definition.documentId).catch(() => undefined)
     void loadReferenceNotes()
     await nextTick()
-    workspaceShell.value?.querySelector<HTMLButtonElement>('[data-testid="reference-panel"] button')?.focus()
+    const panel = workspaceShell.value?.querySelector<HTMLElement>('[data-testid="reference-panel"]')
+    panel?.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true })
+    if (id !== null) {
+      const entry = [...(panel?.querySelectorAll<HTMLElement>('[data-reference-entry]') ?? [])]
+        .find(item => item.dataset['referenceEntry'] === id)
+      const target = entry?.querySelector<HTMLElement>('.reference-panel__number') ?? entry
+      target?.scrollIntoView({ block: 'center', inline: 'nearest' })
+    }
   } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
 }
 async function openReferenceInsert(): Promise<void> {
@@ -2119,7 +2214,6 @@ async function insertReference(input: Pick<DocumentReference, 'text' | 'metadata
       visualSurface.value?.focus()
     }
     refreshReferences()
-    referencePanelOpen.value = false
     referenceInsertOpen.value = false
     activeRuntime.value.root.setModalActivity(null)
   } catch (error) { referenceError.value = error instanceof Error ? error.message : String(error) }
@@ -2248,6 +2342,71 @@ async function applyLinkDialog(): Promise<void> {
   commandFeedback.value = commandUiNotice('feedback.applied', 'insert.link')
 }
 
+async function openFormulaReferenceDialog(): Promise<void> {
+  if (props.readonlyMode || mode.value === 'preview') return
+  await flushLifecycleSynchronization(activeRuntime.value)
+  const snapshot = activeRuntime.value.root.session.snapshot()
+  formulaReferenceReturnFocus.value = activeCommandTrigger.value?.closest('[data-toolbar-menu]')?.querySelector<HTMLElement>('.toolbar-menu__trigger')
+    ?? activeCommandTrigger.value
+  formulaReferenceItems.value = formulaReferenceCandidates(snapshot.markdown)
+  formulaReferenceContext.value = Object.freeze({
+    editor: captureDedicatedEditorContext(null),
+    visualSelection: mode.value === 'visual' ? visualSurface.value?.selection() ?? null : null,
+  })
+  formulaReferenceError.value = null
+  formulaReferenceDialogOpen.value = true
+  activeRuntime.value.root.setModalActivity('formula-reference')
+}
+
+async function closeFormulaReferenceDialog(): Promise<void> {
+  const returnFocus = formulaReferenceReturnFocus.value
+  formulaReferenceDialogOpen.value = false
+  formulaReferenceContext.value = null
+  formulaReferenceError.value = null
+  formulaReferenceReturnFocus.value = null
+  activeRuntime.value.root.setModalActivity(null)
+  await nextTick()
+  returnFocus?.focus()
+}
+
+async function applyFormulaReferenceDialog(targetFrom: number): Promise<void> {
+  formulaReferenceError.value = null
+  try {
+    const context = formulaReferenceContext.value
+    if (context === null || props.readonlyMode) throw uiError('feedback.dedicated.formulaContextUnavailable')
+    assertDedicatedEditorContext(context.editor)
+    const snapshot = activeRuntime.value.root.session.snapshot()
+    if (!formulaReferenceItems.value.some(candidate => candidate.from === targetFrom)
+      || !formulaReferenceCandidates(snapshot.markdown).some(candidate => candidate.from === targetFrom)) {
+      throw uiError('formula.referenceUnavailable')
+    }
+    if (context.editor.mode === 'source') {
+      if (sourceSurface.value === null || context.editor.sourceSelection === null) throw uiError('feedback.dedicated.sourceFormulaUnavailable')
+      const result = createFormulaReferenceCommandPlan(snapshot, context.editor.sourceSelection, targetFrom,
+        createRandomId(), `source-command:insert.formula-reference:${createRandomId()}`)
+      await applySourcePlan(result.plan, result.selection)
+    } else {
+      const visual = visualSurface.value
+      if (visual === null || context.visualSelection === null) throw uiError('feedback.dedicated.visualFormulaUnavailable')
+      const selection = visual.selection()
+      if (selection.anchor !== context.visualSelection.anchor || selection.head !== context.visualSelection.head) {
+        throw uiError('feedback.dedicated.staleSelection')
+      }
+      visual.setSelection(context.visualSelection)
+      const result = visual.applyFormulaReference(targetFrom)
+      if (!result.active || !result.changed) throw uiError('formula.referenceUnavailable')
+      await activeRuntime.value.flushVisualSynchronization()
+      const synchronization = activeRuntime.value.root.synchronization.snapshot()
+      if (synchronization.status === 'failed') throw synchronization.failure
+    }
+    activeEditorCommandIds.value = new Set(['insert.formula-reference'])
+    commandFeedback.value = commandUiNotice('feedback.applied', 'insert.formula-reference')
+    await closeFormulaReferenceDialog()
+  } catch (failure) {
+    formulaReferenceError.value = dedicatedEditorFailureMessage(failure)
+  }
+}
+
 async function openFormulaDialog(event?: VisualSemanticBlockSelection): Promise<void> {
   let existingSource: string | null = null
   formulaOpenedFromNode.value = event?.kind === 'formula'
@@ -2267,7 +2426,7 @@ async function openFormulaDialog(event?: VisualSemanticBlockSelection): Promise<
       sourceSurface.value?.setSelection({ anchor: selected.from, head: selected.to })
     } else {
       formulaContent.value = 'E = mc^2'
-      formulaMode.value = selection.from === selection.to ? 'block' : 'inline'
+      formulaMode.value = 'inline'
     }
   } else {
     const selected = event?.kind === 'formula' && event.formulaContent !== undefined && event.formulaMode !== undefined
@@ -2279,7 +2438,7 @@ async function openFormulaDialog(event?: VisualSemanticBlockSelection): Promise<
       existingSource = selected.source
     } else {
       formulaContent.value = 'E = mc^2'
-      formulaMode.value = 'block'
+      formulaMode.value = 'inline'
     }
   }
   formulaDraftError.value = null
@@ -2330,7 +2489,7 @@ async function applyFormulaDialog(): Promise<void> {
         throw uiError('feedback.dedicated.staleFormulaSelection')
       }
       const result = visual.applyFormula(formulaMode.value, formulaContent.value)
-      if (!result.active || !result.changed) {
+      if (!result.active || (!result.changed && context.existingSource === null)) {
         throw uiError('feedback.dedicated.formulaUnavailable')
       }
       await activeRuntime.value.flushVisualSynchronization()
@@ -2600,22 +2759,159 @@ async function applyChartTableDialog(draft: ChartTableDraft): Promise<void> {
   await closeChartTableDialog()
 }
 
+const imageDropCount = ref(0)
+const imageDropError = ref<UiNotice | null>(null)
+const imageDropCancel = ref<HTMLButtonElement | null>(null)
+let imageDropOperation: { readonly runtime: ArticleRuntime; readonly controller: AbortController } | null = null
+const imageDropBusy = computed(() => imageDropCount.value > 0)
+function cancelImageDrop(): void {
+  const operation = imageDropOperation
+  if (operation === null) return
+  imageDropOperation = null
+  operation.controller.abort()
+  imageDropCount.value = 0
+  if (operation.runtime.state.modalActivity === 'image-drop-upload') operation.runtime.root.setModalActivity(null)
+}
+watch([
+  () => workspace.value.activeDocument.documentId,
+  () => mode.value,
+  () => props.readonlyMode,
+], () => { cancelImageDrop(); imageDropError.value = null })
+onBeforeUnmount(cancelImageDrop)
+
+function isFileDrop(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types ?? []).includes('Files')
+}
+function canDropImages(): boolean {
+  return !props.readonlyMode && mode.value !== 'preview' && !modeSwitching.value
+    && !lifecycleOperation.value && !articleSwitching.value && workspace.value.modalActivity === null
+    && workspace.value.synchronization.status !== 'failed'
+}
+function imageDragOver(event: DragEvent): void {
+  if (!isFileDrop(event)) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = canDropImages() ? 'copy' : 'none'
+}
+async function dropImages(event: DragEvent): Promise<void> {
+  if (!isFileDrop(event)) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (!canDropImages()) return
+  imageDropError.value = null
+  const files = Array.from(event.dataTransfer?.files ?? [])
+  if (!files.length) return
+  if (files.some(file => !file.type.toLowerCase().startsWith('image/'))) {
+    imageDropError.value = uiNotice('media.dropOnlyImages')
+    return
+  }
+  const dropMode = mode.value
+  const surface = dropMode === 'source' ? sourceSurface.value : visualSurface.value
+  if (!surface?.setDropSelection(event.clientX, event.clientY)) {
+    imageDropError.value = uiNotice('media.dropUnavailable')
+    return
+  }
+  const runtime = activeRuntime.value
+  const controller = new AbortController()
+  const operation = {runtime, controller}
+  imageDropOperation = operation
+  imageDropCount.value = files.length
+  runtime.root.setModalActivity('image-drop-upload')
+  try {
+    await nextTick()
+    imageDropCancel.value?.focus()
+    if (dropMode === 'visual') await runtime.flushVisualSynchronization()
+    else sourceSurface.value?.flush()
+    if (imageDropOperation !== operation) return
+    const snapshot = runtime.root.session.snapshot()
+    const selection = surface.selection()
+    const sources: string[] = []
+    for (const file of files) {
+      const asset = normalizeUploadedAsset(await toRaw(uploadAdapter).upload({file, kind: 'image', signal: controller.signal}))
+      if (imageDropOperation !== operation || controller.signal.aborted) return
+      if (!asset.mediaType.startsWith('image/')) throw uiError('media.dropOnlyImages')
+      sources.push(mediaSource('image', asset.name.replace(/[\]\r\n]/gu, '-'), asset.url))
+    }
+    const currentSelection = surface.selection()
+    if (props.readonlyMode || activeRuntime.value !== runtime || mode.value !== dropMode
+      || runtime.root.session.snapshot().revision !== snapshot.revision
+      || selection.anchor !== currentSelection.anchor || selection.head !== currentSelection.head) {
+      throw uiError('media.dropChanged')
+    }
+    if (dropMode === 'source') {
+      const from = selection.anchor
+      const replacement = sources.join('')
+      await applySourcePlan({
+        baseRevision: snapshot.revision,
+        transactionId: `image-drop:${createRandomId()}`,
+        patches: [{codecId: 'media-image', from, to: from, expected: '', replacement}],
+      }, {from: from + replacement.length, to: from + replacement.length})
+    } else {
+      const result = visualSurface.value?.insertImages(sources)
+      if (!result?.active) throw uiError('media.dropUnavailable')
+      await runtime.flushVisualSynchronization()
+    }
+    commandFeedback.value = commandUiNotice('feedback.applied', 'insert.image')
+  } catch (failure) {
+    if (imageDropOperation === operation && !controller.signal.aborted) {
+      imageDropError.value = uiFailureNotice(failure, 'media.dropFailed')
+    }
+  } finally {
+    if (imageDropOperation === operation) {
+      cancelImageDrop()
+      await nextTick()
+      if (dropMode === 'source') sourceSurface.value?.focus()
+      else visualSurface.value?.focus()
+    }
+  }
+}
+
 async function openMediaDialog(kind: MediaKind, event?: VisualSemanticBlockSelection): Promise<void> {
-  let selected: Readonly<{ name: string; url: string }> | null = null
+  let selected: Readonly<{ name: string; url: string; source: string }> | null = null
   if (event?.kind === 'media' && event.mediaKind === kind && event.name !== undefined && event.url !== undefined) {
-    selected = Object.freeze({ name: event.name, url: event.url })
+    selected = Object.freeze({ name: event.name, url: event.url, source: event.source })
   } else if (mode.value === 'source') {
     const candidate = mediaAtSelection(activeRuntime.value.root.session.snapshot().markdown, sourceSelection())
     if (candidate?.kind === kind) selected = candidate
   } else if (mode.value === 'visual') {
     const candidate = visualSurface.value?.selectedMedia()
     if (candidate?.mediaKind === kind && candidate.name !== undefined && candidate.url !== undefined) {
-      selected = Object.freeze({ name: candidate.name, url: candidate.url })
+      selected = Object.freeze({ name: candidate.name, url: candidate.url, source: candidate.source })
     }
   }
   mediaDialogKind.value = kind
   mediaDraftName.value = selected?.name ?? `${kind.charAt(0).toUpperCase()} asset`
   mediaDraftUrl.value = selected?.url ?? ''
+  const image = kind === 'image' && selected !== null ? parseInlineImageAt(selected.source, 0) : null
+  mediaDraftImageWidth.value = image?.width ?? null
+  mediaDraftImageHeight.value = image?.height ?? null
+  if (kind === 'image' && mode.value === 'source') {
+    const snapshot = activeRuntime.value.root.session.snapshot()
+    const markdown = snapshot.markdown
+    const selection = sourceSelection()
+    const alignment = sourceAlignmentAt(markdown, selection)
+    mediaDraftImageAlignment.value = alignment === 'align.justify' ? null
+      : alignment === 'align.center' ? 'center' : alignment === 'align.right' ? 'right' : 'left'
+    const owner = projectOrdinaryMarkdown(snapshot).map.entries.find(entry => (
+      selection.from >= entry.sourceSpan.from && selection.to <= entry.sourceSpan.to
+    ))
+    const lineStart = markdown.lastIndexOf('\n', Math.max(0, selection.from - 1)) + 1
+    const lineTo = markdown.indexOf('\n', selection.from)
+    const emptyLine = owner === undefined && selection.from === selection.to
+      && markdown.slice(lineStart, lineTo === -1 ? markdown.length : lineTo).length === 0
+    const indented = owner !== undefined && /^[ \t]+/mu.test(markdown.slice(owner.sourceSpan.from, owner.sourceSpan.to))
+    const ordinary = owner?.codecId === 'paragraph' || owner?.codecId === 'heading' || owner?.codecId.startsWith('alignment-') === true
+    mediaDraftImageAlignmentAvailable.value = !indented && (emptyLine || (ordinary && sourceAlignmentCompatible(markdown, selection)))
+  } else if (kind === 'image' && mode.value === 'visual') {
+    const surface = visualSurface.value
+    mediaDraftImageAlignment.value = surface?.isAlignmentActive('align.justify') === true ? null
+      : surface?.isAlignmentActive('align.center') === true ? 'center'
+      : surface?.isAlignmentActive('align.right') === true ? 'right' : 'left'
+    mediaDraftImageAlignmentAvailable.value = surface?.canApplyAlignment() === true
+  } else {
+    mediaDraftImageAlignment.value = 'left'
+    mediaDraftImageAlignmentAvailable.value = false
+  }
   activeRuntime.value.root.setModalActivity('media-editor')
 }
 
@@ -2623,6 +2919,10 @@ async function closeMediaDialog(): Promise<void> {
   mediaDialogKind.value = null
   mediaDraftName.value = ''
   mediaDraftUrl.value = ''
+  mediaDraftImageWidth.value = null
+  mediaDraftImageHeight.value = null
+  mediaDraftImageAlignment.value = 'left'
+  mediaDraftImageAlignmentAvailable.value = false
   activeRuntime.value.root.setModalActivity(null)
   await nextTick()
   if (mode.value === 'source') sourceSurface.value?.focus()
@@ -2639,11 +2939,12 @@ async function applyMediaDialog(draft: AssetDraft): Promise<void> {
       draft.name,
       draft.url,
       `source-command:insert.${draft.kind}:${createRandomId()}`,
+      draft.imageLayout,
     )
     await applySourcePlan(result.plan, result.selection)
   } else if (mode.value === 'visual') {
     const source = mediaSource(draft.kind, draft.name, draft.url)
-    const result = visualSurface.value?.applyMedia(source, draft.kind)
+    const result = visualSurface.value?.applyMedia(source, draft.kind, draft.imageLayout)
     if (result?.active !== true) {
       commandFeedback.value = localizedUiNotice('feedback.nodeUnavailable', { kind: draft.kind }, {
         kind: `media.kind.${draft.kind}` as UiMessageKey,
@@ -3117,6 +3418,7 @@ const sourceEditorDispatcher = Object.freeze({
       || commandId === 'insert.link'
       || commandId === 'insert.table'
       || commandId === 'insert.formula'
+      || commandId === 'insert.formula-reference'
       || commandId === 'insert.toc'
     if (spec === null && richSpec === null && level === null && listKind === null && alignmentCommand === null && disclosureCommand === null && panelCommand === null && mermaidCommand === null && chartTableCommand === null && mediaKind === null && attachmentKind === null && columnLayoutCommand === null && !blockquoteCommand && !timelineCommand && !simpleInsert) return passiveEditorDispatcher.execute(commandId)
     const selection = sourceSelection()
@@ -3197,6 +3499,10 @@ const sourceEditorDispatcher = Object.freeze({
         detail: changed ? 'feedback.applied' : 'status.selectSourceText',
         semanticOutcome: `cherry:${commandId}`,
       })
+    }
+    if (commandId === 'insert.formula-reference') {
+      await openFormulaReferenceDialog()
+      return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
     }
     if (commandId === 'insert.formula') {
       await openFormulaDialog()
@@ -3409,6 +3715,10 @@ const visualEditorDispatcher = Object.freeze({
         detail: result.changed ? 'feedback.applied' : 'status.alignmentUnavailable',
         semanticOutcome: `cherry:${commandId}`,
       })
+    }
+    if (commandId === 'insert.formula-reference') {
+      await openFormulaReferenceDialog()
+      return Object.freeze({ changed: false, commandId, detail: 'feedback.editorOpened', semanticOutcome: `cherry:${commandId}` })
     }
     if (commandId === 'insert.formula') {
       await openFormulaDialog()
@@ -4025,7 +4335,8 @@ async function applyTableDimensions(columns: number, dataRows: number): Promise<
   }
 }
 
-function positionOpenToolbarOverlays(): void {
+function positionOpenToolbarOverlays(event?: Event): void {
+  if (richPickerCommand.value === 'text.size') positionRichSizePicker(event?.type === 'resize')
   if (openedToolbarMenu.value !== null) {
     const trigger = toolbarRegion.value?.querySelector<HTMLElement>(
       `[data-toolbar-menu="${openedToolbarMenu.value}"] .toolbar-menu__trigger`,
@@ -4223,6 +4534,10 @@ async function closeMatchingCommandOverlay(commandId: string): Promise<boolean> 
   }
   if (commandId === disclosureDialogCommand.value) {
     await closeDisclosureDialog()
+    return true
+  }
+  if (commandId === 'insert.formula-reference' && formulaReferenceDialogOpen.value) {
+    await closeFormulaReferenceDialog()
     return true
   }
   if (commandId === 'insert.formula' && formulaDialogOpen.value) {
@@ -4752,6 +5067,7 @@ async function publishForLifecycle(persist = props.persistence?.savePublish): Pr
     const published = await publishReferenceSnapshot(runtime.root.session, async snapshot => { await persist(snapshot) }, flush)
     referenceRegistry(runtime.root.session).reserveNumbersThrough(referenceLibrary.get(runtime.definition.documentId).highWater)
     runtime.manualCheckpoint.acceptSavedMarkdown(published.markdown)
+    refreshDocumentCounters(published)
   } catch (failure) {
     // A host may have saved a normalized candidate before a second publish request failed.
     // Restore the latest draft to both host recovery storage and private draft persistence.
@@ -5421,18 +5737,39 @@ defineExpose({
             class="article-outline__list"
           >
             <li
-              v-for="(item,index) in articleOutline"
-              :key="`${item.anchor}:${item.sourceFrom}`"
+              v-for="(item,index) in visibleArticleOutline"
+              :key="item.outlineIndex"
+              class="article-outline__row"
               :data-outline-level="item.level"
               :data-outline-depth="item.depth"
-              :style="{ '--outline-depth': item.depth }"
+              :data-outline-indent="item.indentDepth"
+              :style="{ '--outline-depth': item.indentDepth }"
             >
               <span
-                v-for="guideDepth in item.depth"
+                v-for="guideDepth in item.indentDepth"
                 :key="guideDepth"
                 class="article-outline__guide"
-                :class="{'article-outline__guide--end': (articleOutline[index + 1]?.depth ?? 0) < guideDepth}"
+                :class="{'article-outline__guide--end': (visibleArticleOutline[index + 1]?.indentDepth ?? 0) < guideDepth}"
                 :style="{'--guide-depth':guideDepth}"
+                aria-hidden="true"
+              ></span>
+              <button
+                v-if="item.hasChildren"
+                class="article-outline__toggle"
+                type="button"
+                :aria-expanded="!item.collapsed"
+                :aria-label="t(item.collapsed ? 'workspace.expandOutline' : 'workspace.collapseOutline', { title: item.text })"
+                :title="t(item.collapsed ? 'workspace.expandOutline' : 'workspace.collapseOutline', { title: item.text })"
+                @click.stop="toggleOutlineItem(item.outlineIndex)"
+              >
+                <span
+                  class="article-outline__chevron"
+                  aria-hidden="true"
+                ></span>
+              </button>
+              <span
+                v-else
+                class="article-outline__toggle-spacer"
                 aria-hidden="true"
               ></span>
               <button
@@ -5480,6 +5817,7 @@ defineExpose({
           v-if="!props.readonlyMode"
           class="toolbar-region"
           aria-label="文档操作"
+          :inert="workspace.modalActivity !== null"
         >
           <slot name="document-actions"></slot>
           <MarkdownImportZone
@@ -5506,6 +5844,7 @@ defineExpose({
           class="toolbar-region"
           role="toolbar"
           :aria-label="t('workspace.toolbar')"
+          :inert="workspace.modalActivity !== null"
           @keydown="handleToolbarKeydown"
         >
           <template
@@ -5834,12 +6173,15 @@ defineExpose({
             </button>
           </div>
           <div class="workspace-controls__meta">
-            <span>{{ activeArticleTitle }}</span><span aria-hidden="true">·</span><span>{{ t('workspace.words', { count: liveDocumentStatistics.words }) }}</span>
+            <span>{{ activeArticleTitle }}</span><span aria-hidden="true">·</span><span
+              data-testid="source-character-count"
+              :title="t('workspace.sourceCharactersHelp')"
+            >{{ t('workspace.sourceCharacters', { count: activeDocumentCounters.characters }) }}</span>
             <span aria-hidden="true">·</span>
             <span
               data-testid="body-word-count"
               :title="t('workspace.bodyWordsHelp')"
-            >{{ t('workspace.bodyWords', { count: liveBodyWordCount }) }}</span>
+            >{{ t('workspace.bodyWords', { count: activeDocumentCounters.bodyWords }) }}</span>
           </div>
         </div>
 
@@ -6013,7 +6355,10 @@ defineExpose({
           class="editor-surface"
           :class="{ 'editor-surface--preview': mode === 'preview' && !modeSwitching }"
           :data-mode="mode"
+          :inert="imageDropBusy"
           data-testid="editor-surface"
+          @dragover.capture="imageDragOver"
+          @drop.capture="dropImages"
           @scroll.capture.passive="scheduleOutlineFromScroll"
         >
           <span
@@ -6070,6 +6415,12 @@ defineExpose({
             role="status"
           >{{ uiNoticeText(commandFeedback) }}</span>
           <span
+            v-if="imageDropError"
+            class="status-region__command"
+            data-testid="image-drop-error"
+            role="alert"
+          >{{ uiNoticeText(imageDropError) }}</span>
+          <span
             v-if="fullscreenError"
             class="status-region__command"
             data-testid="fullscreen-error"
@@ -6085,6 +6436,39 @@ defineExpose({
       </section>
     </div>
 
+    <div
+      v-if="imageDropBusy"
+      class="dialog-backdrop"
+    >
+      <section
+        class="dialog-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="image-drop-heading"
+        @keydown.esc.prevent="cancelImageDrop"
+        @keydown.tab.prevent="imageDropCancel?.focus()"
+      >
+        <h2 id="image-drop-heading">
+          {{ t('media.dropUploading', {count: imageDropCount}) }}
+        </h2>
+        <p
+          data-testid="image-drop-status"
+          role="status"
+        >
+          {{ t('media.uploading') }}
+        </p>
+        <div class="dialog-panel__actions">
+          <button
+            ref="imageDropCancel"
+            data-testid="image-drop-cancel"
+            type="button"
+            @click="cancelImageDrop"
+          >
+            {{ t('lifecycle.cancel') }}
+          </button>
+        </div>
+      </section>
+    </div>
     <slot name="document-dialogs"></slot>
     <section
       v-if="props.showReaderPreview === true && startupRecovery === null"
@@ -6679,7 +7063,10 @@ defineExpose({
           </section>
         </template>
         <template v-else>
-          <p class="section-kicker">
+          <p
+            v-if="richPickerCommand !== 'text.size'"
+            class="section-kicker"
+          >
             {{ t('richText.formatting') }}
           </p>
           <h2 id="rich-picker-title">
@@ -6697,27 +7084,39 @@ defineExpose({
             <label for="rich-picker-value">{{ t('richText.rubyOrPinyin') }}</label>
           </template>
           <label
-            v-else
+            v-else-if="richPickerCommand !== 'text.size'"
             for="rich-picker-value"
           >{{ richPickerLabel }}</label>
-          <select
+          <div
             v-if="richPickerCommand === 'text.size'"
-            id="rich-picker-value"
-            ref="richPickerInput"
-            v-model="richPickerValue"
-            :aria-label="t('richText.fontSize')"
-            role="listbox"
-            size="6"
-            @change="richPickerError = null; richPickerPending = false"
+            class="rich-size-picker__body"
           >
-            <option
-              v-for="size in ['12', '14', '16', '18', '24', '32']"
-              :key="size"
-              :value="size"
+            <fieldset
+              ref="richSizePicker"
+              class="rich-size-picker"
             >
-              {{ size }} px
-            </option>
-          </select>
+              <legend class="visually-hidden">
+                {{ t('richText.fontSize') }}
+              </legend>
+              <label
+                v-for="size in ['12', '14', '16', '18', '24', '32']"
+                :key="size"
+                class="rich-size-picker__option"
+              >
+                <input
+                  v-model="richPickerValue"
+                  :value="size"
+                  name="rich-font-size"
+                  type="radio"
+                  @change="richPickerError = null; richPickerPending = false"
+                />
+                <span class="rich-size-picker__choice">
+                  <span>{{ size }}</span>
+                  <span class="rich-size-picker__unit">px</span>
+                </span>
+              </label>
+            </fieldset>
+          </div>
           <input
             v-else
             id="rich-picker-value"
@@ -6869,6 +7268,10 @@ defineExpose({
       :key="mediaDialogKind"
       :initial-name="mediaDraftName"
       :initial-url="mediaDraftUrl"
+      :initial-width="mediaDraftImageWidth"
+      :initial-height="mediaDraftImageHeight"
+      :initial-alignment="mediaDraftImageAlignment"
+      :image-alignment-available="mediaDraftImageAlignmentAvailable"
       :kind="mediaDialogKind"
       :locale="toolbarLocale"
       :upload-adapter="uploadAdapter"
@@ -6903,12 +7306,22 @@ defineExpose({
       @cancel="closeDrawioDialog()"
     />
 
+    <FormulaReferencePicker
+      v-if="formulaReferenceDialogOpen"
+      :candidates="formulaReferenceItems"
+      :error="uiNoticeText(formulaReferenceError)"
+      :locale="toolbarLocale"
+      @apply="applyFormulaReferenceDialog"
+      @cancel="closeFormulaReferenceDialog()"
+    />
+
     <FormulaPicker
       v-if="formulaDialogOpen"
       :error="uiNoticeText(formulaDraftError)"
       :locale="toolbarLocale"
       :mode="formulaMode"
       :model-value="formulaContent"
+      :storage="compatibility.storage"
       @apply="applyFormulaDialog"
       @cancel="closeFormulaDialog()"
       @update:mode="formulaMode = $event; formulaDraftError = null"

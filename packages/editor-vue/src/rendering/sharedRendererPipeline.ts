@@ -7,6 +7,7 @@ import mermaid from 'mermaid'
 import type { DocumentSnapshot, PreviewRenderResult, ResourceOptions } from '@w-editor/editor-core'
 import { normalizeMarkdownForCherry, taskItemMarkers } from '@w-editor/editor-core'
 
+import { bindFormulaReferenceNavigation } from '../services/formulaNumbering'
 import { prepareCherryFormulas } from '../services/prepareCherryFormulas'
 import { sanitizeCherryHtmlWithSafeFormulas } from '../services/rehydrateCherryFormulas'
 import { W_EDITOR_CHERRY_ENGINE_OPTIONS } from '../adapters/wEditorCherrySyntax'
@@ -129,9 +130,10 @@ export class SharedRendererPipeline {
 
   hydrate(root: HTMLElement, options: RendererHydrationOptions): () => void {
     const stopHydration = hydrateRendererContent(root, options)
+    const stopFormulas = bindFormulaReferenceNavigation(root)
     const stopReferences = bindReferenceNavigation(root, () => false)
     const stopStyles = hydrateReferenceStyles(root)
-    return () => { stopStyles(); stopReferences(); stopHydration() }
+    return () => { stopFormulas(); stopStyles(); stopReferences(); stopHydration() }
   }
 
   destroy(): void {

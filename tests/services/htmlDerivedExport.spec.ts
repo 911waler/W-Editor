@@ -1,9 +1,72 @@
 import { describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
 
 import { CherryRenderAdapter } from '../../src/adapters'
 import { BrowserFileExportError, createHtmlDerivedExports, createStandaloneExportHtml, EXPORT_STYLES } from '../../src/services/browserFileExport'
 
 describe('safe HTML-derived exports', () => {
+  it.each([
+    ['application', readFileSync('packages/editor-vue/src/ui/styles.css', 'utf8')],
+    ['HTML/PDF/image export', EXPORT_STYLES],
+  ])('keeps numbered math scrollable apart from its noninteractive label in %s', (_surface, css) => {
+    const style = document.createElement('style')
+    style.textContent = css
+    const content = document.createElement('main')
+    content.innerHTML = [
+      '<figure class="formula-node formula-node--block" data-formula-number="1"><div class="formula-rendered formula-rendered--block"><span class="katex-display"><span class="katex"><span class="tag">(custom)</span><span class="eqn-num"></span>long formula</span></span></div><span class="formula-node__error" role="alert">Local error</span><span class="formula-node__number">(1)</span></figure>',
+      '<div class="Cherry-Math" data-formula-number="2"><span class="katex-display"><span class="katex"><span class="tag">(custom)</span><span class="eqn-num"></span>long formula</span></span><span class="formula-node__number">(2)</span></div>',
+      '<div class="Cherry-Math" data-formula-number="3"><span class="katex-error">Invalid formula</span><span class="formula-node__number">(3)</span></div>',
+      '<div class="formula-picker__live-preview-content"><span class="katex-display"><span class="tag">(preview tag)</span></span></div>',
+    ].join('')
+    document.head.append(style)
+    document.body.append(content)
+    try {
+      for (const block of content.querySelectorAll<HTMLElement>('[data-formula-number]')) {
+        expect(getComputedStyle(block).display).toBe('grid')
+        expect(getComputedStyle(block).minWidth).toBe('0px')
+        expect(Number.parseFloat(getComputedStyle(block).marginLeft)).toBe(0)
+        expect(Number.parseFloat(getComputedStyle(block).marginRight)).toBe(0)
+        const math = block.firstElementChild!
+        expect(getComputedStyle(math).minWidth).toBe('0px')
+        expect(getComputedStyle(math).overflowX).toBe('auto')
+        const label = block.querySelector('.formula-node__number')!
+        expect(getComputedStyle(label).pointerEvents).toBe('none')
+        expect(getComputedStyle(label).gridColumn).toBe('3')
+        expect(getComputedStyle(label).alignSelf).toBe('center')
+        expect(getComputedStyle(label).whiteSpace).toBe('nowrap')
+        for (const katex of block.querySelectorAll('.katex-display > .katex')) {
+          expect(getComputedStyle(katex).width).toBe('max-content')
+          expect(getComputedStyle(katex).minWidth).toBe('100%')
+        }
+      }
+      for (const tag of content.querySelectorAll('[data-formula-number] :is(.tag, .eqn-num)')) {
+        expect(getComputedStyle(tag).display).toBe('none')
+      }
+      expect(getComputedStyle(content.querySelector('[role="alert"]')!).gridRow).toBe('2')
+      expect(getComputedStyle(content.querySelector('.formula-picker__live-preview-content .tag')!).display).not.toBe('none')
+    } finally {
+      content.remove()
+      style.remove()
+    }
+  })
+
+  it('exports sequential block numbers as real text while preserving inline and explicit TeX source', async () => {
+    const snapshot = Object.freeze({
+      documentId: 'numbered-formulas',
+      markdown: 'Inline $i=0$.\n\n$$\nx=1\\tag{custom}\n$$\n\n$$\ny=2\n$$',
+      revision: 6,
+    })
+    const artifacts = createHtmlDerivedExports(snapshot, new CherryRenderAdapter())
+    const template = document.createElement('template')
+    template.innerHTML = await artifacts.html.blob.text()
+    expect([...template.content.querySelectorAll('.Cherry-Math > .formula-node__number')].map(label => label.textContent))
+      .toEqual(['(1)', '(2)'])
+    expect(template.content.querySelector('.Cherry-InlineMath .formula-node__number')).toBeNull()
+    expect(template.content.querySelector('.Cherry-Math annotation')?.textContent).toBe('x=1\\tag{custom}')
+    expect(template.content.querySelector('.Cherry-Math .tag')).not.toBeNull()
+    expect(snapshot.markdown).toBe('Inline $i=0$.\n\n$$\nx=1\\tag{custom}\n$$\n\n$$\ny=2\n$$')
+  })
+
   it('applies the same content-presentation typography used by Visual and Preview to static/PDF capture', () => {
     const style = document.createElement('style')
     style.textContent = EXPORT_STYLES

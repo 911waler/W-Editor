@@ -58,6 +58,7 @@ interface OrdinaryBlock {
   readonly disclosure?: Readonly<{ readonly items: readonly DisclosureItem[]; readonly kind: DisclosureKind }>
   readonly drawio?: DrawioModel
   readonly from: number
+  readonly formulaId?: string | null
   readonly items?: readonly OrdinaryListItem[]
   readonly level: 1 | 2 | 3 | 4 | 5 | null
   readonly layout?: Readonly<{ readonly columns: readonly string[]; readonly kind: ColumnLayoutKind; readonly title: string }>
@@ -467,6 +468,7 @@ function parseOrdinaryBlocks(markdown: string): readonly OrdinaryBlock[] {
     if (formula !== null) {
       blocks.push(Object.freeze({
         body: formula.content,
+        formulaId: formula.formulaId,
         codecId: 'formula',
         from: formula.from,
         level: null,
@@ -896,6 +898,7 @@ function projectionNode(block: OrdinaryBlock, revision: number): JSONContent {
         ...attrs,
         content: block.body,
         formulaMode: 'block',
+        formulaId: block.formulaId ?? null,
         localError: null,
       }),
       type: 'formulaBlock',

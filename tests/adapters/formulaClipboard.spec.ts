@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import type { Editor } from '@tiptap/core'
+import { describe, expect, it, vi } from 'vitest'
 
 import { TiptapTransactionPatchPlanner, TiptapVisualAdapter, serializeOrdinaryTiptapPatch } from '../../src/adapters'
-import { projectOrdinaryMarkdown } from '../../src/codecs'
+import { formulaReferenceCandidates, projectOrdinaryMarkdown } from '../../src/codecs'
 import { DocumentSession, type PatchPlan } from '../../src/core'
 
 function mount(markdown: string) {
@@ -186,4 +187,80 @@ describe('formula clipboard', () => {
       } finally { reopened.destroy() }
     } finally { fixture.destroy() }
   })
+})
+
+it('duplicates a formula with a new identity and remaps references copied with it', () => {
+  const fixture = mount('Before\n\n$$\na=b\n$$\n<!-- w-editor-formula-id: original -->\n\n[公式](#wformula-original)\n\nTarget')
+  try {
+    const doc = fixture.adapter.schema().nodeFromJSON(fixture.adapter.documentJSON())
+    fixture.adapter.setSelection({ anchor: 1, head: doc.child(0).nodeSize + doc.child(1).nodeSize + doc.child(2).nodeSize - 1 })
+    const clipboard = new Map<string, string>()
+    const editable = fixture.host.querySelector('.ProseMirror')!
+    editable.dispatchEvent(clipboardEvent('copy', clipboard))
+    expect(clipboard.get('text/plain')).toContain('w-editor-formula-id: original')
+    const end = doc.content.size - 1
+    fixture.adapter.setSelection({ anchor: end, head: end })
+    editable.dispatchEvent(clipboardEvent('paste', clipboard))
+    fixture.commit()
+    const blocks = [...fixture.host.querySelectorAll<HTMLElement>('.formula-node--block')]
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0]?.dataset['formulaId']).toBe('original')
+    expect(blocks[1]?.dataset['formulaId']).not.toBe('original')
+    const id = blocks[1]!.dataset['formulaId']!
+    expect(id).toMatch(/^[A-Za-z0-9_-]+$/u)
+    const links = [...fixture.host.querySelectorAll('a[data-formula-reference-target]')]
+    expect(links.map(link => link.getAttribute('href'))).toEqual(['#wformula-original', `#wformula-${id}`])
+    expect(fixture.session.snapshot().markdown).toContain(`<!-- w-editor-formula-id: ${id} -->`)
+    expect(fixture.session.snapshot().markdown).toContain(`[公式](#wformula-${id})`)
+  } finally { fixture.destroy() }
+})
+
+it.each([
+  { label: 'copies when Ctrl is pressed after dragstart', startCopy: false, dropCopy: true, count: 2 },
+  { label: 'moves when Ctrl is released after dragstart', startCopy: true, dropCopy: false, count: 1 },
+])('$label without breaking the original formula reference', ({ startCopy, dropCopy, count }) => {
+  const fixture = mount('$$\na=b\n$$\n<!-- w-editor-formula-id: original -->\n\n[公式](#wformula-original)\n\nEnd')
+  try {
+    const editable = fixture.host.querySelector<HTMLElement>('.ProseMirror')!
+    // Tiptap attaches its owning Editor to the mounted editable DOM element.
+    const editor = (editable as HTMLElement & { editor: Editor }).editor
+    const block = fixture.host.querySelector<HTMLElement>('.formula-node--block')!
+    fixture.adapter.selectDomBlock(block)
+    // JSDOM has no layout; keep the real drag/drop handlers and supply hit tests.
+    const hitTest = vi.spyOn(editor.view, 'posAtCoords').mockReturnValue({ pos: 0, inside: -1 })
+    const data = new Map<string, string>()
+    const dataTransfer = {
+      clearData: () => data.clear(),
+      getData: (format: string) => data.get(format) ?? '',
+      setData: (format: string, value: string) => data.set(format, value),
+      files: [],
+      effectAllowed: '',
+      get types() { return [...data.keys()] },
+    }
+    const dispatchDrag = (type: 'dragstart' | 'drop', ctrlKey: boolean) => {
+      const event = new MouseEvent(type, { bubbles: true, cancelable: true, ctrlKey })
+      Object.defineProperty(event, 'dataTransfer', { value: dataTransfer })
+      editable.dispatchEvent(event)
+    }
+    dispatchDrag('dragstart', startCopy)
+    hitTest.mockReturnValue({ pos: editor.state.doc.content.size, inside: -1 })
+    dispatchDrag('drop', dropCopy)
+    hitTest.mockRestore()
+
+    const blocks = [...fixture.host.querySelectorAll<HTMLElement>('.formula-node--block')]
+    expect(blocks).toHaveLength(count)
+    const ids = blocks.map(formula => formula.dataset['formulaId'])
+    expect(ids[0]).toBe('original')
+    expect(new Set(ids).size).toBe(count)
+    if (dropCopy) expect(ids[1]).toMatch(/^[A-Za-z0-9_-]+$/u)
+    const reference = fixture.host.querySelector<HTMLAnchorElement>('[data-formula-reference-target]')!
+    expect(reference.getAttribute('href')).toBe('#wformula-original')
+    expect(reference.textContent).toBe('Equation 1')
+
+    fixture.commit()
+    const markdown = fixture.session.snapshot().markdown
+    expect(formulaReferenceCandidates(markdown).map(formula => formula.formulaId)).toEqual(ids)
+    expect(markdown.match(/<!-- w-editor-formula-id: original -->/gu)).toHaveLength(1)
+    expect(markdown).toContain('[公式](#wformula-original)')
+  } finally { fixture.destroy() }
 })

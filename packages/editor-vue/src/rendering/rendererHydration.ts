@@ -1,7 +1,8 @@
 import { hydrateCherryChartPreviews } from './chartHydration'
 import { hydrateMermaidPreviews } from './mermaidHydration'
 import { rendererProfileCapabilities, type RendererProfile } from './rendererProfiles'
-import { translateUi, type UiLocale } from '../services/uiLocalization'
+import { renumberBlockFormulas } from '../services/formulaNumbering'
+import { createUiLocalizationStore, translateUi, type UiLocale } from '../services/uiLocalization'
 import type { MermaidPreviewRendererContract } from '../adapters/mermaidPreviewRenderer'
 
 export interface RendererHydrationOptions {
@@ -42,6 +43,7 @@ function updateTaskLabels(root: HTMLElement, locale: UiLocale): void {
 }
 
 export function updateRendererLabels(root: HTMLElement, locale: UiLocale): void {
+  renumberBlockFormulas(root, createUiLocalizationStore(locale))
   for (const toolbar of root.querySelectorAll<HTMLElement>('.final-code-block__toolbar')) {
     toolbar.setAttribute('aria-label', translateUi(locale, 'preview.codeActions'))
   }

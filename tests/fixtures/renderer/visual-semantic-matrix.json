@@ -114,6 +114,14 @@
       "reader": "Reader keeps inline/block formulas without exposing author controls."
     },
     {
+      "capabilityId": "formula-references",
+      "fixture": "tests/fixtures/cherry/formula-references.md",
+      "source": "Stable adjacent block identity markers and canonical formula links persist independently of displayed numbers.",
+      "visual": "Formula reference atoms display the current block ordinal and navigate only to an unambiguous target in their document.",
+      "finalPreview": "Final derives numbered reference labels, valid target IDs and native fragment links; missing targets remain unavailable.",
+      "reader": "Reader retains the same numbered target links and unavailable references without author mutation controls."
+    },
+    {
       "capabilityId": "toc",
       "fixture": "tests/fixtures/cherry/representative.md",
       "source": "TOC source and heading anchors remain derived from Markdown.",

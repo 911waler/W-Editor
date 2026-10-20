@@ -110,8 +110,16 @@ function updateTestValue(event: Event): void {
       bubbles: true,
       detail: {
         documentId: previous.documentId,
-        previous: scanReferences(previous.markdown).map(({ from: _from, to: _to, ...reference }) => reference),
-        references: scanReferences(markdown).map(({ from: _from, to: _to, ...reference }) => reference),
+        previous: scanReferences(previous.markdown).map(({ from, to, ...reference }) => {
+          void from
+          void to
+          return reference
+        }),
+        references: scanReferences(markdown).map(({ from, to, ...reference }) => {
+          void from
+          void to
+          return reference
+        }),
       },
     }))
   }
@@ -160,6 +168,13 @@ onBeforeUnmount(() => {
 })
 
 defineExpose({
+  setDropSelection: (left: number, top: number): boolean => {
+    if (!testMode) return adapter?.setDropSelection(left, top) ?? false
+    const textarea = testTextarea.value
+    if (textarea === null || textarea.readOnly || textarea.disabled) return false
+    textarea.setSelectionRange(textarea.selectionStart, textarea.selectionStart)
+    return true
+  },
   visibleSourceFrom: () => {
     if (testMode) return testTextarea.value?.selectionStart ?? 0
     const element = host.value?.querySelector<HTMLElement>('.cm-editor')

@@ -24,7 +24,21 @@ Uploads use multipart `file`, `kind` (`image`, `attachment`, `drawio`), and `csr
 
 The original manual checkpoint and lifecycle flush methods wait for IME and Visual synchronization. NWU Save and Publish call those methods. Server save failure leaves current editor content and a scoped recovery record intact. Metadata provides title, category, visibility, and allowed usernames. Its explicit Save-and-Publish action applies permission changes; ordinary Save remains nonpublishing. Reader presentation uses the existing `TiptapReaderPresentation`.
 
-Workspace sidebar and mode restore only from a same-user, same-document server state record. The requested document ID and freshly fetched server Markdown always override cached active IDs or bodies. Original latest manual, pre-mode-switch, and pre-destructive-replacement checkpoints persist separately in user/API/canonical-document scoped browser storage; live document envelopes are seeded from server content and never from cached autosave. Checkpoint keys and remembered server layout migrate on draft promotion. This preserves the original checkpoint model without adding a version-management UI.
+Workspace sidebar and mode restore only from a same-user, same-document server state record. The requested document ID and freshly fetched server Markdown always override cached active IDs or bodies. Original latest manual, pre-mode-switch, and pre-destructive-replacement checkpoints persist separately in user/API/canonical-document scoped browser storage; live document envelopes are seeded from server content and never from cached autosave. Checkpoint keys and remembered server layout migrate on draft promotion.
+
+## History, references and permissions
+
+The optional host history dialog uses `GET /documents/:id/history?cursor=...` and `GET /documents/:id/history/:versionId`. Responses follow `DocumentHistoryPage` and `DocumentHistorySnapshot` from `packages/editor-vue/src/services/documentHistory.ts`. The host must authorize both requests; restoring re-fetches the selected version, then creates a private note or unpublished announcement copy. It never overwrites the original. Recovery also preserves historical reference identities, copies the reference library and notes, and reports partial copy failures without repeating document creation. Tutorials do not expose this history dialog.
+
+The adapter also consumes reference-library/reference-notes endpoints and optional DOI lookup. The `group` visibility choice requires server-side group membership and asset authorization. These services, authentication, publishing and authorization belong to the host; this frontend repository does not include the NWU Python server. Standalone mode uses its existing local reference and upload services, while server history and DOI lookup require an implementing host.
+
+## Host theme and WebVPN builds
+
+Hosted editing follows `document.documentElement.dataset.theme` (`light`/`dark`) without replacing the active document or its selection. Reader skin selection remains available. The standalone editor keeps its own appearance preference.
+
+[Optional host assets](../../examples/nwu-host/site-assets/README.md) include the production theme controller and editor page layout/stacking styles. The theme controller also maintains reader text contrast against actual backgrounds. A host that already supplies these assets should keep one copy. Site navigation, announcements and backend rendering are separate host responsibilities.
+
+For the full application behind WebVPN, use the [portable WebVPN build](../../docs/webvpn-build.md). It preserves the deployed classic-script entries and asynchronous CSS loader. The lower-level `@w-editor/editor-web` mount API is a separate distribution and does not contain the complete Playground toolbar and dialogs.
 
 ## Optional lifecycle policy and desktop handoff
 

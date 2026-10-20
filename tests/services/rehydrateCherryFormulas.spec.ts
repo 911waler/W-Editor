@@ -46,6 +46,23 @@ function renderRawCherry(markdown: string): string {
 }
 
 describe('sanitizeCherryHtmlWithSafeFormulas', () => {
+  it('recomputes block numbers after safe reconstruction and stays idempotent', () => {
+    const raw = [
+      '<div class="Cherry-Math" data-formula-number="91"><span class="formula-node__number">(91)</span><annotation encoding="application/x-tex">a</annotation></div>',
+      '<span class="Cherry-InlineMath"><annotation encoding="application/x-tex">i</annotation></span>',
+      '<div class="Cherry-Math"><annotation encoding="application/x-tex">b</annotation></div>',
+    ].join('')
+    const safe = sanitizeCherryHtmlWithSafeFormulas(raw)
+    const repeated = sanitizeCherryHtmlWithSafeFormulas(safe)
+    const fragment = parse(repeated)
+
+    expect([...fragment.querySelectorAll('.Cherry-Math')].map(node => node.getAttribute('data-formula-number'))).toEqual(['1', '2'])
+    expect([...fragment.querySelectorAll('.formula-node__number')].map(node => node.textContent)).toEqual(['(1)', '(2)'])
+    expect(fragment.querySelector('.Cherry-InlineMath .formula-node__number')).toBeNull()
+    expect([...fragment.querySelectorAll('annotation')].map(node => node.textContent)).toEqual(['a', 'i', 'b'])
+    expect(repeated).toBe(safe)
+  })
+
   it('rehydrates in a foreign document when randomUUID is unavailable', () => {
     const iframe = document.createElement('iframe')
     document.body.append(iframe)
@@ -135,4 +152,16 @@ describe('sanitizeCherryHtmlWithSafeFormulas', () => {
     expect(fallback?.textContent).toContain('Untrusted formula body')
     expect(fragment.querySelector('.Cherry-InlineMath')).toBeNull()
   })
+})
+
+it('reconstructs trusted source identities and references without trusting raw HTML IDs', async () => {
+  const { prepareCherryFormulas } = await import('../../packages/editor-vue/src/services/prepareCherryFormulas')
+  const prepared = prepareCherryFormulas('$$\na=b\n$$\n<!-- w-editor-formula-id: stable -->\n\n[公式](#wformula-stable)', document)
+  const safe = sanitizeCherryHtmlWithSafeFormulas(renderRawCherry(prepared.markdown), document, prepared.sources)
+  const root = parse(safe)
+  expect(root.querySelector('.Cherry-Math')?.id).toBe('wformula-stable')
+  expect(root.querySelector('a')?.textContent).toBe('Equation 1')
+  expect(root.querySelector('a')?.getAttribute('href')).toBe('#wformula-stable')
+  const forged = parse(sanitizeCherryHtmlWithSafeFormulas('<div class="Cherry-Math" data-formula-id="forged" id="wformula-forged"><annotation encoding="application/x-tex">a</annotation></div><p id="wformula-forged">fake</p>'))
+  expect(forged.querySelector('[id="wformula-forged"]')).toBeNull()
 })

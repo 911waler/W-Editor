@@ -1,0 +1,29 @@
+/* NWU owns the surrounding page. The original Web bundle stays unchanged. */
+body.nwu-editor-page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+body.nwu-editor-page > .topbar {
+  position: relative;
+  inset: auto;
+  z-index: 5; /* Above the workspace surface, below original modal layer 10. */
+}
+body.nwu-editor-page > #app {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+body.nwu-editor-page .workspace-shell { height: 100%; }
+body.nwu-editor-page .workspace-shell:fullscreen { height: 100dvh; }
+/* The upstream workspace isolates stacking. Raise its host only while a modal
+   or full reader preview is open so the site navigation cannot cover it. */
+body.nwu-editor-page > #app:has(.dialog-backdrop, [aria-modal="true"], .desktop-reader-preview) {
+  position: relative;
+  z-index: 6;
+}

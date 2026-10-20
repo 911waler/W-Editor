@@ -63,6 +63,78 @@ function imageHarness(markdown: string, documentId: string): Readonly<{
 
 
 describe('inline image editing and source preservation', () => {
+  it.each(['left', 'center', 'right'] as const)('applies name, exact size and %s alignment in one undoable edit', async (alignment) => {
+    const original = 'Keep\n\nBefore ![Old](/a.png "Title"){width=320 height=180 loading=lazy} ![Other](/b.png) after\n\nTail'
+    const h = imageHarness(original, `image-settings-${alignment}`)
+    try {
+      h.host.querySelector<HTMLElement>('[data-inline-image]')?.click()
+      expect(h.adapter.selectedSemanticBlock()).toMatchObject({ width: 320, height: 180 })
+      h.adapter.applySemanticBlock({ kind: 'media', mediaKind: 'image', source: '![New](/new.png)',
+        imageLayout: { width: 640, height: 240, alignment } })
+      await h.service.flush()
+      const body = 'Before ![New](/new.png "Title"){width=640 height=240 loading=lazy} ![Other](/b.png) after'
+      expect(h.session.snapshot().markdown).toBe(alignment === 'left'
+        ? `Keep\n\n${body}\n\nTail`
+        : `Keep\n\n::: ${alignment}\n${body}\n:::\n\nTail`)
+      expect(h.adapter.selectedSemanticBlock()).toMatchObject({ name: 'New', width: 640, height: 240 })
+      expect(h.plans).toHaveLength(1)
+      expect(h.adapter.undo()).toBe(true)
+      await h.service.flush()
+      expect(h.session.snapshot().markdown).toBe(original)
+      expect(h.failures).toEqual([])
+    } finally { h.destroy() }
+  })
+
+  it.each(['left', 'center', 'right'] as const)('resets dimensions without toggling matching %s alignment', async (alignment) => {
+    const original = `::: ${alignment}\nBefore ![Old](/a.png "Title"){width=320 height=180 loading=lazy} after\n:::`
+    const h = imageHarness(original, `reset-settings-${alignment}`)
+    try {
+      h.host.querySelector<HTMLElement>('[data-inline-image]')?.click()
+      h.adapter.applySemanticBlock({ kind: 'media', mediaKind: 'image', source: '![New](/new.png)',
+        imageLayout: { width: null, height: null, alignment } })
+      await h.service.flush()
+      expect(h.session.snapshot().markdown).toBe(`::: ${alignment}\nBefore ![New](/new.png "Title"){ loading=lazy} after\n:::`)
+      expect(h.adapter.selectedSemanticBlock()).toMatchObject({ width: null, height: null })
+      h.adapter.undo(); await h.service.flush()
+      expect(h.session.snapshot().markdown).toBe(original)
+      expect(h.failures).toEqual([])
+    } finally { h.destroy() }
+  })
+
+  it('changes an existing alignment atomically with image dimensions and preserves both paragraphs', async () => {
+    const original = 'Keep\n\n::: center\nBefore ![Old](/a.png){width=320 height=180} after\n\nAnother paragraph\n:::\n\nTail'
+    const h = imageHarness(original, 'change-image-layout')
+    try {
+      h.host.querySelector<HTMLElement>('[data-inline-image]')?.click()
+      h.adapter.applySemanticBlock({ kind: 'media', mediaKind: 'image', source: '![New](/new.png)',
+        imageLayout: { width: 480, height: 200, alignment: 'right' } })
+      await h.service.flush()
+      expect(h.session.snapshot().markdown).toBe('Keep\n\n::: right\nBefore ![New](/new.png){width=480 height=200} after\n\nAnother paragraph\n:::\n\nTail')
+      expect(h.adapter.selectedSemanticBlock()).toMatchObject({ name: 'New', width: 480, height: 200 })
+      expect(h.plans).toHaveLength(1)
+      h.adapter.undo(); await h.service.flush()
+      expect(h.session.snapshot().markdown).toBe(original)
+      expect(h.failures).toEqual([])
+    } finally { h.destroy() }
+  })
+
+  it.each([
+    '- ![Old](/a.png){width=320}',
+    '| Image |\n| --- |\n| ![Old](/a.png){width=320} |',
+    '> ![Old](/a.png){width=320}',
+  ])('edits nested image metadata while ignoring unsupported alignment: %s', async (original) => {
+    const h = imageHarness(original, 'nested-image-settings')
+    try {
+      h.host.querySelector<HTMLElement>('[data-inline-image]')?.click()
+      expect(h.adapter.canApplyAlignment()).toBe(false)
+      h.adapter.applySemanticBlock({ kind: 'media', mediaKind: 'image', source: '![New](/new.png)',
+        imageLayout: { width: 160, height: 80, alignment: 'center' } })
+      await h.service.flush()
+      expect(h.session.snapshot().markdown).toBe(original.replace('![Old](/a.png){width=320}', '![New](/new.png){width=160 height=80}'))
+      expect(h.failures).toEqual([])
+    } finally { h.destroy() }
+  })
+
   it('inserts two separate images, deletes just the selected one, and saves its undo', async () => {
     const h = imageHarness('', 'two-insert-delete')
     try {

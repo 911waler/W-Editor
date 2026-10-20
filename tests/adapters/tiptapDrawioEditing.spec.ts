@@ -36,7 +36,7 @@ describe('draw.io semantic-node editing', () => {
 
     const node = host.querySelector<HTMLElement>('[data-semantic-kind="drawio"]')
     expect(node?.querySelector('img')?.getAttribute('src')).toBe(png)
-    node?.querySelector<HTMLButtonElement>('[data-semantic-edit="drawio-editor"]')?.click()
+    node?.querySelector('img')?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
     expect(onSemanticEdit).toHaveBeenCalledWith(expect.objectContaining({
       editorId: 'drawio-editor',
       kind: 'drawio',

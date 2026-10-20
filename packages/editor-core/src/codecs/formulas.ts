@@ -1,6 +1,7 @@
 export type FormulaMode = 'block' | 'inline'
 
 export interface FormulaMatch {
+  readonly formulaId: string | null
   readonly content: string
   readonly from: number
   readonly mode: FormulaMode
@@ -28,7 +29,12 @@ function containsUnescapedBlockDelimiter(content: string): boolean {
   return false
 }
 
-export function serializeFormula(mode: FormulaMode, content: string): string {
+export function isFormulaId(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(value)
+}
+
+export function serializeFormula(mode: FormulaMode, content: string, formulaId?: string | null): string {
+  if (formulaId != null && !isFormulaId(formulaId)) throw new RangeError('Invalid formula identity.')
   const normalized = content.trim()
   if (normalized.length === 0) throw new RangeError('Formula content must be non-empty.')
   if (normalized.includes('\0')) throw new RangeError('Formula content cannot contain NUL.')
@@ -38,7 +44,7 @@ export function serializeFormula(mode: FormulaMode, content: string): string {
   if (mode === 'block' && containsUnescapedBlockDelimiter(normalized)) {
     throw new RangeError('Formula content cannot contain an unescaped $$ delimiter.')
   }
-  return mode === 'inline' ? `$${normalized}$` : `$$\n${normalized}\n$$`
+  return mode === 'inline' ? `$${normalized}$` : `$$\n${normalized}\n$$${formulaId == null ? '' : `\n<!-- w-editor-formula-id: ${formulaId} -->`}`
 }
 
 export function parseInlineFormulaAt(source: string, offset: number): FormulaMatch | null {
@@ -53,6 +59,7 @@ export function parseInlineFormulaAt(source: string, offset: number): FormulaMat
     if (content.trim().length === 0) return null
     return Object.freeze({
       content,
+      formulaId: null,
       from: offset,
       mode: 'inline',
       source: source.slice(offset, cursor + 1),
@@ -71,9 +78,12 @@ export function parseBlockFormulaAt(source: string, offset: number): FormulaMatc
   close.lastIndex = bodyFrom
   const match = close.exec(source)
   if (match === null || match.index <= bodyFrom) return null
-  const to = match.index + match[0].length
+  const closeTo = match.index + match[0].length
+  const marker = /^\r?\n<!-- w-editor-formula-id: ([A-Za-z0-9_-]{1,128}) -->(?=\r?\n|$)/u.exec(source.slice(closeTo))
+  const to = closeTo + (marker?.[0].length ?? 0)
   return Object.freeze({
     content: source.slice(bodyFrom, match.index),
+    formulaId: marker?.[1] ?? null,
     from: offset,
     mode: 'block',
     source: source.slice(offset, to),

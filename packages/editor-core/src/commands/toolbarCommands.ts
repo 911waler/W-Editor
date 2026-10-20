@@ -145,6 +145,7 @@ const COMMAND_SEEDS: readonly CommandSeed[] = Object.freeze([
   seed('insert.code-block', 'insert', 7, '</>', 'Code block', '代码块', 'Блок кода', { contextualFor: ['code-block'], menuId: 'insert', selection: anySelection }),
   seed('insert.inline-code', 'insert', 8, '`', 'Inline code', '行内代码', 'Строчный код', { menuId: 'insert', selection: textSelection }),
   seed('insert.formula', 'insert', 9, '∑', 'Formula', '公式', 'Формула', { iconClass: 'ch-icon-insertFormula', menuId: 'insert', selection: anySelection }),
+  seed('insert.formula-reference', 'insert', 9.5, '∑', 'Equation reference', '公式引用', 'Ссылка на формулу', { iconClass: 'ch-icon-insertFormula', menuId: 'insert', selection: insertionSelection }),
   seed('insert.toc', 'insert', 10, '☷', 'Table of contents', '目录', 'Оглавление', { menuId: 'insert', selection: anySelection }),
   seed('insert.table', 'insert', 11, '▦', 'Table', '表格', 'Таблица', { iconClass: 'ch-icon-table', menuId: 'insert', selection: insertionSelection }),
   seed('insert.pdf', 'insert', 12, 'PDF', 'PDF attachment', 'PDF 附件', 'PDF-вложение', { menuId: 'insert', selection: insertionSelection }),

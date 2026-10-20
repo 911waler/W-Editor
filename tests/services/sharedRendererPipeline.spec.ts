@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { sanitizeCherryHtmlWithSafeFormulas } from '../../src/services/rehydrateCherryFormulas'
 
 import {
   CherryRenderAdapter,
@@ -10,6 +11,26 @@ import {
 } from '../../packages/editor-vue/src/adapters'
 
 describe('shared Renderer pipeline', () => {
+  it('keeps invalid block formulas in the document sequence across safe reconstruction', () => {
+    const pipeline = createSharedRendererPipeline()
+    const snapshot = { documentId: 'numbered-errors', revision: 0, markdown: '$$\na\n$$\n\n$$\n\\frac{\n$$\n\n$$\nb\n$$' }
+    try {
+      const rendered = pipeline.render(snapshot)
+      const host = document.createElement('div')
+      host.innerHTML = rendered.html
+      expect([...host.querySelectorAll('.Cherry-Math')].map(node => node.getAttribute('data-formula-number'))).toEqual(['1', '2', '3'])
+      expect(host.querySelectorAll('.katex-error, .cherry-formula-error')).toHaveLength(1)
+      host.innerHTML = sanitizeCherryHtmlWithSafeFormulas(rendered.html)
+      expect([...host.querySelectorAll('.Cherry-Math > .formula-node__number')].map(node => node.textContent)).toEqual(['(1)', '(2)', '(3)'])
+      const error = host.querySelectorAll('.Cherry-Math')[1]?.querySelector('.cherry-formula-error, .katex-error')
+      expect(error).not.toBeNull()
+      expect(error?.textContent).not.toMatch(/\([123]\)/u)
+      const reconstructed = host.innerHTML
+      expect(sanitizeCherryHtmlWithSafeFormulas(reconstructed)).toBe(reconstructed)
+      expect(rendered.snapshot.markdown).toBe(snapshot.markdown)
+    } finally { pipeline.destroy() }
+  })
+
   function semanticHtml(html: string): string {
     const template = document.createElement('template')
     template.innerHTML = html
@@ -69,6 +90,81 @@ describe('shared Renderer pipeline', () => {
       'mermaid-hydration',
       'code-enhancement',
     ])
+  })
+
+  it.each([
+    { backslashes: 0, breaks: 1, text: 'leftright' },
+    { backslashes: 1, breaks: 0, text: 'left<br>right' },
+    { backslashes: 2, breaks: 1, text: String.raw`left\right` },
+    { backslashes: 3, breaks: 0, text: String.raw`left\<br>right` },
+    { backslashes: 4, breaks: 1, text: String.raw`left\\right` },
+    { backslashes: 5, breaks: 0, text: String.raw`left\\<br>right` },
+    { backslashes: 6, breaks: 1, text: String.raw`left\\\right` },
+    { backslashes: 7, breaks: 0, text: String.raw`left\\\<br>right` },
+  ])('renders $backslashes backslashes before a break tag with the authority escape semantics', ({ backslashes, breaks, text }) => {
+    const pipeline = createSharedRendererPipeline()
+    const markdown = `left${'\\'.repeat(backslashes)}<br>right`
+    const snapshot = Object.freeze({ documentId: 'escaped-break', markdown, revision: 1 })
+    const host = document.createElement('div')
+
+    host.innerHTML = pipeline.render(snapshot).html
+
+    expect(host.textContent).toBe(text)
+    expect(host.querySelectorAll('br')).toHaveLength(breaks)
+    expect(snapshot.markdown).toBe(markdown)
+  })
+
+  it('keeps break escapes inside bold text and link labels', () => {
+    const pipeline = createSharedRendererPipeline()
+    const host = document.createElement('div')
+    host.innerHTML = pipeline.render(Object.freeze({
+      documentId: 'marked-breaks',
+      markdown: String.raw`**left\\<br>right** [left\\\<br>right](https://example.com)`,
+      revision: 1,
+    })).html
+
+    expect(host.querySelector('strong')?.textContent).toBe(String.raw`left\right`)
+    expect(host.querySelector('strong')?.querySelectorAll('br')).toHaveLength(1)
+    expect(host.querySelector('a')?.textContent).toBe(String.raw`left\<br>right`)
+    expect(host.querySelector('a')?.querySelectorAll('br')).toHaveLength(0)
+  })
+
+  it('keeps break tags and their backslashes literal inside inline and fenced code', () => {
+    const pipeline = createSharedRendererPipeline()
+    const host = document.createElement('div')
+    const literal = String.raw`left\<br>middle\\<br>right`
+    host.innerHTML = pipeline.render(Object.freeze({
+      documentId: 'code-breaks',
+      markdown: [`\`${literal}\``, '', '```text', literal, '```'].join('\n'),
+      revision: 1,
+    })).html
+
+    const code = [...host.querySelectorAll('code')]
+    expect(code).toHaveLength(2)
+    expect(code[0]?.textContent).toBe(literal)
+    expect(code[1]?.textContent?.trimEnd()).toBe(literal)
+    expect(host.querySelectorAll('br')).toHaveLength(0)
+  })
+
+  it('preserves escaped break variants inside list items and table cells', () => {
+    const pipeline = createSharedRendererPipeline()
+    const host = document.createElement('div')
+    host.innerHTML = pipeline.render(Object.freeze({
+      documentId: 'contained-breaks',
+      markdown: [
+        String.raw`- left\\<BR />right`,
+        '',
+        '| Content |',
+        '| --- |',
+        String.raw`| left\\\<br/>right |`,
+      ].join('\n'),
+      revision: 1,
+    })).html
+
+    expect(host.querySelector('li')?.textContent).toBe(String.raw`left\right`)
+    expect(host.querySelector('li')?.querySelectorAll('br')).toHaveLength(1)
+    expect(host.querySelector('td')?.textContent).toBe(String.raw`left\<br/>right`)
+    expect(host.querySelector('td')?.querySelectorAll('br')).toHaveLength(0)
   })
 
   it('exposes a reader profile that keeps copy/fold but removes author mutation actions', () => {

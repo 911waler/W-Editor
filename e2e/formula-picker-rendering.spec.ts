@@ -295,6 +295,7 @@ test('Task 22.5 one Formula command provides a keyboard-safe Inline picker with 
   await expectAuthority(page, before.markdown, before.revision)
 
   await source.fill('')
+  await picker.dialog.locator('[data-formula-section="quick-tools"]').click()
   await formulaTemplate(picker.dialog, 0).click()
   await formulaTemplate(picker.dialog, 2).click()
   await expect(source).toHaveValue(FRACTION_SUM)
@@ -322,6 +323,7 @@ test('Task 22.5 Block Formula uses the same picker, renders and edits in Visual,
 
   let picker = await openFormulaPicker(page)
   await formulaMode(picker.dialog, 'block').check()
+  await picker.dialog.locator('[data-formula-section="quick-tools"]').click()
   await formulaTemplate(picker.dialog, 1).click()
   await expect(formulaSource(picker.dialog)).toHaveValue('a^2 + b^2 = c^2')
   await applyFormula(picker.dialog).click()

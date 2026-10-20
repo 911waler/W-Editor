@@ -51,7 +51,7 @@ describe('direct visual simple inserts', () => {
     try {
       adapter.setSelection({ anchor: 6, head: 6 })
       expect(adapter.insertHardBreak().changed).toBe(true)
-      expect(plans.at(-1)?.patches[0]?.replacement).toBe('Alpha  \nBravo')
+      expect(plans.at(-1)?.patches[0]?.replacement).toBe('Alpha<br>Bravo')
     } finally {
       adapter.destroy()
       host.remove()

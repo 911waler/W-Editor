@@ -313,7 +313,7 @@ export function validateToolbarComponentParityMatrix(
   const componentIds = rowIds(componentSection, /^\| `(component\.[^`]+)` \|/u)
 
   if (!arraysEqual(commandIds, expectedCommandIds)) {
-    errors.push('Command parity rows must exactly match the 80-command inventory in order')
+    errors.push(`Command parity rows must exactly match the ${expectedCommandIds.length}-command inventory in order`)
   }
   if (!arraysEqual(componentIds, EXPECTED_COMPONENT_IDS)) {
     errors.push('Component parity rows must exactly match the frozen component inventory in order')
@@ -464,7 +464,7 @@ export function validateAcceptanceChecklist(
 
   const checklistCommandIds = rowIds(source, /^\| `CMD-\d{3}` \| `([^`]+)` \|/u)
   if (!arraysEqual(checklistCommandIds, commandIds)) {
-    errors.push('Acceptance checklist command rows must match the 80-command inventory in order')
+    errors.push(`Acceptance checklist command rows must match the ${commandIds.length}-command inventory in order`)
   }
   const componentIds = rowIds(source, /^\| `(component\.[^`]+)` \|/u)
   if (!arraysEqual(componentIds, EXPECTED_COMPONENT_IDS)) {
@@ -485,7 +485,7 @@ export function validateAcceptanceChecklist(
   if (
     !source.includes('Task 18.9 stays open') ||
     !source.includes('All 74 requirement-derived checks') ||
-    !source.includes('All 80 public command checks') ||
+    !source.includes(`All ${commandIds.length} public command checks`) ||
     !source.includes('All 40 named parity component checks') ||
     !source.includes('User explicitly confirms the whole first-round editor')
   ) {

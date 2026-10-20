@@ -1,4 +1,5 @@
 import { parseFencedCodeAt, rawFencedCodeCandidateAt } from './fencedCode'
+import { parseBlockFormulaAt, parseInlineFormulaAt } from './formulas'
 import { INLINE_MARK_SPECS } from './inlineMarks'
 import { normalizeRichInlineMarkdownForCherry } from './richInlineMarks'
 
@@ -69,6 +70,46 @@ function inlineCodeEnd(source: string, offset: number): number | null {
   return closeFrom + delimiter.length
 }
 
+function normalizeBreakEscapesForCherry(markdown: string): string {
+  let normalized = ''
+  let offset = 0
+  while (offset < markdown.length) {
+    const atLineStart = offset === 0 || markdown[offset - 1] === '\n'
+    if (atLineStart) {
+      const fenced = parseFencedCodeAt(markdown, offset)
+      if (fenced !== null) {
+        normalized += markdown.slice(offset, fenced.sourceSpan.to)
+        offset = fenced.sourceSpan.to
+        continue
+      }
+      const unterminated = rawFencedCodeCandidateAt(markdown, offset)
+      if (unterminated !== null) return normalized + unterminated.source
+    }
+    const codeEnd = inlineCodeEnd(markdown, offset)
+    const formula = parseBlockFormulaAt(markdown, offset) ?? parseInlineFormulaAt(markdown, offset)
+    const literalEnd = codeEnd ?? formula?.to
+    if (literalEnd !== undefined) {
+      normalized += markdown.slice(offset, literalEnd)
+      offset = literalEnd
+      continue
+    }
+    const escape = markdown[offset] === '\\' ? /^(\\+)(<br[ \t]*\/?>)/iu.exec(markdown.slice(offset)) : null
+    if (escape !== null) {
+      const count = (escape[1] ?? '').length
+      const tag = escape[2] ?? ''
+      // Cherry escapes a following tag even after an even backslash run.
+      // Separate spans also stop Cherry from merging pairs of literal slashes.
+      normalized += '<span>&#92;</span>'.repeat(Math.floor(count / 2))
+      normalized += count % 2 === 0 ? tag : `&lt;${tag.slice(1, -1)}&gt;`
+      offset += escape[0].length
+      continue
+    }
+    normalized += markdown[offset] ?? ''
+    offset += 1
+  }
+  return normalized
+}
+
 function standardInlineMarkAt(source: string, offset: number): Readonly<{ source: string; to: number }> | null {
   for (const spec of INLINE_MARK_SPECS) {
     if (!source.startsWith(spec.open, offset)) continue
@@ -122,5 +163,5 @@ function separateAdjacentStandardMarks(markdown: string): string {
 
 /** Render-only Cherry compatibility. The returned value must never replace Markdown authority. */
 export function normalizeMarkdownForCherry(markdown: string): string {
-  return separateAdjacentStandardMarks(normalizeTaskListIndentation(normalizeRichInlineMarkdownForCherry(markdown)))
+  return separateAdjacentStandardMarks(normalizeBreakEscapesForCherry(normalizeTaskListIndentation(normalizeRichInlineMarkdownForCherry(markdown))))
 }

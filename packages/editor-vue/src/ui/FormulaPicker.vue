@@ -3,8 +3,25 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import type { FormulaMode } from '@w-editor/editor-core'
 import { renderSafeKatex, translateUi, type UiLocale, type UiMessageKey } from '../services'
+import { formulaFromClipboard } from '../services/formulaPaste'
+import {
+  FORMULA_LAYOUT_EXAMPLES,
+  formulaLayoutAtSelection,
+  wrapFormulaLayout,
+  type FormulaLayoutKind,
+} from '../services/formulaLayout'
+import type { UiMessageParams } from '../services/uiLocalization'
+import {
+  FORMULA_SYMBOL_CATEGORIES,
+  FORMULA_SYMBOLS,
+  formulaSymbolById,
+  readRecentFormulaSymbolIds,
+  rememberFormulaSymbol,
+  type FormulaSymbol,
+  type FormulaSymbolCategory,
+} from '../services/formulaSymbols'
 
-type FormulaSection = 'quick-tools' | 'templates' | 'text-styles'
+type FormulaSection = 'quick-tools' | 'special-symbols' | 'templates' | 'text-styles'
 type FormulaCategory = 'common-symbols' | 'roots-indices' | 'limits-logarithms' | 'trigonometry'
 
 interface FormulaTool {
@@ -38,7 +55,7 @@ const QUICK_TOOLS = Object.freeze<Record<FormulaCategory, readonly FormulaTool[]
   ]),
 })
 
-const SECTION_TOOLS = Object.freeze<Record<Exclude<FormulaSection, 'quick-tools'>, readonly FormulaTool[]>>({
+const SECTION_TOOLS = Object.freeze<Record<'templates' | 'text-styles', readonly FormulaTool[]>>({
   templates: Object.freeze([
     Object.freeze({ action: 'replace', id: 'quadratic', labelKey: 'formula.quadratic', source: String.raw`x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}` }),
     Object.freeze({ action: 'replace', id: 'integral', labelKey: 'formula.integral', source: String.raw`\int_{a}^{b} f(x)\,dx` }),
@@ -56,6 +73,9 @@ const props = withDefaults(defineProps<{
   readonly locale: UiLocale
   readonly mode: FormulaMode
   readonly modelValue: string
+  // Omitted storage uses the service's guarded browser fallback; null disables persistence.
+  // eslint-disable-next-line vue/require-default-prop
+  readonly storage?: Pick<Storage, 'getItem' | 'setItem'> | null
 }>(), { error: null })
 
 const emit = defineEmits<{
@@ -70,19 +90,39 @@ const input = ref<HTMLTextAreaElement | null>(null)
 const inlineRadio = ref<HTMLInputElement | null>(null)
 const blockRadio = ref<HTMLInputElement | null>(null)
 const applyPending = ref(false)
-const activeSection = ref<FormulaSection>('quick-tools')
+const activeSection = ref<FormulaSection>('special-symbols')
 const activeCategory = ref<FormulaCategory>('common-symbols')
+const activeSymbolCategory = ref<FormulaSymbolCategory | 'recent' | 'layout'>('recent')
+const recentSymbolIds = ref(readRecentFormulaSymbolIds(props.storage))
+const sourceSelection = ref<Readonly<{ start: number; end: number }> | null>(null)
+const symbolCategories = Object.freeze([
+  Object.freeze({ id: 'recent' as const, labelKey: 'formula.recentSymbols' as const }),
+  ...FORMULA_SYMBOL_CATEGORIES,
+  Object.freeze({ id: 'layout' as const, labelKey: 'formula.layout' as const }),
+])
 
 const visibleTools = computed<readonly FormulaTool[]>(() => activeSection.value === 'quick-tools'
   ? QUICK_TOOLS[activeCategory.value]
-  : SECTION_TOOLS[activeSection.value])
+  : activeSection.value === 'special-symbols' ? [] : SECTION_TOOLS[activeSection.value])
+const visibleSymbols = computed(() => activeSymbolCategory.value === 'recent'
+  ? recentSymbolIds.value.map(formulaSymbolById).filter((symbol): symbol is FormulaSymbol => symbol !== undefined)
+  : FORMULA_SYMBOLS.filter(symbol => symbol.category === activeSymbolCategory.value))
 const visibleToolsId = computed(() => activeSection.value === 'quick-tools'
   ? activeCategory.value
   : activeSection.value)
 const livePreview = computed(() => renderSafeKatex(props.mode, props.modelValue))
+const selectedLayout = computed(() => sourceSelection.value === null ? null : formulaLayoutAtSelection(
+  props.modelValue, sourceOffset(sourceSelection.value.start), sourceOffset(sourceSelection.value.end),
+))
+const layoutGuidance = computed(() => selectedLayout.value === null ? t('formula.layoutEnvironmentRequired')
+  : selectedLayout.value === 'gathered' ? t('formula.layoutAlignmentRequired') : t('formula.layoutReady'))
+const layoutTemplates = Object.freeze([
+  Object.freeze({ kind: 'aligned' as const, labelKey: 'formula.multilineAligned' as const, hintKey: 'formula.alignedHint' as const, captionKey: 'formula.alignedCaption' as const }),
+  Object.freeze({ kind: 'gathered' as const, labelKey: 'formula.multilineGathered' as const, hintKey: 'formula.gatheredHint' as const, captionKey: 'formula.gatheredCaption' as const }),
+])
 
-function t(key: UiMessageKey): string {
-  return translateUi(props.locale, key)
+function t(key: UiMessageKey, params?: UiMessageParams): string {
+  return translateUi(props.locale, key, params)
 }
 
 function focusSource(select = false): void {
@@ -101,6 +141,7 @@ watch(() => props.error, (error) => {
 })
 
 function updateSource(event: Event): void {
+  rememberSourceSelection()
   applyPending.value = false
   emit('update:modelValue', (event.currentTarget as HTMLTextAreaElement).value)
 }
@@ -118,26 +159,102 @@ function moveMode(event: KeyboardEvent, mode: FormulaMode): void {
   void nextTick(() => (next === 'inline' ? inlineRadio.value : blockRadio.value)?.focus())
 }
 
-function replaceWithTemplate(value: string): void {
+function replaceWithTemplate(value: string, sourceCaret = value.length): void {
   applyPending.value = false
   emit('update:modelValue', value)
   void nextTick(() => {
     input.value?.focus()
-    input.value?.setSelectionRange(value.length, value.length)
+    const caret = textareaLength(value.slice(0, sourceCaret))
+    input.value?.setSelectionRange(caret, caret)
+    rememberSourceSelection()
   })
 }
 
 function insertSymbol(value: string): void {
-  const start = input.value?.selectionStart ?? props.modelValue.length
-  const end = input.value?.selectionEnd ?? start
+  if (document.activeElement === input.value || sourceSelection.value === null) rememberSourceSelection()
+  const length = textareaLength(props.modelValue)
+  const selectedFrom = Math.min(sourceSelection.value?.start ?? length, length)
+  const selectedTo = Math.min(sourceSelection.value?.end ?? selectedFrom, length)
+  const start = sourceOffset(selectedFrom)
+  const end = sourceOffset(selectedTo)
   const next = `${props.modelValue.slice(0, start)}${value}${props.modelValue.slice(end)}`
   applyPending.value = false
   emit('update:modelValue', next)
   void nextTick(() => {
-    const caret = start + value.length
+    const caret = selectedFrom + textareaLength(value)
     input.value?.focus()
     input.value?.setSelectionRange(caret, caret)
+    rememberSourceSelection()
   })
+}
+
+function textareaLength(value: string): number {
+  return value.replace(/\r\n/gu, '\n').length
+}
+
+function sourceOffset(textareaOffset: number): number {
+  let index = 0
+  for (let offset = 0; offset < textareaOffset && index < props.modelValue.length; offset += 1) {
+    index += props.modelValue[index] === '\r' && props.modelValue[index + 1] === '\n' ? 2 : 1
+  }
+  return index
+}
+
+function pasteFormula(event: ClipboardEvent): void {
+  if (event.clipboardData === null || event.clipboardData === undefined) return
+  const formula = formulaFromClipboard(event.clipboardData.getData('text/plain'))
+  if (formula === null) return
+  event.preventDefault()
+  rememberSourceSelection()
+  updateMode(formula.mode)
+  insertSymbol(formula.content)
+}
+
+function rememberSourceSelection(): void {
+  if (input.value === null) return
+  sourceSelection.value = { start: input.value.selectionStart, end: input.value.selectionEnd }
+}
+
+function applyLayoutTemplate(kind: FormulaLayoutKind): void {
+  const result = wrapFormulaLayout(props.modelValue, kind)
+  updateMode('block')
+  replaceWithTemplate(result.content, result.caret)
+}
+
+function insertLayoutToken(kind: 'newline' | 'alignment'): void {
+  if (selectedLayout.value === null || (kind === 'alignment' && selectedLayout.value !== 'aligned')) return
+  insertSymbol(kind === 'newline' ? '\\\\\n' : '&')
+}
+
+function layoutTemplateHint(kind: FormulaLayoutKind, hintKey: UiMessageKey): string {
+  return t(hintKey, { environment: `\\begin{${kind}}…\\end{${kind}}` })
+}
+
+function layoutPreview(kind: FormulaLayoutKind): string {
+  return renderSafeKatex('block', wrapFormulaLayout(FORMULA_LAYOUT_EXAMPLES[kind], kind).content).html
+}
+
+function insertCatalogSymbol(symbol: FormulaSymbol): void {
+  insertSymbol(`${symbol.source} `)
+  recentSymbolIds.value = rememberFormulaSymbol(recentSymbolIds.value, symbol.id, props.storage)
+}
+
+function symbolLabel(symbol: FormulaSymbol): string {
+  return `${t(symbol.labelKey)} (${symbol.source})`
+}
+
+function moveSymbolCategory(event: KeyboardEvent, index: number): void {
+  let next: number | null = null
+  if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % symbolCategories.length
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + symbolCategories.length) % symbolCategories.length
+  if (event.key === 'Home') next = 0
+  if (event.key === 'End') next = symbolCategories.length - 1
+  if (next === null) return
+  event.preventDefault()
+  const category = symbolCategories[next]
+  if (category === undefined) return
+  activeSymbolCategory.value = category.id
+  void nextTick(() => panel.value?.querySelector<HTMLElement>(`[data-formula-symbol-category="${category.id}"]`)?.focus())
 }
 
 function selectSection(section: FormulaSection): void {
@@ -256,6 +373,14 @@ function trapFocus(event: KeyboardEvent): void {
             {{ t('formula.quickTools') }}
           </button>
           <button
+            :aria-current="activeSection === 'special-symbols' ? 'page' : undefined"
+            data-formula-section="special-symbols"
+            type="button"
+            @click="selectSection('special-symbols')"
+          >
+            {{ t('formula.specialSymbols') }}
+          </button>
+          <button
             :aria-current="activeSection === 'templates' ? 'page' : undefined"
             data-formula-section="templates"
             type="button"
@@ -317,6 +442,140 @@ function trapFocus(event: KeyboardEvent): void {
             </button>
           </div>
           <div
+            v-if="activeSection === 'special-symbols'"
+            :aria-label="t('formula.symbolCategories')"
+            class="formula-picker__categories"
+            role="tablist"
+          >
+            <button
+              v-for="(category, index) in symbolCategories"
+              :id="`formula-symbol-category-${category.id}`"
+              :key="category.id"
+              aria-controls="formula-symbols-panel"
+              :aria-selected="activeSymbolCategory === category.id"
+              :data-formula-symbol-category="category.id"
+              :tabindex="activeSymbolCategory === category.id ? 0 : -1"
+              role="tab"
+              type="button"
+              @click="activeSymbolCategory = category.id"
+              @keydown="moveSymbolCategory($event, index)"
+            >
+              {{ t(category.labelKey) }}
+            </button>
+          </div>
+          <div
+            v-if="activeSection === 'special-symbols'"
+            id="formula-symbols-panel"
+            :aria-labelledby="`formula-symbol-category-${activeSymbolCategory}`"
+            class="formula-picker__symbol-panel"
+            role="tabpanel"
+          >
+            <div
+              v-if="activeSymbolCategory === 'layout'"
+              data-formula-tools="layout"
+            >
+              <div class="formula-picker__tools formula-picker__tools--layout">
+                <button
+                  v-for="tool in layoutTemplates"
+                  :key="tool.kind"
+                  :aria-label="`${t(tool.labelKey)} — ${layoutTemplateHint(tool.kind, tool.hintKey)}`"
+                  :aria-describedby="`formula-layout-caption-${tool.kind}`"
+                  :title="layoutTemplateHint(tool.kind, tool.hintKey)"
+                  :data-formula-layout-tool="tool.kind"
+                  class="formula-picker__symbol"
+                  type="button"
+                  @click="applyLayoutTemplate(tool.kind)"
+                >
+                  <!-- Safe KaTeX output is produced by renderSafeKatex before reaching the template. -->
+                  <!-- eslint-disable vue/no-v-html -->
+                  <span
+                    aria-hidden="true"
+                    class="formula-picker__preview"
+                    v-html="layoutPreview(tool.kind)"
+                  ></span>
+                  <!-- eslint-enable vue/no-v-html -->
+                  <span>{{ t(tool.labelKey) }}</span>
+                  <span
+                    :id="`formula-layout-caption-${tool.kind}`"
+                    class="formula-picker__layout-caption"
+                    data-formula-layout-caption
+                  >{{ t(tool.captionKey) }}</span>
+                </button>
+                <button
+                  :aria-label="`${t('formula.insertLineBreak')} — ${t('formula.lineBreakHint')}`"
+                  :title="`${t('formula.lineBreakHint')}${selectedLayout === null ? ` ${t('formula.layoutEnvironmentRequired')}` : ''}`"
+                  :disabled="selectedLayout === null"
+                  aria-describedby="formula-layout-guidance"
+                  class="formula-picker__symbol"
+                  data-formula-layout-tool="newline"
+                  type="button"
+                  @click="insertLayoutToken('newline')"
+                >
+                  <code aria-hidden="true">\\</code>
+                  <span>{{ t('formula.insertLineBreak') }}</span>
+                </button>
+                <button
+                  :aria-label="`${t('formula.insertAlignmentPoint')} — ${t('formula.alignmentPointHint')}`"
+                  :title="`${t('formula.alignmentPointHint')}${selectedLayout !== 'aligned' ? ` ${layoutGuidance}` : ''}`"
+                  :disabled="selectedLayout !== 'aligned'"
+                  aria-describedby="formula-layout-guidance"
+                  class="formula-picker__symbol"
+                  data-formula-layout-tool="alignment"
+                  type="button"
+                  @click="insertLayoutToken('alignment')"
+                >
+                  <code aria-hidden="true">&amp;</code>
+                  <span>{{ t('formula.insertAlignmentPoint') }}</span>
+                </button>
+              </div>
+              <p
+                class="formula-picker__recent-empty"
+                data-formula-alignment-help
+              >
+                {{ t('formula.alignmentHelp') }}
+              </p>
+              <p
+                id="formula-layout-guidance"
+                class="formula-picker__recent-empty"
+                data-formula-layout-guidance
+              >
+                {{ layoutGuidance }}
+              </p>
+            </div>
+            <div
+              v-else-if="visibleSymbols.length > 0"
+              class="formula-picker__symbol-grid"
+            >
+              <button
+                v-for="symbol in visibleSymbols"
+                :key="symbol.id"
+                :aria-label="symbolLabel(symbol)"
+                :title="symbolLabel(symbol)"
+                :data-formula-symbol="symbol.id"
+                class="formula-picker__symbol formula-picker__symbol--compact"
+                type="button"
+                @click="insertCatalogSymbol(symbol)"
+              >
+                <!-- Safe KaTeX output is produced by renderSafeKatex before reaching the template. -->
+                <!-- eslint-disable vue/no-v-html -->
+                <span
+                  aria-hidden="true"
+                  class="formula-picker__glyph"
+                  v-html="previewHtml(symbol.source)"
+                ></span>
+                <!-- eslint-enable vue/no-v-html -->
+              </button>
+            </div>
+            <p
+              v-else
+              class="formula-picker__recent-empty"
+              data-formula-recent-empty
+            >
+              {{ t('formula.noRecentSymbols') }}
+            </p>
+          </div>
+          <div
+            v-else
             class="formula-picker__tools"
             :data-formula-tools="visibleToolsId"
           >
@@ -367,7 +626,12 @@ function trapFocus(event: KeyboardEvent): void {
             ref="input"
             :value="modelValue"
             rows="5"
+            @blur="rememberSourceSelection"
+            @click="rememberSourceSelection"
             @input="updateSource"
+            @paste="pasteFormula"
+            @keyup="rememberSourceSelection"
+            @select="rememberSourceSelection"
           ></textarea>
           <p
             v-if="error"

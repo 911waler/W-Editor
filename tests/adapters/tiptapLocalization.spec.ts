@@ -241,7 +241,6 @@ describe('Tiptap NodeView localization', () => {
     const drawioNode = host.querySelector<HTMLElement>('[data-semantic-kind="drawio"]')!
     const mediaIdentity = media.querySelector<HTMLElement>('.semantic-node-view__identity')!
     const attachmentIdentity = attachmentNode.querySelector<HTMLElement>('.semantic-node-view__identity')!
-    const drawioIdentity = drawioNode.querySelector<HTMLElement>('.semantic-node-view__identity')!
     const mediaEdit = media.querySelector<HTMLButtonElement>('[data-semantic-edit="media-editor"]')!
     const attachmentType = attachmentNode.querySelector<HTMLElement>('.semantic-preview__attachment-type')!
     const attachmentLink = attachmentNode.querySelector<HTMLAnchorElement>('[data-semantic-attachment-link]')!
@@ -260,7 +259,7 @@ describe('Tiptap NodeView localization', () => {
     expect(attachmentIdentity.textContent).toBe('Word document · Guide')
     expect(attachmentType.textContent).toBe('Word document')
     expect(attachmentLink.textContent).toBe('Open Guide')
-    expect(drawioIdentity.textContent).toBe('draw.io diagram · Architecture')
+    expect(drawioNode.getAttribute('aria-label')).toBe('draw.io diagram · Architecture')
 
     const jsonBefore = JSON.stringify(adapter.documentJSON())
     localization.setLocale('zh')
@@ -279,7 +278,7 @@ describe('Tiptap NodeView localization', () => {
     expect(attachmentIdentity.textContent).toBe('Word 文档 · Guide')
     expect(attachmentType.textContent).toBe('Word 文档')
     expect(attachmentLink.textContent).toBe('打开 Guide')
-    expect(drawioIdentity.textContent).toBe('draw.io 图表 · Architecture')
+    expect(drawioNode.getAttribute('aria-label')).toBe('draw.io 图表 · Architecture')
     expect(inlineNode.querySelector('.raw-node__source')?.textContent).toBe(rawInline)
     expect(blockNode.querySelector('.raw-node__source')?.textContent).toBe(rawBlock)
     expect(JSON.stringify(adapter.documentJSON())).toBe(jsonBefore)
@@ -292,7 +291,7 @@ describe('Tiptap NodeView localization', () => {
     expect(mediaIdentity.textContent).toBe('视频 · Clip')
     expect(mediaEdit.textContent).toBe('编辑源码')
     expect(attachmentIdentity.textContent).toBe('Word 文档 · Guide')
-    expect(drawioIdentity.textContent).toBe('draw.io 图表 · Architecture')
+    expect(drawioNode.getAttribute('aria-label')).toBe('draw.io 图表 · Architecture')
   })
 
   it('uses an English localization store when the adapter is created without one', () => {
